@@ -1,0 +1,23 @@
+{
+	"camera": {
+		"index": 0,
+		"width": 1280,
+		"height": 720,
+		"fps": 60,
+		"enable_virtual_camera": true,
+		"virtual_camera_device": null,
+		"show_preview": false
+	},
+	"obs": {
+		"host": "localhost",
+		"port": 4455,
+		"password": "R6n3NNtb2NbyTFjH"
+	},
+	"gestures": {
+		"hold_time": 0.7,
+		"cooldown": 2.0,
+		"scene_map": {
+			"V": "wini"
+		}
+	}
+}
