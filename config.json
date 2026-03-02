@@ -1,9 +1,12 @@
 {
+	"modo": "test",	
+	"show_preview": true,
+
 	"camera": {
 		"index": 0,
 		"width": 1280,
 		"height": 720,
-		"fps": 60,
+		"fps": 30,
 		"enable_virtual_camera": true,
 		"virtual_camera_device": null,
 		"show_preview": false

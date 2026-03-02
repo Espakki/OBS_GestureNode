@@ -1,8 +1,20 @@
 import obsws_python as obs
+import time
 
 class OBSController:
     def __init__(self, host="localhost", port=4455, password="R6n3NNtb2NbyTFjH"):
-        self.cliente = obs.ReqClient(host=host, port=port, password=password)
+        print("Iniciando conexão OBS...")
+        inicio = time.time()
+
+        self.cliente = obs.ReqClient(
+            host=host,
+            port=port,
+            password=password,
+            timeout=5  # 👈 MUITO IMPORTANTE
+        )
+
+        print("Conectado ao OBS!")
+        print("Tempo OBS:", time.time() - inicio)
 
     def listar_cenas(self):
         cenas = self.cliente.get_scene_list()

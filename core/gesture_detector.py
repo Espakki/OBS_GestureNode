@@ -12,15 +12,39 @@ class GestureDetector:
         if len(pontos) != 21:
             return None
 
-        d_indicador = self.distancia(pontos[8], pontos[5])
-        d_medio = self.distancia(pontos[12], pontos[9])
         d_palma = self.distancia(pontos[0], pontos[9])
 
-        indicador = d_indicador > d_palma * 0.55
-        medio = d_medio > d_palma * 0.55
+        def dedo_levantado(ponta, base, fator):
+            return self.distancia(pontos[ponta], pontos[base]) > d_palma * fator
 
-        # gesto V
-        if indicador and medio:
+        indicador = dedo_levantado(8, 5, 0.55)
+        medio = dedo_levantado(12, 9, 0.55)
+        anelar = dedo_levantado(16, 13, 0.50)
+        mindinho = dedo_levantado(20, 17, 0.50)
+        polegar = dedo_levantado(4, 2, 0.45)
+        
+        # ✌
+        if indicador and medio and not anelar and not mindinho:
             return "V"
+
+        # 👍
+        if polegar and not indicador and not medio and not anelar and not mindinho:
+            return "THUMBS_UP"
+
+        # ✋
+        if indicador and medio and anelar and mindinho:
+            return "OPEN_HAND"
+
+        # 👊
+        if not indicador and not medio and not anelar and not mindinho:
+            return "FIST"
+
+        # ☝
+        if indicador and not medio and not anelar and not mindinho:
+            return "POINT"
+
+        # 🤘
+        if indicador and mindinho and not medio and not anelar:
+            return "ROCK"
 
         return None

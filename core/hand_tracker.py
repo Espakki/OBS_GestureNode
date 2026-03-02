@@ -1,19 +1,9 @@
 import cv2
 import mediapipe as mp
-import sys
 
 class HandTracker:
 
     def __init__(self):
-        if not hasattr(mp, "solutions"):
-            versao_python = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-            versao_mediapipe = getattr(mp, "__version__", "desconhecida")
-            raise RuntimeError(
-                "MediaPipe sem API de soluções (mp.solutions). "
-                f"Python atual: {versao_python}, mediapipe: {versao_mediapipe}. "
-                "Use o ambiente com Python 3.10 e mediapipe 0.10.9 (venv)."
-            )
-
         self.mp_maos = mp.solutions.hands
         self.mp_desenho = mp.solutions.drawing_utils
 
