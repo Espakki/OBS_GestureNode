@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 
+
 class HandTracker:
 
     def __init__(self):
@@ -13,7 +14,7 @@ class HandTracker:
             min_tracking_confidence=0.7
         )
 
-    def processar(self, frame):
+    def processar(self, frame, draw_skeleton=True):
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         resultado = self.maos.process(frame_rgb)
 
@@ -28,10 +29,11 @@ class HandTracker:
                     py = int(lm.y * h)
                     pontos.append((px, py))
 
-                self.mp_desenho.draw_landmarks(
-                    frame,
-                    hand_landmarks,
-                    self.mp_maos.HAND_CONNECTIONS
-                )
+                if draw_skeleton:
+                    self.mp_desenho.draw_landmarks(
+                        frame,
+                        hand_landmarks,
+                        self.mp_maos.HAND_CONNECTIONS
+                    )
 
         return frame, pontos

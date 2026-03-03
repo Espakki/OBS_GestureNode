@@ -1,26 +1,185 @@
 {
-	"modo": "test",	
-	"show_preview": true,
-
-	"camera": {
-		"index": 0,
-		"width": 1280,
-		"height": 720,
-		"fps": 30,
-		"enable_virtual_camera": true,
-		"virtual_camera_device": null,
-		"show_preview": false
-	},
-	"obs": {
-		"host": "localhost",
-		"port": 4455,
-		"password": "R6n3NNtb2NbyTFjH"
-	},
-	"gestures": {
-		"hold_time": 0.7,
-		"cooldown": 2.0,
-		"scene_map": {
-			"V": "wini"
-		}
-	}
+    "modo": "test",
+    "show_preview": true,
+    "camera": {
+        "index": 0,
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "enable_virtual_camera": false,
+        "virtual_camera_device": null,
+        "show_preview": false,
+        "show_skeleton": true
+    },
+    "obs": {
+        "host": "localhost",
+        "port": 1,
+        "password": ""
+    },
+    "gestures": {
+        "hold_time": 0.7,
+        "cooldown": 2.0,
+        "scene_map": {
+            "V": "wini"
+        },
+        "bindings": {
+            "V": {
+                "enabled": true,
+                "hold_time": 0.4,
+                "cooldown": 5.0,
+                "scene": "wini",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": true,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "Joinha": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "M\u00e3o aberta": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "Punho": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "Apontando p/ cima": {
+                "enabled": true,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "ROCK": {
+                "enabled": true,
+                "hold_time": 0.7,
+                "cooldown": 10.0,
+                "scene": "",
+                "play_sound": true,
+                "sound_file": "D:/Documentos/Codes/gesto_camera/faz-o-l.wav",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": true,
+                "use_hotkey": false
+            },
+            "TRES": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "QUATRO": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "OK": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "Me liga": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "Deslike": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            },
+            "Pin\u00e7a": {
+                "enabled": false,
+                "hold_time": 0.7,
+                "cooldown": 2.0,
+                "scene": "",
+                "play_sound": false,
+                "sound_file": "",
+                "hotkey": "",
+                "use_scene": false,
+                "use_sound": false,
+                "use_hotkey": false
+            }
+        },
+        "default_hold_time": 0.7,
+        "default_cooldown": 2.0,
+        "active_gestures": [
+            "V",
+            "Punho",
+            "Apontando p/ cima",
+            "ROCK"
+        ]
+    },
+    "features": {
+        "use_sounds": false,
+        "use_hotkeys": false,
+        "use_scene_switch": true
+    }
 }
