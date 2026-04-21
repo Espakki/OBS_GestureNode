@@ -15,20 +15,19 @@ logger = get_logger(__name__)
 
 
 GESTURE_ALIASES = {
-    # Mapeamento do detector (nomes em inglês/uppercase) para nomes da UI/Config (português)
     "THUMBS_UP": "Joinha",
     "THUMBS_DOWN": "Deslike",
     "OPEN_HAND": "Mão aberta",
     "FIST": "Punho",
     "POINT": "Apontando p/ cima",
+    "ROCK": "ROCK",
     "THREE": "TRES",
     "FOUR": "QUATRO",
     "OK_SIGN": "OK",
     "CALL_ME": "Me liga",
     "PINCH": "Pinça",
-    "Coração Coreano": "Coração",
+    "V": "V"
 }
-
 
 class GestureEngine(QThread):
 
