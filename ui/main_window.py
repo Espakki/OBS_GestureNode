@@ -2,8 +2,8 @@ import json
 import os
 import cv2
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -22,9 +23,20 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
+
+try:
+    from PySide6.QtMultimedia import QMediaDevices
+except Exception:  # pragma: no cover - fallback quando QtMultimedia não estiver disponível
+    QMediaDevices = None
+
+try:
+    from pygrabber.dshow_graph import FilterGraph  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover - pygrabber é opcional
+    FilterGraph = None
 
 from engine.gesture_engine import GestureEngine
 from ui.tabs.geral_tab import GeralTab
@@ -45,20 +57,37 @@ GESTURE_ALIASES = {
 }
 
 
+RESOLUTION_PRESETS = {
+    "480p": (640, 480),
+    "720p": (1280, 720),
+    "1080p": (1920, 1080),
+}
+
+RESOLUTION_PRESETS_REVERSED = {
+    value: key
+    for key, value in RESOLUTION_PRESETS.items()
+}
+
+
 class MainWindow(QMainWindow):
     ALL_GESTURES = [
-        ("V", "✌"),
-        ("Joinha", "👍"),
-        ("Mão aberta", "✋"),
-        ("Punho", "👊"),
-        ("Apontando p/ cima", "☝"),
-        ("ROCK", "🤘"),
-        ("TRES", "3️⃣"),
-        ("QUATRO", "4️⃣"),
-        ("OK", "👌"),
-        ("Me liga", "🤙"),
-        ("Deslike", "👎"),
-        ("Pinça", "🤏"),
+        ("V", "assets/icons/v_icon.png"),
+        ("Joinha", "assets/icons/joinha_icon.png"),
+        ("Mão aberta", "assets/icons/mao_aberta_icon.png"),
+        ("Punho", "assets/icons/punho_icon.png"),
+        ("Apontando p/ cima", "assets/icons/apontando_cima_icon.png"),
+        ("ROCK", "assets/icons/rock_icon.png"),
+        ("TRES", "assets/icons/tres_icon.png"),
+        ("QUATRO", "assets/icons/quatro_icon.png"),
+        ("OK", "assets/icons/ok_icon.png"),
+        ("Me liga", "assets/icons/me_liga_icon.png"),
+        ("Deslike", "assets/icons/deslike_icon.png"),
+        ("Pinça", "assets/icons/pinca_icon.png"),
+        ("Dedo do Meio", "assets/icons/middle_finger.png"),
+        ("Arminha", "assets/icons/pistol.png"),
+        ("Homem-Aranha", "assets/icons/spiderman.png"),
+        ("Escoteiro", "assets/icons/scout.png"),
+        ("Coração", "assets/icons/korean_heart.png"),
     ]
 
     def __init__(self, config):
@@ -85,6 +114,7 @@ class MainWindow(QMainWindow):
 
         camera_cfg = self.config.setdefault("camera", {})
         camera_cfg.setdefault("index", 0)
+        camera_cfg.setdefault("device_name", "")
         camera_cfg.setdefault("width", 1280)
         camera_cfg.setdefault("height", 720)
         camera_cfg.setdefault("fps", 30)
@@ -154,44 +184,187 @@ class MainWindow(QMainWindow):
         gestures_cfg["bindings"] = normalized
         self._sync_scene_map_from_bindings()
 
+    @staticmethod
+    def _is_virtual_camera_name(name):
+        value = (name or "").strip().lower()
+        virtual_tokens = (
+            "obs virtual",
+            "virtual camera",
+            "vcam",
+            "xsplit",
+            "manycam",
+            "snap camera",
+        )
+        return any(token in value for token in virtual_tokens)
+
+    def _normalize_camera_display_name(self, name, index):
+        clean_name = (name or "").strip()
+        if self._is_virtual_camera_name(clean_name):
+            return "OBS Virtual Camera"
+        if clean_name:
+            return clean_name
+        return f"Câmera {index}"
+
+    @staticmethod
+    def _probe_opencv_camera_indexes(max_devices=10):
+        available_indexes = []
+        for index in range(max_devices):
+            capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+            if not capture or not capture.isOpened():
+                if capture:
+                    capture.release()
+                continue
+
+            ok, _ = capture.read()
+            capture.release()
+            if ok:
+                available_indexes.append(index)
+
+        return available_indexes
+
+    @staticmethod
+    def _dshow_device_names():
+        if FilterGraph is None:
+            return []
+
+        try:
+            graph = FilterGraph()
+            return list(graph.get_input_devices() or [])
+        except Exception as exc:
+            logger.debug("Falha ao listar dispositivos DirectShow: %s", exc)
+            return []
+
     def _setup_ui(self):
         self.setStyleSheet(
             """
             QMainWindow, QWidget { background-color: #111418; color: #E6E6E6; font-size: 15px; }
+            QScrollArea { background: transparent; border: none; }
+            QScrollArea > QWidget > QWidget { background: transparent; }
             QTabWidget::pane { border: 1px solid #2a2f36; background: #1a1f26; }
-            QTabBar::tab { background: #222831; padding: 10px 16px; margin-right: 2px; border-top-left-radius: 6px; border-top-right-radius: 6px; font-size: 15px; }
+            QTabBar::tab { background: #222831; min-width: 92px; padding: 10px 16px; margin-right: 2px; border-top-left-radius: 6px; border-top-right-radius: 6px; font-size: 15px; }
             QTabBar::tab:selected { background: #2d3642; color: #ffcc33; }
             QFrame#card { background: #1a1f26; border: 1px solid #2a2f36; border-radius: 10px; }
             QFrame#bottomPanel { background: #1a1f26; border: 1px solid #2a2f36; border-radius: 8px; }
             QWidget#transparentRow { background: transparent; }
             QLabel { font-size: 15px; background: transparent; }
+            QLabel#sectionTitle { color: #d9dee7; font-size: 17px; font-weight: 700; background: transparent; }
+            QLabel#muted { color: #9aa4b2; font-size: 14px; background: transparent; }
+            QLabel#healthLabel { color: #cfd8e3; font-size: 14px; background: transparent; }
             QCheckBox { spacing: 8px; font-size: 15px; background: transparent; }
+            QCheckBox::indicator { width: 16px; height: 16px; }
+            QRadioButton { spacing: 8px; font-size: 15px; background: transparent; }
             QLabel#title { color: #ffcc33; font-size: 22px; font-weight: 800; background: transparent; }
-            QLineEdit, QComboBox, QSpinBox {
+            QLineEdit, QSpinBox, QSlider {
                 background: #252b33;
                 border: 1px solid #3b4654;
-                border-radius: 8px;
-                padding: 10px;
+                border-radius: 6px;
+                padding: 8px;
                 margin-bottom: 5px;
                 color: #f1f1f1;
                 min-height: 20px;
             }
-            QPushButton { background: #1f6feb; border: none; border-radius: 8px; padding: 10px 14px; color: white; font-weight: 600; font-size: 15px; }
+            QLineEdit:disabled, QSpinBox:disabled {
+                background: #1b2029;
+                border: 1px solid #2f3642;
+                color: #7f8794;
+            }
+            QComboBox {
+                background: #252b33;
+                border: 1px solid #3b4654;
+                border-radius: 6px;
+                padding: 8px;
+                margin-bottom: 5px;
+                color: #f1f1f1;
+                min-height: 20px;
+            }
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+                border: 1px solid #1f6feb;
+            }
+            QComboBox:disabled {
+                background: #1b2029;
+                border: 1px solid #2f3642;
+                color: #7f8794;
+            }
+            QPushButton, QToolButton { background: #1f6feb; border: none; border-radius: 8px; padding: 10px 14px; color: white; font-weight: 600; font-size: 15px; }
             QPushButton:hover { background: #2c7dff; }
+            QToolButton:hover { background: #2c7dff; }
+            QPushButton:disabled, QToolButton:disabled {
+                background: #263548;
+                color: #7f95b0;
+            }
             QPushButton#danger { background: #d63d3d; }
             QPushButton#warning { background: #d08a00; }
             QPushButton#ghost { background: #2a2f36; }
+            QPushButton#optionToggle { background: #252b33; border: 1px solid #3a4655; }
+            QPushButton#optionToggle:hover { background: #2b3341; border: 1px solid #4a5a6e; }
+            QPushButton#optionToggle:pressed { background: #1e2530; border: 1px solid #6b7f99; }
+            QPushButton#optionToggle:focus { border: 1px solid #1f6feb; }
+            QPushButton#optionToggle:checked { background: #1f6feb; border: 1px solid #1f6feb; color: #ffffff; }
+            QPushButton#optionToggle:checked:hover { background: #2c7dff; border: 1px solid #2c7dff; }
+            QPushButton#optionToggle:checked:pressed { background: #1761cf; border: 1px solid #1761cf; }
             QPushButton#gestureBtn { background: #252b33; border: 1px solid #3a4655; padding: 15px; max-height: 100px; }
             QPushButton#gestureBtn:checked { border: 2px solid #ffcc33; background: #2f3742; }
+            QPushButton#gestureSelect, QToolButton#gestureSelect {
+                background: #252b33;
+                border: 1px solid #3a4655;
+                min-height: 64px;
+                padding: 8px;
+            }
+            QPushButton#gestureSelect:hover, QToolButton#gestureSelect:hover { background: #2b3341; border: 1px solid #4a5a6e; }
+            QPushButton#gestureSelect:pressed, QToolButton#gestureSelect:pressed { background: #1e2530; border: 1px solid #6b7f99; }
+            QPushButton#gestureSelect:focus, QToolButton#gestureSelect:focus { border: 1px solid #1f6feb; }
+            QPushButton#gestureSelect:checked, QToolButton#gestureSelect:checked {
+                border: 2px solid #ffcc33;
+                background: #2f3742;
+            }
+            QPushButton#gestureSelect:checked:hover, QToolButton#gestureSelect:checked:hover {
+                background: #364154;
+            }
+            QPushButton#gestureSelect:checked:pressed, QToolButton#gestureSelect:checked:pressed {
+                background: #293244;
+            }
             QFrame#card QPushButton { background: #1f6feb; color: white; border: none; }
             QFrame#card QPushButton#danger { background: #d63d3d; color: white; }
             QFrame#card QPushButton#warning { background: #d08a00; color: white; }
             QFrame#card QPushButton#ghost { background: #2a2f36; color: white; }
+            QFrame#card QPushButton#optionToggle { background: #252b33; color: white; border: 1px solid #3a4655; }
+            QFrame#card QPushButton#optionToggle:hover { background: #2b3341; border: 1px solid #4a5a6e; }
+            QFrame#card QPushButton#optionToggle:pressed { background: #1e2530; border: 1px solid #6b7f99; }
+            QFrame#card QPushButton#optionToggle:focus { border: 1px solid #1f6feb; }
+            QFrame#card QPushButton#optionToggle:checked { background: #1f6feb; color: white; border: 1px solid #1f6feb; }
+            QFrame#card QPushButton#optionToggle:checked:hover { background: #2c7dff; border: 1px solid #2c7dff; }
+            QFrame#card QPushButton#optionToggle:checked:pressed { background: #1761cf; border: 1px solid #1761cf; }
             QFrame#card QPushButton#gestureBtn { background: #252b33; color: white; }
             QFrame#card QPushButton#gestureBtn:checked { background: #2f3742; color: #ffcc33; }
+            QFrame#card QPushButton#gestureSelect, QFrame#card QToolButton#gestureSelect {
+                background: #252b33;
+                color: white;
+                border: 1px solid #3a4655;
+            }
+            QFrame#card QPushButton#gestureSelect:hover, QFrame#card QToolButton#gestureSelect:hover {
+                background: #2b3341;
+                border: 1px solid #4a5a6e;
+            }
+            QFrame#card QPushButton#gestureSelect:pressed, QFrame#card QToolButton#gestureSelect:pressed {
+                background: #1e2530;
+                border: 1px solid #6b7f99;
+            }
+            QFrame#card QPushButton#gestureSelect:focus, QFrame#card QToolButton#gestureSelect:focus {
+                border: 1px solid #1f6feb;
+            }
+            QFrame#card QPushButton#gestureSelect:checked, QFrame#card QToolButton#gestureSelect:checked {
+                background: #2f3742;
+                color: #ffcc33;
+                border: 2px solid #ffcc33;
+            }
+            QFrame#card QPushButton#gestureSelect:checked:hover, QFrame#card QToolButton#gestureSelect:checked:hover {
+                background: #364154;
+            }
+            QFrame#card QPushButton#gestureSelect:checked:pressed, QFrame#card QToolButton#gestureSelect:checked:pressed {
+                background: #293244;
+            }
             QPlainTextEdit { background: #0f1318; border: 1px solid #2a2f36; border-radius: 8px; color: #d4dde8; }
-            QSlider { background: transparent; }
-            QSlider::groove:horizontal { height: 10px; background: #3a4049; border-radius: 5px; }
+            QSlider::groove:horizontal { height: 10px; background: #3a4049; border-radius: 5px; margin: 6px 0; }
             QSlider::handle:horizontal { background: #ffcc33; width: 20px; margin: -6px 0; border-radius: 10px; }
             """
         )
@@ -220,8 +393,12 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.gestos_tab, "Gestos")
         self.tabs.addTab(self.obs_tab, "OBS")
 
-        self.modo_combo = self.geral_tab.modo_combo
+        self.mode_test_button = self.geral_tab.mode_test_button
+        self.mode_obs_button = self.geral_tab.mode_obs_button
         self.show_skeleton_checkbox = self.geral_tab.show_skeleton_checkbox
+        self.camera_device_combo = self.geral_tab.camera_device_combo
+        self.resolution_buttons = self.geral_tab.resolution_buttons
+        self.fps_buttons = self.geral_tab.fps_buttons
         self.health_camera = self.geral_tab.health_camera
         self.health_obs = self.geral_tab.health_obs
         self.health_gestos = self.geral_tab.health_gestos
@@ -229,7 +406,6 @@ class MainWindow(QMainWindow):
         self.grid_layout = self.gestos_tab.grid_layout
         self.choose_gestures_button = self.gestos_tab.choose_gestures_button
         self.selected_gesture_label = self.gestos_tab.selected_gesture_label
-        self.gesture_enabled_checkbox = self.gestos_tab.gesture_enabled_checkbox
         self.hold_slider = self.gestos_tab.hold_slider
         self.hold_value_label = self.gestos_tab.hold_value_label
         self.cooldown_slider = self.gestos_tab.cooldown_slider
@@ -251,13 +427,21 @@ class MainWindow(QMainWindow):
         self.test_obs_button = self.obs_tab.test_obs_button
         self.obs_status_label = self.obs_tab.obs_status_label
 
-        self.modo_combo.currentTextChanged.connect(self.on_modo_changed)
-        self.show_skeleton_checkbox.stateChanged.connect(self.on_show_skeleton_changed)
+        self.mode_test_button.toggled.connect(lambda checked: self.on_modo_changed("test") if checked else None)
+        self.mode_obs_button.toggled.connect(lambda checked: self.on_modo_changed("obs") if checked else None)
+        self.show_skeleton_checkbox.toggled.connect(self.on_show_skeleton_changed)
+        self.show_skeleton_checkbox.toggled.connect(self.on_dynamic_setting_changed)
+        self.camera_device_combo.currentIndexChanged.connect(self.on_camera_changed)
+        for label, button in self.resolution_buttons.items():
+            button.toggled.connect(lambda checked, value=label: self.on_resolution_changed(value) if checked else None)
+        for fps_value, button in self.fps_buttons.items():
+            button.toggled.connect(lambda checked, value=fps_value: self.on_fps_changed(value) if checked else None)
 
         self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
-        self.gesture_enabled_checkbox.stateChanged.connect(self.on_current_gesture_changed)
         self.hold_slider.valueChanged.connect(self.on_current_gesture_changed)
+        self.hold_slider.valueChanged.connect(self.on_dynamic_setting_changed)
         self.cooldown_slider.valueChanged.connect(self.on_current_gesture_changed)
+        self.cooldown_slider.valueChanged.connect(self.on_dynamic_setting_changed)
         self.scene_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
         self.sound_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
         self.hotkey_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
@@ -277,28 +461,9 @@ class MainWindow(QMainWindow):
         right_layout.setContentsMargins(12, 12, 12, 12)
         right_layout.setSpacing(10)
 
-        right_title = QLabel("Câmera e Execução")
+        right_title = QLabel("Preview")
         right_title.setObjectName("title")
         right_layout.addWidget(right_title)
-
-        camera_form = QFormLayout()
-        camera_form.setVerticalSpacing(14)
-        right_layout.addLayout(camera_form)
-
-        self.camera_index = QSpinBox()
-        self.camera_index.setRange(0, 10)
-        self.camera_index.valueChanged.connect(self.on_camera_changed)
-        camera_form.addRow("Dispositivo:", self.camera_index)
-
-        self.resolution_combo = QComboBox()
-        self.resolution_combo.addItems(["640x480", "1280x720", "1920x1080"])
-        self.resolution_combo.currentTextChanged.connect(self.on_resolution_changed)
-        camera_form.addRow("Resolução:", self.resolution_combo)
-
-        self.fps_spin = QSpinBox()
-        self.fps_spin.setRange(15, 120)
-        self.fps_spin.valueChanged.connect(self.on_fps_changed)
-        camera_form.addRow("FPS:", self.fps_spin)
 
         self.preview_label = QLabel("Preview")
         self.preview_label.setAlignment(Qt.AlignCenter)
@@ -349,6 +514,8 @@ class MainWindow(QMainWindow):
         splitter.addWidget(right_panel)
         splitter.setSizes([520, 680])
 
+        self._populate_camera_devices()
+
     def _active_gestures(self):
         gesture_ids = {gesture for gesture, _ in self.ALL_GESTURES}
         configured = self.config.setdefault("gestures", {}).setdefault("active_gestures", [])
@@ -365,11 +532,12 @@ class MainWindow(QMainWindow):
         active = set(self._active_gestures())
         visible_gestures = [item for item in self.ALL_GESTURES if item[0] in active]
 
-        for idx, (gesture, emoji) in enumerate(visible_gestures):
+        for idx, (gesture, icon_path) in enumerate(visible_gestures):
             row = idx // 3
             col = idx % 3
             callback = lambda _=None, g=gesture: self.select_gesture(g)
-            btn = self.gestos_tab.add_gesture_button(row, col, f"{emoji}\n{gesture}", callback)
+            btn = self.gestos_tab.add_gesture_button(row, col, gesture, callback)
+            self._configure_gesture_button(btn, gesture, icon_path)
             self.gesture_buttons[gesture] = btn
 
         if self.current_gesture not in self.gesture_buttons and self.gesture_buttons:
@@ -378,26 +546,143 @@ class MainWindow(QMainWindow):
         if self.gesture_buttons:
             self.select_gesture(self.current_gesture)
 
+    def _populate_camera_devices(self):
+        self.camera_device_combo.blockSignals(True)
+        self.camera_device_combo.clear()
+
+        camera_cfg = self.config.setdefault("camera", {})
+        selected_index = int(camera_cfg.get("index", 0))
+        selected_name = str(camera_cfg.get("device_name", "") or "").strip()
+
+        available_indexes = self._probe_opencv_camera_indexes()
+        if not available_indexes:
+            available_indexes = [0]
+
+        dshow_names = self._dshow_device_names()
+        qt_names = []
+        if QMediaDevices is not None:
+            try:
+                qt_names = [device.description() for device in QMediaDevices.videoInputs()]
+            except Exception as exc:
+                logger.debug("Falha ao listar dispositivos de vídeo no Qt: %s", exc)
+
+        camera_entries = []
+        for index in available_indexes:
+            name = ""
+            if index < len(dshow_names):
+                name = dshow_names[index]
+            elif index < len(qt_names):
+                name = qt_names[index]
+            name = self._normalize_camera_display_name(name, index)
+
+            camera_entries.append((name, index))
+
+        # Mantém câmeras físicas primeiro para evitar seleção acidental da virtual no primeiro uso.
+        camera_entries.sort(key=lambda item: (self._is_virtual_camera_name(item[0]), item[1]))
+
+        for name, index in camera_entries:
+            self.camera_device_combo.addItem(name, index)
+
+        selected_pos = 0
+        for pos in range(self.camera_device_combo.count()):
+            if int(self.camera_device_combo.itemData(pos)) == selected_index:
+                selected_pos = pos
+                break
+        else:
+            if selected_name:
+                for pos in range(self.camera_device_combo.count()):
+                    if self.camera_device_combo.itemText(pos).strip().lower() == selected_name.lower():
+                        selected_pos = pos
+                        break
+                else:
+                    for pos in range(self.camera_device_combo.count()):
+                        if not self._is_virtual_camera_name(self.camera_device_combo.itemText(pos)):
+                            selected_pos = pos
+                            break
+            else:
+                for pos in range(self.camera_device_combo.count()):
+                    if not self._is_virtual_camera_name(self.camera_device_combo.itemText(pos)):
+                        selected_pos = pos
+                        break
+
+        self.camera_device_combo.setCurrentIndex(selected_pos)
+        selected_data = self.camera_device_combo.currentData()
+        if selected_data is not None:
+            camera_cfg["index"] = int(selected_data)
+        camera_cfg["device_name"] = self.camera_device_combo.currentText().strip()
+        self.camera_device_combo.blockSignals(False)
+
+    def _resolve_asset_path(self, icon_path):
+        if not icon_path:
+            return ""
+        if os.path.isabs(icon_path):
+            return icon_path
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", icon_path))
+
+    def _configure_gesture_button(self, button, gesture_name, icon_path):
+        button.setMinimumSize(80, 80)
+        button.setIconSize(QSize(40, 40))
+
+        resolved_icon = self._resolve_asset_path(icon_path)
+        if resolved_icon and os.path.exists(resolved_icon):
+            button.setIcon(QIcon(resolved_icon))
+            button.setText("")
+            button.setProperty("emojiText", "")
+            button.setProperty("fullText", "")
+            return
+
+        button.setIcon(QIcon())
+        button.setText(gesture_name)
+        button.setProperty("emojiText", gesture_name)
+        button.setProperty("fullText", gesture_name)
+
+    def _format_selector_label(self, gesture_name):
+        if gesture_name == "Apontando p/ cima":
+            return "Apontando\np/ cima"
+        if gesture_name == "Mão aberta":
+            return "Mão\naberta"
+        return gesture_name
+
     def open_gesture_selector_dialog(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Escolher gestos ativos")
         dialog.resize(420, 520)
 
         dialog_layout = QVBoxLayout(dialog)
-        dialog_layout.addWidget(QLabel("Selecione os gestos que você quer usar na tela principal:"))
+        dialog_layout.addWidget(QLabel("Selecione os gestos ativos para a tela principal:"))
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         content = QWidget()
         content_layout = QVBoxLayout(content)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
+        content_layout.addLayout(grid)
 
         active_set = set(self._active_gestures())
-        checkboxes = {}
-        for gesture, emoji in self.ALL_GESTURES:
-            checkbox = QCheckBox(f"{emoji}  {gesture}")
-            checkbox.setChecked(gesture in active_set)
-            content_layout.addWidget(checkbox)
-            checkboxes[gesture] = checkbox
+        gesture_buttons = {}
+        for gesture, icon_path in self.ALL_GESTURES:
+            button = QToolButton()
+            button.setText(self._format_selector_label(gesture))
+            button.setObjectName("gestureSelect")
+            button.setCheckable(True)
+            button.setChecked(gesture in active_set)
+            button.setFixedSize(110, 110)
+            button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+            resolved_icon = self._resolve_asset_path(icon_path)
+            if resolved_icon and os.path.exists(resolved_icon):
+                button.setIcon(QIcon(resolved_icon))
+                button.setIconSize(QSize(36, 36))
+            else:
+                button.setIconSize(QSize(0, 0))
+            row = len(gesture_buttons) // 3
+            col = len(gesture_buttons) % 3
+            grid.addWidget(button, row, col)
+            gesture_buttons[gesture] = button
+
+        for col in range(3):
+            grid.setColumnStretch(col, 1)
 
         content_layout.addStretch(1)
         scroll.setWidget(content)
@@ -407,7 +692,7 @@ class MainWindow(QMainWindow):
         dialog_layout.addWidget(buttons)
 
         def on_accept():
-            selected = [gesture for gesture, checkbox in checkboxes.items() if checkbox.isChecked()]
+            selected = [gesture for gesture, button in gesture_buttons.items() if button.isChecked()]
             if not selected:
                 QMessageBox.warning(dialog, "Seleção inválida", "Selecione pelo menos um gesto.")
                 return
@@ -417,6 +702,11 @@ class MainWindow(QMainWindow):
             for gesture, cfg in bindings.items():
                 if isinstance(cfg, dict):
                     cfg["enabled"] = gesture in selected
+
+            # Atualiza o engine em tempo real se estiver rodando
+            if self.engine and self.engine.isRunning():
+                gestures_cfg = self.config.get("gestures", {})
+                self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
 
             self._rebuild_gesture_grid()
             self._refresh_health_panels()
@@ -431,16 +721,13 @@ class MainWindow(QMainWindow):
         camera_cfg = self.config.get("camera", {})
         obs_cfg = self.config.get("obs", {})
 
-        self.modo_combo.setCurrentText(self.config.get("modo", "test"))
+        self.geral_tab.set_mode(self.config.get("modo", "test"))
 
-        self.camera_index.setValue(int(camera_cfg.get("index", 0)))
+        self._populate_camera_devices()
         width = int(camera_cfg.get("width", 1280))
         height = int(camera_cfg.get("height", 720))
-        resolution = f"{width}x{height}"
-        found = self.resolution_combo.findText(resolution)
-        if found >= 0:
-            self.resolution_combo.setCurrentIndex(found)
-        self.fps_spin.setValue(int(camera_cfg.get("fps", 30)))
+        self.geral_tab.set_resolution(RESOLUTION_PRESETS_REVERSED.get((width, height), "720p"))
+        self.geral_tab.set_fps(int(camera_cfg.get("fps", 30)))
         self.show_skeleton_checkbox.setChecked(bool(camera_cfg.get("show_skeleton", True)))
 
         self.obs_host.setText(obs_cfg.get("host", "localhost"))
@@ -480,7 +767,6 @@ class MainWindow(QMainWindow):
 
         self._updating_gesture_form = True
         self.selected_gesture_label.setText(f"Gesto selecionado: {gesture}")
-        self.gesture_enabled_checkbox.setChecked(bool(cfg.get("enabled", True)))
         self.hold_slider.setValue(int(float(cfg.get("hold_time", 0.7)) * 10))
         self.cooldown_slider.setValue(int(float(cfg.get("cooldown", 2.0)) * 10))
         self.scene_action_checkbox.setChecked(bool(cfg.get("use_scene", bool(cfg.get("scene", "")))))
@@ -499,9 +785,14 @@ class MainWindow(QMainWindow):
         self.cooldown_value_label.setText(f"{self.cooldown_slider.value() / 10:.1f}s")
 
     def _refresh_gesture_feature_visibility(self):
-        self.scene_row.setVisible(self.scene_action_checkbox.isChecked())
-        self.sound_row.setVisible(self.sound_action_checkbox.isChecked())
-        self.hotkey_row.setVisible(self.hotkey_action_checkbox.isChecked())
+        scene_enabled = self.scene_action_checkbox.isChecked()
+        sound_enabled = self.sound_action_checkbox.isChecked()
+        hotkey_enabled = self.hotkey_action_checkbox.isChecked()
+
+        self.scene_edit.setEnabled(scene_enabled)
+        self.sound_file_edit.setEnabled(sound_enabled)
+        self.browse_sound_button.setEnabled(sound_enabled)
+        self.hotkey_edit.setEnabled(hotkey_enabled)
 
     def on_current_gesture_changed(self):
         if self._updating_gesture_form:
@@ -510,7 +801,7 @@ class MainWindow(QMainWindow):
         self._update_slider_labels()
 
         binding = self._get_current_binding()
-        binding["enabled"] = self.gesture_enabled_checkbox.isChecked()
+        binding["enabled"] = self.current_gesture in set(self._active_gestures())
         binding["hold_time"] = self.hold_slider.value() / 10
         binding["cooldown"] = self.cooldown_slider.value() / 10
         binding["use_scene"] = self.scene_action_checkbox.isChecked()
@@ -521,16 +812,34 @@ class MainWindow(QMainWindow):
         binding["sound_file"] = self.sound_file_edit.text().strip()
         binding["hotkey"] = self.hotkey_edit.text().strip()
 
-        active_set = set(self._active_gestures())
-        binding["enabled"] = binding["enabled"] and (self.current_gesture in active_set)
-
         self._refresh_gesture_feature_visibility()
         self.salvar_config_automatico()
 
-    def on_show_skeleton_changed(self):
+    def on_show_skeleton_changed(self, checked):
+        self.config.setdefault("camera", {})
+        self.config["camera"]["show_skeleton"] = bool(checked)
+
+    def on_dynamic_setting_changed(self, *_):
         self.config.setdefault("camera", {})
         self.config["camera"]["show_skeleton"] = self.show_skeleton_checkbox.isChecked()
+
+        binding = self._get_current_binding()
+        binding["hold_time"] = self.hold_slider.value() / 10
+        binding["cooldown"] = self.cooldown_slider.value() / 10
+
+        gestures_cfg = self.config.setdefault("gestures", {})
+
         self.salvar_config_automatico()
+
+        if not (self.engine and self.engine.isRunning()):
+            return
+
+        self.engine.show_skeleton = self.config["camera"]["show_skeleton"]
+        self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
+        self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
+        self.engine.tempo_minimo = float(binding["hold_time"])
+        self.engine.cooldown = float(binding["cooldown"])
+        self.engine._normalize_gesture_keys()
 
     def select_sound_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -549,17 +858,20 @@ class MainWindow(QMainWindow):
         self._refresh_health_panels()
         self.salvar_config_automatico()
 
-    def on_camera_changed(self, value):
-        self.config.setdefault("camera", {})["index"] = int(value)
+    def on_camera_changed(self, _value):
+        selected_index = self.camera_device_combo.currentData()
+        if selected_index is None:
+            selected_index = self.camera_device_combo.currentIndex()
+        camera_cfg = self.config.setdefault("camera", {})
+        camera_cfg["index"] = int(selected_index)
+        camera_cfg["device_name"] = self.camera_device_combo.currentText().strip()
         self.salvar_config_automatico()
 
     def on_resolution_changed(self, value):
-        try:
-            width_text, height_text = value.lower().split("x")
-            width = int(width_text.strip())
-            height = int(height_text.strip())
-        except Exception:
+        if value not in RESOLUTION_PRESETS:
             return
+
+        width, height = RESOLUTION_PRESETS[value]
 
         self.config.setdefault("camera", {})["width"] = width
         self.config.setdefault("camera", {})["height"] = height
@@ -670,6 +982,7 @@ class MainWindow(QMainWindow):
         modo = self.config.get("modo", "test")
         obs_cfg = self.config.get("obs", {})
         bindings = self.config.get("gestures", {}).get("bindings", {})
+        active_set = set(self._active_gestures())
 
         if modo == "obs":
             if not str(obs_cfg.get("host", "")).strip():
@@ -681,7 +994,7 @@ class MainWindow(QMainWindow):
         gestos_ativos = [
             (nome, cfg)
             for nome, cfg in bindings.items()
-            if bool(cfg.get("enabled", True))
+            if nome in active_set
         ]
 
         if not gestos_ativos:
@@ -751,11 +1064,11 @@ class MainWindow(QMainWindow):
             json.dump(self.config, file, indent=4)
 
     def set_config_enabled(self, enabled):
-        self.tabs.setEnabled(enabled)
-        self.camera_index.setEnabled(enabled)
-        self.resolution_combo.setEnabled(enabled)
-        self.fps_spin.setEnabled(enabled)
-        self.restart_button.setEnabled(enabled)
+        self.camera_device_combo.setEnabled(enabled)
+        for button in self.resolution_buttons.values():
+            button.setEnabled(enabled)
+        for button in self.fps_buttons.values():
+            button.setEnabled(enabled)
 
     def update_frame(self, frame):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -798,13 +1111,14 @@ class MainWindow(QMainWindow):
     def _refresh_health_panels(self):
         modo = self.config.get("modo", "test")
         bindings = self.config.get("gestures", {}).get("bindings", {})
+        active_set = set(self._active_gestures())
 
         camera_running = bool(self.engine and self.engine.isRunning())
         if camera_running:
             self._set_health_label(self.health_camera, "Câmera", "ok", "Em execução")
         else:
-            idx = int(self.config.get("camera", {}).get("index", 0))
-            self._set_health_label(self.health_camera, "Câmera", "idle", f"Pronta (índice {idx})")
+            selected_name = self.camera_device_combo.currentText() or "Câmera"
+            self._set_health_label(self.health_camera, "Câmera", "idle", f"Pronta ({selected_name})")
 
         if modo == "obs":
             obs_status_text = self.obs_status_label.text().lower()
@@ -817,7 +1131,7 @@ class MainWindow(QMainWindow):
         else:
             self._set_health_label(self.health_obs, "OBS", "idle", "Desativado (modo test)")
 
-        ativos = [cfg for cfg in bindings.values() if cfg.get("enabled", True)]
+        ativos = [gesture for gesture in active_set if gesture in bindings]
         if not ativos:
             self._set_health_label(self.health_gestos, "Gestos", "warn", "Nenhum gesto ativo")
         else:

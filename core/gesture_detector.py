@@ -46,6 +46,57 @@ class GestureDetector:
     def _normalize_name(self, gesture_name):
         return self.GESTURE_ALIASES.get(gesture_name, gesture_name)
 
+    def _palm_size(self, points):
+        return max(1.0, self.distancia(points[0], points[9]))
+
+    def _is_middle_finger(self, points):
+        middle_up = points[12][1] < points[10][1]
+        index_folded = points[8][1] > points[6][1]
+        ring_folded = points[16][1] > points[14][1]
+        pinky_folded = points[20][1] > points[18][1]
+        return middle_up and index_folded and ring_folded and pinky_folded
+
+    def _is_pistol(self, points):
+        palm_size = self._palm_size(points)
+        index_up = points[8][1] < points[6][1]
+        middle_folded = points[12][1] > points[10][1]
+        ring_folded = points[16][1] > points[14][1]
+        pinky_folded = points[20][1] > points[18][1]
+
+        thumb_open = self._thumb_extended(points)
+        thumb_index_dist = self.distancia(points[4], points[8])
+        thumb_away = thumb_index_dist > (palm_size * 0.35)
+
+        return index_up and thumb_open and thumb_away and middle_folded and ring_folded and pinky_folded
+
+    def _is_spiderman(self, points):
+        thumb_open = self._thumb_extended(points)
+        index_up = points[8][1] < points[6][1]
+        pinky_up = points[20][1] < points[18][1]
+        middle_folded = points[12][1] > points[10][1]
+        ring_folded = points[16][1] > points[14][1]
+        return thumb_open and index_up and pinky_up and middle_folded and ring_folded
+
+    def _is_scout(self, points):
+        palm_size = self._palm_size(points)
+        index_up = points[8][1] < points[6][1]
+        middle_up = points[12][1] < points[10][1]
+        ring_folded = points[16][1] > points[14][1]
+        pinky_folded = points[20][1] > points[18][1]
+
+        fingertips_close = self.distancia(points[8], points[12]) < (palm_size * 0.20)
+        return index_up and middle_up and fingertips_close and ring_folded and pinky_folded
+
+    def _is_korean_heart(self, points):
+        palm_size = self._palm_size(points)
+        thumb_index_close = self.distancia(points[4], points[8]) < (palm_size * 0.18)
+
+        middle_folded = points[12][1] > points[10][1]
+        ring_folded = points[16][1] > points[14][1]
+        pinky_folded = points[20][1] > points[18][1]
+
+        return thumb_index_close and middle_folded and ring_folded and pinky_folded
+
     def detectar(self, pontos):
         if len(pontos) != 21:
             return None
@@ -58,8 +109,17 @@ class GestureDetector:
         thumb_up = thumb_open and self._thumb_up_direction(pontos)
         thumb_down = thumb_open and self._thumb_down_direction(pontos)
 
+        if self._is_scout(pontos):
+            return "Escoteiro"
+
         if index_up and middle_up and (not ring_up) and (not pinky_up):
             return "V"
+
+        if self._is_middle_finger(pontos):
+            return "Dedo do Meio"
+
+        if self._is_korean_heart(pontos):
+            return "Coração Coreano"
 
         if thumb_up and (not index_up) and (not middle_up) and (not ring_up) and (not pinky_up):
             return "THUMBS_UP"
@@ -73,8 +133,14 @@ class GestureDetector:
         if (not index_up) and (not middle_up) and (not ring_up) and (not pinky_up) and (not thumb_open):
             return "FIST"
 
+        if self._is_pistol(pontos):
+            return "Arminha"
+
         if index_up and (not middle_up) and (not ring_up) and (not pinky_up):
             return "POINT"
+
+        if self._is_spiderman(pontos):
+            return "Homem-Aranha"
 
         if index_up and pinky_up and (not middle_up) and (not ring_up):
             return "ROCK"
