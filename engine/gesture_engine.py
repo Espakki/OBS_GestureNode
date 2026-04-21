@@ -25,7 +25,6 @@ GESTURE_ALIASES = {
     "FOUR": "QUATRO",
     "OK_SIGN": "OK",
     "CALL_ME": "Me liga",
-    "PINCH": "Pinça",
     "V": "V"
 }
 

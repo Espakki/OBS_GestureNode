@@ -59,7 +59,6 @@ GESTURE_ALIASES = {
     "FOUR": "QUATRO",
     "OK_SIGN": "OK",
     "CALL_ME": "Me liga",
-    "PINCH": "Pinça",
     "V": "V"
 }
 
@@ -89,12 +88,9 @@ class MainWindow(QMainWindow):
         ("OK", "assets/icons/ok_icon.png"),
         ("Me liga", "assets/icons/me_liga_icon.png"),
         ("Deslike", "assets/icons/deslike_icon.png"),
-        ("Pinça", "assets/icons/pinca_icon.png"),
         ("Dedo do Meio", "assets/icons/middle_finger.png"),
         ("Arminha", "assets/icons/pistol.png"),
-        ("Homem-Aranha", "assets/icons/spiderman.png"),
         ("Escoteiro", "assets/icons/scout.png"),
-        ("Coração", "assets/icons/korean_heart.png"),
     ]
 
     def __init__(self, config):

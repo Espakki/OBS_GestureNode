@@ -150,18 +150,6 @@
                 "use_sound": false,
                 "use_hotkey": false
             },
-            "Pin\u00e7a": {
-                "enabled": true,
-                "hold_time": 0.7,
-                "cooldown": 2.0,
-                "scene": "",
-                "play_sound": false,
-                "sound_file": "",
-                "hotkey": "",
-                "use_scene": false,
-                "use_sound": false,
-                "use_hotkey": false
-            },
             "Dedo do Meio": {
                 "enabled": true,
                 "hold_time": 0.7,
@@ -186,35 +174,11 @@
                 "use_sound": false,
                 "use_hotkey": false
             },
-            "Homem-Aranha": {
-                "enabled": true,
-                "hold_time": 0.7,
-                "cooldown": 1.0,
-                "scene": "",
-                "play_sound": false,
-                "sound_file": "",
-                "hotkey": "",
-                "use_scene": false,
-                "use_sound": false,
-                "use_hotkey": false
-            },
             "Escoteiro": {
                 "enabled": true,
                 "hold_time": 0.8,
                 "cooldown": 1.7,
                 "scene": "es",
-                "play_sound": false,
-                "sound_file": "",
-                "hotkey": "",
-                "use_scene": false,
-                "use_sound": false,
-                "use_hotkey": false
-            },
-            "Cora\u00e7\u00e3o": {
-                "enabled": true,
-                "hold_time": 1.1,
-                "cooldown": 1.0,
-                "scene": "",
                 "play_sound": false,
                 "sound_file": "",
                 "hotkey": "",
@@ -237,12 +201,9 @@
             "OK",
             "Me liga",
             "Deslike",
-            "Pin\u00e7a",
             "Dedo do Meio",
             "Arminha",
-            "Homem-Aranha",
-            "Escoteiro",
-            "Cora\u00e7\u00e3o"
+            "Escoteiro"
         ],
         "scene_map": {
             "V": "wini",
