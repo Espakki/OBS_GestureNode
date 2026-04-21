@@ -15,11 +15,18 @@ logger = get_logger(__name__)
 
 
 GESTURE_ALIASES = {
-    "JOIHA": "THUMBS_UP",
-    "MÃO_ABERTA": "OPEN_HAND",
-    "MAO_ABERTA": "OPEN_HAND",
-    "SOCO": "FIST",
-    "APONTANDO_CIMA": "POINT",
+    # Mapeamento do detector (nomes em inglês/uppercase) para nomes da UI/Config (português)
+    "THUMBS_UP": "Joinha",
+    "THUMBS_DOWN": "Deslike",
+    "OPEN_HAND": "Mão aberta",
+    "FIST": "Punho",
+    "POINT": "Apontando p/ cima",
+    "THREE": "TRES",
+    "FOUR": "QUATRO",
+    "OK_SIGN": "OK",
+    "CALL_ME": "Me liga",
+    "PINCH": "Pinça",
+    "Coração Coreano": "Coração",
 }
 
 

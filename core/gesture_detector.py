@@ -3,11 +3,18 @@ import math
 
 class GestureDetector:
     GESTURE_ALIASES = {
-        "JOIHA": "THUMBS_UP",
-        "MÃO_ABERTA": "OPEN_HAND",
-        "MAO_ABERTA": "OPEN_HAND",
-        "SOCO": "FIST",
-        "APONTANDO_CIMA": "POINT",
+        # Mapeamento do detector (nomes em inglês/uppercase) para nomes da UI/Config (português)
+        "THUMBS_UP": "Joinha",
+        "THUMBS_DOWN": "Deslike",
+        "OPEN_HAND": "Mão aberta",
+        "FIST": "Punho",
+        "POINT": "Apontando p/ cima",
+        "THREE": "TRES",
+        "FOUR": "QUATRO",
+        "OK_SIGN": "OK",
+        "CALL_ME": "Me liga",
+        "PINCH": "Pinça",
+        "Coração Coreano": "Coração",
     }
 
     def distancia(self, p1, p2):
@@ -42,9 +49,6 @@ class GestureDetector:
         thumb_ip_y = points[3][1]
         index_mcp_y = points[5][1]
         return thumb_tip_y > thumb_ip_y and thumb_tip_y > (index_mcp_y + 10)
-
-    def _normalize_name(self, gesture_name):
-        return self.GESTURE_ALIASES.get(gesture_name, gesture_name)
 
     def _palm_size(self, points):
         return max(1.0, self.distancia(points[0], points[9]))

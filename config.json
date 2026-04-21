@@ -20,8 +20,8 @@
         "bindings": {
             "V": {
                 "enabled": true,
-                "hold_time": 1.1,
-                "cooldown": 1.0,
+                "hold_time": 0.1,
+                "cooldown": 0.0,
                 "scene": "wini",
                 "play_sound": false,
                 "sound_file": "",
@@ -44,9 +44,9 @@
             },
             "M\u00e3o aberta": {
                 "enabled": true,
-                "hold_time": 0.7,
-                "cooldown": 0.4,
-                "scene": "asdasd",
+                "hold_time": 0.1,
+                "cooldown": 0.0,
+                "scene": "",
                 "play_sound": false,
                 "sound_file": "",
                 "hotkey": "",
@@ -200,7 +200,7 @@
             },
             "Escoteiro": {
                 "enabled": true,
-                "hold_time": 1.0,
+                "hold_time": 0.1,
                 "cooldown": 1.0,
                 "scene": "",
                 "play_sound": false,
@@ -245,8 +245,7 @@
             "Cora\u00e7\u00e3o"
         ],
         "scene_map": {
-            "V": "wini",
-            "M\u00e3o aberta": "asdasd"
+            "V": "wini"
         }
     },
     "features": {
