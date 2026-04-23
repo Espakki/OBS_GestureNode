@@ -1,3 +1,4 @@
+import math
 import time
 from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +28,141 @@ GESTURE_ALIASES = {
     "CALL_ME": "Me liga",
     "V": "V"
 }
+
+
+class GestureStabilityMonitor:
+    """
+    Monitora a estabilidade da mão detectando movimento dos landmarks.
+    
+    Dois níveis de verificação:
+    1. Motion Detection: Mão precisa estar parada (movimento < threshold)
+    2. Velocity Check: Mão precisa estar DESACELERANDO (intenção de parada)
+    
+    Evita disparo acidental durante gestos naturais de conversa ou movimentação.
+    """
+
+    def __init__(self, motion_threshold=4, stability_min_frames=3, check_velocity=True):
+        """
+        Args:
+            motion_threshold: Distância máxima em pixels que landmarks podem se mover
+            stability_min_frames: Quantos frames consecutivos devem estar abaixo do threshold
+            check_velocity: Se True, verifica se movimento está diminuindo (desaceleração)
+        """
+        self.motion_threshold = motion_threshold
+        self.stability_min_frames = stability_min_frames
+        self.check_velocity = check_velocity
+        
+        self.previous_landmarks = None
+        self.stable_frame_count = 0
+        
+        # Histórico de movimento para velocity check
+        self.movement_history = deque(maxlen=5)
+        self.current_movement = 0
+
+    def update(self, current_landmarks):
+        """
+        Atualiza com os landmarks atuais e retorna se mão está estável.
+        
+        Retorna True se:
+        1. Movimento atual < motion_threshold
+        2. Mantém por N frames consecutivos
+        3. Se velocity check ON: movimento está diminuindo
+        
+        Returns:
+            bool: True se mão está estável, False caso contrário
+        """
+        if self.previous_landmarks is None:
+            self.previous_landmarks = [list(lm) for lm in current_landmarks]
+            return False
+
+        avg_movement = self._calculate_average_movement(
+            self.previous_landmarks,
+            current_landmarks
+        )
+        
+        self.current_movement = avg_movement
+        self.movement_history.append(avg_movement)
+
+        # Check 1: Movimento baixo
+        below_threshold = avg_movement < self.motion_threshold
+
+        if below_threshold:
+            self.stable_frame_count += 1
+        else:
+            self.stable_frame_count = 0
+
+        self.previous_landmarks = [list(lm) for lm in current_landmarks]
+
+        # Verificações finais
+        meets_frame_requirement = self.stable_frame_count >= self.stability_min_frames
+        
+        # Check 2: Velocity check (movimento diminuindo)
+        is_decelerating = True
+        if self.check_velocity and len(self.movement_history) >= 3:
+            is_decelerating = self._is_movement_decreasing()
+
+        return meets_frame_requirement and is_decelerating
+
+    def _is_movement_decreasing(self):
+        """
+        Verifica se movimento está diminuindo (intenção de parada).
+        
+        Analisa os últimos 3-5 frames para detectar tendência.
+        Se velocidade está caindo, indica que usuário QUER parar a mão.
+        
+        Returns:
+            bool: True se movimento está diminuindo ou estável (não oscilando)
+        """
+        if len(self.movement_history) < 3:
+            return True
+
+        # Pegar últimos 3 valores
+        recent = list(self.movement_history)[-3:]
+        
+        # Calcular tendência
+        velocity_trend = recent[-1] - recent[0]
+        
+        # Se está diminuindo (negativo) ou MUITO estável (próximo de 0), é bom
+        # Rejeita se estava alto e subiu de novo (oscilação)
+        threshold = self.motion_threshold * 0.5
+        
+        return velocity_trend <= threshold
+
+    def _calculate_average_movement(self, prev_landmarks, curr_landmarks):
+        """
+        Calcula a distância euclidiana média entre landmarks consecutivos.
+        
+        Returns:
+            float: Distância média em pixels
+        """
+        if not prev_landmarks or not curr_landmarks:
+            return float('inf')
+
+        if len(prev_landmarks) != len(curr_landmarks):
+            return float('inf')
+
+        total_distance = 0
+        for prev_point, curr_point in zip(prev_landmarks, curr_landmarks):
+            try:
+                distance = math.hypot(
+                    curr_point[0] - prev_point[0],
+                    curr_point[1] - prev_point[1]
+                )
+                total_distance += distance
+            except (TypeError, IndexError):
+                return float('inf')
+
+        avg = total_distance / len(prev_landmarks)
+        return avg
+
+    def reset(self):
+        """Reseta o monitor quando gesto muda."""
+        self.previous_landmarks = None
+        self.stable_frame_count = 0
+        self.movement_history.clear()
+        self.current_movement = 0
+
+
 
 class GestureEngine(QThread):
 
@@ -68,6 +204,14 @@ class GestureEngine(QThread):
         self.detection_window_size = int(gestures_cfg.get("detection_window_size", 5))
         self.detection_min_hits = int(gestures_cfg.get("detection_min_hits", 3))
         self.detection_window = deque(maxlen=max(3, self.detection_window_size))
+
+        # Stability monitoring - garante que mão está parada antes de executar gesto
+        self.stability_enabled = gestures_cfg.get("enable_stability_check", True)
+        self.stability_monitor = GestureStabilityMonitor(
+            motion_threshold=float(gestures_cfg.get("motion_pixel_threshold", 4)),
+            stability_min_frames=int(gestures_cfg.get("stability_min_frames", 3)),
+            check_velocity=gestures_cfg.get("check_velocity_trend", True)
+        )
 
         if not self.gesture_bindings and self.mapa_cenas:
             self.gesture_bindings = {
@@ -189,6 +333,12 @@ class GestureEngine(QThread):
                         if gesto_ativo != gesto:
                             inicio_gesto = tempo_atual
                             gesto_ativo = gesto
+                            self.stability_monitor.reset()
+
+                        # Atualizar monitor de estabilidade com landmarks atuais
+                        is_stable = True
+                        if self.stability_enabled:
+                            is_stable = self.stability_monitor.update(pontos)
 
                         gesture_cfg = self.gesture_bindings.get(gesto, {})
                         if not gesture_cfg:
@@ -211,7 +361,7 @@ class GestureEngine(QThread):
                         cooldown = float(gesture_cfg.get("cooldown", self.cooldown))
                         ultimo_disparo = ultimo_disparo_por_gesto.get(gesto, 0.0)
 
-                        if inicio_gesto and (tempo_atual - inicio_gesto) >= hold_time:
+                        if inicio_gesto and (tempo_atual - inicio_gesto) >= hold_time and is_stable:
                             if (tempo_atual - ultimo_disparo) > cooldown:
                                 action_submitted = False
                                 nome_cena = self.mapa_cenas.get(gesto)
@@ -254,10 +404,18 @@ class GestureEngine(QThread):
                                             )
                                             action_submitted = True
 
-                                        if scene:
-                                            self.status_changed.emit(f"Gesto {gesto}: cena {scene}")
+                                        status_parts = [f"Gesto {gesto}"]
+                                        if use_scene and scene:
+                                            status_parts.append(f"cena {scene}")
+                                        if use_sound and gesture_cfg.get("sound_file", "").strip():
+                                            status_parts.append("som")
+                                        if use_hotkey and hotkey:
+                                            status_parts.append(f"atalho {hotkey}")
+
+                                        if len(status_parts) == 1:
+                                            self.status_changed.emit(f"{status_parts[0]} acionado")
                                         else:
-                                            self.status_changed.emit(f"Gesto {gesto} acionado")
+                                            self.status_changed.emit(": ".join([status_parts[0], ", ".join(status_parts[1:])]))
                                     except Exception as exc:
                                         logger.exception("Erro ao executar ação: %s", exc)
 

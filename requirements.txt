@@ -1,7 +1,6 @@
-numpy==1.26.4
-mediapipe>=0.10,<0.11
-opencv-python>=4.8,<4.9
-PySide6==6.6.1
-obsws-python>=1.0,<2.0
-keyboard>=0.13,<0.14
-pygrabber>=0.2,<0.3
+PySide6
+opencv-python
+mediapipe==0.10.14
+pyvirtualcam
+obsws-python
+keyboard

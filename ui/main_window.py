@@ -131,10 +131,14 @@ class MainWindow(QMainWindow):
         obs_cfg.setdefault("password", "")
 
         gestures_cfg = self.config.setdefault("gestures", {})
-        default_hold = gestures_cfg.get("default_hold_time", gestures_cfg.get("hold_time", 0.7))
+        default_hold = gestures_cfg.get("default_hold_time", gestures_cfg.get("hold_time", 2.0))
         default_cooldown = gestures_cfg.get("default_cooldown", gestures_cfg.get("cooldown", 2.0))
-        gestures_cfg["default_hold_time"] = float(default_hold)
-        gestures_cfg["default_cooldown"] = float(default_cooldown)
+        # Garantir mínimo de 2.0 segundos para hold_time (evitar flood)
+        # e 2.0 segundos para cooldown
+        default_hold = max(2.0, float(default_hold))
+        default_cooldown = max(2.0, float(default_cooldown))
+        gestures_cfg["default_hold_time"] = default_hold
+        gestures_cfg["default_cooldown"] = default_cooldown
 
         raw_scene_map = gestures_cfg.get("scene_map", {}) or {}
         raw_bindings = gestures_cfg.get("bindings", {}) or {}
@@ -171,10 +175,15 @@ class MainWindow(QMainWindow):
 
         for gesture, _ in self.ALL_GESTURES:
             raw = bindings.get(gesture, {}) if isinstance(bindings, dict) else {}
+            hold_time = float(raw.get("hold_time", gestures_cfg["default_hold_time"]))
+            cooldown = float(raw.get("cooldown", gestures_cfg["default_cooldown"]))
+            # Garantir mínimos: hold_time >= 2.0s, cooldown >= 2.0s
+            hold_time = max(2.0, hold_time)
+            cooldown = max(2.0, cooldown)
             normalized[gesture] = {
                 "enabled": bool(raw.get("enabled", gesture in gestures_cfg["active_gestures"])),
-                "hold_time": float(raw.get("hold_time", gestures_cfg["default_hold_time"])),
-                "cooldown": float(raw.get("cooldown", gestures_cfg["default_cooldown"])),
+                "hold_time": hold_time,
+                "cooldown": cooldown,
                 "scene": str(raw.get("scene", scene_map.get(gesture, ""))).strip(),
                 "play_sound": bool(raw.get("play_sound", False)),
                 "sound_file": str(raw.get("sound_file", "")).strip(),
@@ -210,18 +219,30 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _probe_opencv_camera_indexes(max_devices=10):
+        import sys
+        from io import StringIO
+        
         available_indexes = []
-        for index in range(max_devices):
-            capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-            if not capture or not capture.isOpened():
-                if capture:
-                    capture.release()
-                continue
+        
+        # Suprimir avisos de OpenCV durante probing (compatível com todas as versões)
+        old_stderr = sys.stderr
+        sys.stderr = StringIO()
+        
+        try:
+            for index in range(max_devices):
+                capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+                if not capture or not capture.isOpened():
+                    if capture:
+                        capture.release()
+                    continue
 
-            ok, _ = capture.read()
-            capture.release()
-            if ok:
-                available_indexes.append(index)
+                ok, _ = capture.read()
+                capture.release()
+                if ok:
+                    available_indexes.append(index)
+        finally:
+            # Restaurar stderr original
+            sys.stderr = old_stderr
 
         return available_indexes
 
@@ -257,7 +278,7 @@ class MainWindow(QMainWindow):
             QCheckBox::indicator { width: 16px; height: 16px; }
             QRadioButton { spacing: 8px; font-size: 15px; background: transparent; }
             QLabel#title { color: #ffcc33; font-size: 22px; font-weight: 800; background: transparent; }
-            QLineEdit, QSpinBox, QSlider {
+            QLineEdit, QSpinBox, QDoubleSpinBox, QSlider {
                 background: #252b33;
                 border: 1px solid #3b4654;
                 border-radius: 6px;
@@ -266,7 +287,7 @@ class MainWindow(QMainWindow):
                 color: #f1f1f1;
                 min-height: 20px;
             }
-            QLineEdit:disabled, QSpinBox:disabled {
+            QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {
                 background: #1b2029;
                 border: 1px solid #2f3642;
                 color: #7f8794;
@@ -280,7 +301,7 @@ class MainWindow(QMainWindow):
                 color: #f1f1f1;
                 min-height: 20px;
             }
-            QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
                 border: 1px solid #1f6feb;
             }
             QComboBox:disabled {
@@ -410,9 +431,9 @@ class MainWindow(QMainWindow):
         self.choose_gestures_button = self.gestos_tab.choose_gestures_button
         self.selected_gesture_label = self.gestos_tab.selected_gesture_label
         self.hold_slider = self.gestos_tab.hold_slider
-        self.hold_value_label = self.gestos_tab.hold_value_label
+        self.hold_value_spinbox = self.gestos_tab.hold_value_spinbox
         self.cooldown_slider = self.gestos_tab.cooldown_slider
-        self.cooldown_value_label = self.gestos_tab.cooldown_value_label
+        self.cooldown_value_spinbox = self.gestos_tab.cooldown_value_spinbox
         self.scene_action_checkbox = self.gestos_tab.scene_action_checkbox
         self.sound_action_checkbox = self.gestos_tab.sound_action_checkbox
         self.hotkey_action_checkbox = self.gestos_tab.hotkey_action_checkbox
@@ -441,10 +462,20 @@ class MainWindow(QMainWindow):
             button.toggled.connect(lambda checked, value=fps_value: self.on_fps_changed(value) if checked else None)
 
         self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
+        self.hold_slider.valueChanged.connect(self.on_hold_slider_changed)
         self.hold_slider.valueChanged.connect(self.on_current_gesture_changed)
         self.hold_slider.valueChanged.connect(self.on_dynamic_setting_changed)
+        self.hold_value_spinbox.valueChanged.connect(self.on_hold_spinbox_changed)
+        self.hold_value_spinbox.valueChanged.connect(self.on_current_gesture_changed)
+        self.hold_value_spinbox.valueChanged.connect(self.on_dynamic_setting_changed)
+        
+        self.cooldown_slider.valueChanged.connect(self.on_cooldown_slider_changed)
         self.cooldown_slider.valueChanged.connect(self.on_current_gesture_changed)
         self.cooldown_slider.valueChanged.connect(self.on_dynamic_setting_changed)
+        self.cooldown_value_spinbox.valueChanged.connect(self.on_cooldown_spinbox_changed)
+        self.cooldown_value_spinbox.valueChanged.connect(self.on_current_gesture_changed)
+        self.cooldown_value_spinbox.valueChanged.connect(self.on_dynamic_setting_changed)
+        
         self.scene_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
         self.sound_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
         self.hotkey_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
@@ -770,8 +801,19 @@ class MainWindow(QMainWindow):
 
         self._updating_gesture_form = True
         self.selected_gesture_label.setText(f"Gesto selecionado: {gesture}")
-        self.hold_slider.setValue(int(float(cfg.get("hold_time", 0.7)) * 10))
-        self.cooldown_slider.setValue(int(float(cfg.get("cooldown", 2.0)) * 10))
+        
+        # Hold time: converter para float (2.0-5.0)
+        hold_time_seconds = float(cfg.get("hold_time", 2.0))
+        hold_time_seconds = max(2.0, min(5.0, hold_time_seconds))  # Garantir 2.0-5.0s
+        self.hold_value_spinbox.setValue(hold_time_seconds)
+        self.hold_slider.setValue(int(hold_time_seconds * 10))  # Converter para slider
+        
+        # Cooldown: converter para float (2.0-20.0)
+        cooldown_seconds = float(cfg.get("cooldown", 2.0))
+        cooldown_seconds = max(2.0, min(20.0, cooldown_seconds))  # Garantir 2.0-20.0s
+        self.cooldown_value_spinbox.setValue(cooldown_seconds)
+        self.cooldown_slider.setValue(int(cooldown_seconds * 10))  # Converter para slider
+        
         self.scene_action_checkbox.setChecked(bool(cfg.get("use_scene", bool(cfg.get("scene", "")))))
         self.sound_action_checkbox.setChecked(bool(cfg.get("use_sound", bool(cfg.get("play_sound", False)))))
         self.hotkey_action_checkbox.setChecked(bool(cfg.get("use_hotkey", bool(cfg.get("hotkey", "")))))
@@ -780,12 +822,38 @@ class MainWindow(QMainWindow):
         self.hotkey_edit.setText(cfg.get("hotkey", ""))
         self._updating_gesture_form = False
 
-        self._update_slider_labels()
         self._refresh_gesture_feature_visibility()
 
-    def _update_slider_labels(self):
-        self.hold_value_label.setText(f"{self.hold_slider.value() / 10:.1f}s")
-        self.cooldown_value_label.setText(f"{self.cooldown_slider.value() / 10:.1f}s")
+    def on_hold_slider_changed(self):
+        """Sincroniza slider para spinbox quando slider muda."""
+        if not self._updating_gesture_form:
+            seconds = self.hold_slider.value() / 10.0
+            self.hold_value_spinbox.blockSignals(True)
+            self.hold_value_spinbox.setValue(seconds)
+            self.hold_value_spinbox.blockSignals(False)
+
+    def on_hold_spinbox_changed(self):
+        """Sincroniza spinbox para slider quando spinbox muda."""
+        if not self._updating_gesture_form:
+            self.hold_slider.blockSignals(True)
+            self.hold_slider.setValue(int(self.hold_value_spinbox.value() * 10))
+            self.hold_slider.blockSignals(False)
+
+    def on_cooldown_slider_changed(self):
+        """Sincroniza slider para spinbox quando slider muda."""
+        if not self._updating_gesture_form:
+            seconds = self.cooldown_slider.value() / 10.0
+            self.cooldown_value_spinbox.blockSignals(True)
+            self.cooldown_value_spinbox.setValue(seconds)
+            self.cooldown_value_spinbox.blockSignals(False)
+
+    def on_cooldown_spinbox_changed(self):
+        """Sincroniza spinbox para slider quando spinbox muda."""
+        if not self._updating_gesture_form:
+            self.cooldown_slider.blockSignals(True)
+            self.cooldown_slider.setValue(int(self.cooldown_value_spinbox.value() * 10))
+            self.cooldown_slider.blockSignals(False)
+
 
     def _refresh_gesture_feature_visibility(self):
         scene_enabled = self.scene_action_checkbox.isChecked()
@@ -801,12 +869,10 @@ class MainWindow(QMainWindow):
         if self._updating_gesture_form:
             return
 
-        self._update_slider_labels()
-
         binding = self._get_current_binding()
         binding["enabled"] = self.current_gesture in set(self._active_gestures())
-        binding["hold_time"] = self.hold_slider.value() / 10
-        binding["cooldown"] = self.cooldown_slider.value() / 10
+        binding["hold_time"] = float(self.hold_value_spinbox.value())
+        binding["cooldown"] = float(self.cooldown_value_spinbox.value())
         binding["use_scene"] = self.scene_action_checkbox.isChecked()
         binding["use_sound"] = self.sound_action_checkbox.isChecked()
         binding["use_hotkey"] = self.hotkey_action_checkbox.isChecked()
@@ -817,6 +883,12 @@ class MainWindow(QMainWindow):
 
         self._refresh_gesture_feature_visibility()
         self.salvar_config_automatico()
+
+        if self.engine and self.engine.isRunning():
+            gestures_cfg = self.config.setdefault("gestures", {})
+            self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
+            self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
+            self.engine._normalize_gesture_keys()
 
     def on_show_skeleton_changed(self, checked):
         self.config.setdefault("camera", {})
@@ -1026,7 +1098,7 @@ class MainWindow(QMainWindow):
                     avisos.append(f"Gesto {nome}: arquivo de som não encontrado no caminho informado")
 
             if usa_atalho and not str(cfg.get("hotkey", "")).strip():
-                erros.append(f"Gesto {nome}: atalho está vazio")
+                avisos.append(f"Gesto {nome}: atalho está vazio")
 
             hold_time = float(cfg.get("hold_time", 0.7))
             cooldown = float(cfg.get("cooldown", 2.0))
@@ -1045,6 +1117,7 @@ class MainWindow(QMainWindow):
         self.status_label.setText("Status: Parado")
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self._clear_preview()
         self.engine = None
         self._refresh_health_panels()
 
@@ -1089,6 +1162,10 @@ class MainWindow(QMainWindow):
                 Qt.SmoothTransformation,
             )
         )
+
+    def _clear_preview(self):
+        self.preview_label.clear()
+        self.preview_label.setText("Preview")
 
     def update_status(self, text):
         self.status_label.setText(text)
