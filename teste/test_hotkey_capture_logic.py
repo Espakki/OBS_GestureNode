@@ -37,6 +37,7 @@ def run_tests():
     capture_combo(Qt.Key_W, "w", "Ctrl+Shift+W")
     capture_combo(Qt.Key_E, "e", "Ctrl+Shift+E")
     capture_combo(Qt.Key_Z, "z", "Ctrl+Alt+Shift+Z", with_alt=True)
+    capture_combo(Qt.Key_Z, "æ", "Ctrl+Alt+Shift+Z", with_alt=True)
     capture_combo(Qt.Key_A, "a", "Ctrl+Alt+Shift+A", with_alt=True)
     capture_combo(Qt.Key_Q, "q", "Ctrl+Alt+Shift+Q", with_alt=True)
     capture_combo(Qt.Key_W, "w", "Ctrl+Alt+Shift+W", with_alt=True)

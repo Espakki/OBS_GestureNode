@@ -309,7 +309,8 @@ class MainWindow(QMainWindow):
                 border: 1px solid #2f3642;
                 color: #7f8794;
             }
-            QPushButton, QToolButton { background: #1f6feb; border: none; border-radius: 8px; padding: 10px 14px; color: white; font-weight: 600; font-size: 15px; }
+            QPushButton, QToolButton { background: #1f6feb; border: none; border-radius: 8px; padding: 10px 14px; color: white; font-weight: 600; font-size: 15px; outline: none; }
+            QPushButton:focus, QToolButton:focus { outline: none; }
             QPushButton:hover { background: #2c7dff; }
             QToolButton:hover { background: #2c7dff; }
             QPushButton:disabled, QToolButton:disabled {
@@ -322,7 +323,7 @@ class MainWindow(QMainWindow):
             QPushButton#optionToggle { background: #252b33; border: 1px solid #3a4655; }
             QPushButton#optionToggle:hover { background: #2b3341; border: 1px solid #4a5a6e; }
             QPushButton#optionToggle:pressed { background: #1e2530; border: 1px solid #6b7f99; }
-            QPushButton#optionToggle:focus { border: 1px solid #1f6feb; }
+            QPushButton#optionToggle:focus { border: 1px solid #3a4655; }
             QPushButton#optionToggle:checked { background: #1f6feb; border: 1px solid #1f6feb; color: #ffffff; }
             QPushButton#optionToggle:checked:hover { background: #2c7dff; border: 1px solid #2c7dff; }
             QPushButton#optionToggle:checked:pressed { background: #1761cf; border: 1px solid #1761cf; }
@@ -336,7 +337,7 @@ class MainWindow(QMainWindow):
             }
             QPushButton#gestureSelect:hover, QToolButton#gestureSelect:hover { background: #2b3341; border: 1px solid #4a5a6e; }
             QPushButton#gestureSelect:pressed, QToolButton#gestureSelect:pressed { background: #1e2530; border: 1px solid #6b7f99; }
-            QPushButton#gestureSelect:focus, QToolButton#gestureSelect:focus { border: 1px solid #1f6feb; }
+            QPushButton#gestureSelect:focus, QToolButton#gestureSelect:focus { border: 1px solid #3a4655; }
             QPushButton#gestureSelect:checked, QToolButton#gestureSelect:checked {
                 border: 2px solid #ffcc33;
                 background: #2f3742;
@@ -354,7 +355,7 @@ class MainWindow(QMainWindow):
             QFrame#card QPushButton#optionToggle { background: #252b33; color: white; border: 1px solid #3a4655; }
             QFrame#card QPushButton#optionToggle:hover { background: #2b3341; border: 1px solid #4a5a6e; }
             QFrame#card QPushButton#optionToggle:pressed { background: #1e2530; border: 1px solid #6b7f99; }
-            QFrame#card QPushButton#optionToggle:focus { border: 1px solid #1f6feb; }
+            QFrame#card QPushButton#optionToggle:focus { border: 1px solid #3a4655; }
             QFrame#card QPushButton#optionToggle:checked { background: #1f6feb; color: white; border: 1px solid #1f6feb; }
             QFrame#card QPushButton#optionToggle:checked:hover { background: #2c7dff; border: 1px solid #2c7dff; }
             QFrame#card QPushButton#optionToggle:checked:pressed { background: #1761cf; border: 1px solid #1761cf; }
@@ -374,7 +375,7 @@ class MainWindow(QMainWindow):
                 border: 1px solid #6b7f99;
             }
             QFrame#card QPushButton#gestureSelect:focus, QFrame#card QToolButton#gestureSelect:focus {
-                border: 1px solid #1f6feb;
+                border: 1px solid #3a4655;
             }
             QFrame#card QPushButton#gestureSelect:checked, QFrame#card QToolButton#gestureSelect:checked {
                 background: #2f3742;

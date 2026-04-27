@@ -88,8 +88,6 @@ class HotkeyLineEdit(QLineEdit):
             text = (event.text() or "").strip()
             if len(text) == 1 and text.isascii():
                 key_name = text.upper()
-            elif text:
-                key_name = text.capitalize()
 
         if not key_name:
             return ""
@@ -186,6 +184,12 @@ class HotkeyLineEdit(QLineEdit):
         if event.modifiers() & Qt.KeypadModifier and Qt.Key_0 <= key_code <= Qt.Key_9:
             return chr(key_code)
 
+        # Em layouts com AltGr, o Qt pode reportar key_code especial para letras.
+        # O virtual key nativo mantém a tecla física (ex: Z), evitando caracteres como æ.
+        native_vk = self._native_vk_to_key_name(event)
+        if native_vk:
+            return native_vk
+
         # F1-F24
         if Qt.Key_F1 <= key_code <= Qt.Key_F24:
             return f"F{key_code - Qt.Key_F1 + 1}"
@@ -258,6 +262,26 @@ class HotkeyLineEdit(QLineEdit):
             return normalized
         if len(normalized) == 1 and normalized.isascii():
             return normalized.upper()
+        return ""
+
+    def _native_vk_to_key_name(self, event):
+        try:
+            native_vk = int(event.nativeVirtualKey())
+        except Exception:
+            return ""
+
+        # Letras A-Z
+        if 0x41 <= native_vk <= 0x5A:
+            return chr(native_vk)
+
+        # Numeros 0-9
+        if 0x30 <= native_vk <= 0x39:
+            return chr(native_vk)
+
+        # F1-F24
+        if 0x70 <= native_vk <= 0x87:
+            return f"F{native_vk - 0x6F}"
+
         return ""
 
 
