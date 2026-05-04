@@ -96,7 +96,7 @@ class MainWindow(QMainWindow):
     def __init__(self, config):
         super().__init__()
 
-        self.setWindowTitle("Gesture OBS Controller")
+        self.setWindowTitle("OBS GestureNode")
         self.setMinimumSize(1200, 760)
 
         self.config = config or {}
