@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSlider,
     QDoubleSpinBox,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -293,13 +294,13 @@ class GestosTab(QWidget):
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        root_layout.addWidget(scroll)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        root_layout.addWidget(self.scroll)
 
         content = QWidget()
-        scroll.setWidget(content)
+        self.scroll.setWidget(content)
 
         layout = QVBoxLayout(content)
         layout.setSpacing(12)
@@ -436,32 +437,59 @@ class GestosTab(QWidget):
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
+        
+        # Remove row/col constraints to prevent spacing issues
+        for i in range(self.grid_layout.rowCount()):
+            self.grid_layout.setRowStretch(i, 0)
+            self.grid_layout.setRowMinimumHeight(i, 0)
+        
         self._gesture_buttons = []
 
     def add_gesture_button(self, row, col, text, callback):
-        button = QPushButton(text)
+        button = QToolButton()
+        button.setText(text)
+        button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         button.setObjectName("gestureBtn")
         button.setCheckable(True)
-        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         parts = text.split("\n", 1)
         emoji_text = parts[0] if parts else text
         button.setProperty("emojiText", emoji_text)
         button.setProperty("fullText", text)
         button.clicked.connect(callback)
         self.grid_layout.addWidget(button, row, col)
-        self.grid_layout.setRowStretch(row + 1, 1)
         self._gesture_buttons.append(button)
         self._refresh_gesture_button_texts()
+        self._relayout_buttons()
         return button
 
     def _refresh_gesture_button_texts(self):
         for button in self._gesture_buttons:
-            compact = button.width() < 140 or button.height() < 76
-            if compact:
-                button.setText(button.property("emojiText") or "")
-            else:
-                button.setText(button.property("fullText") or "")
+            # We want to always show the full text (multiline) so things like "Dedo do Meio" are fully visible
+            button.setText(button.property("fullText") or "")
+
+    def _relayout_buttons(self):
+        if not self._gesture_buttons or not hasattr(self, 'scroll'):
+            return
+        
+        # calculate max columns based on scrollarea viewport width
+        available_width = self.scroll.viewport().width() - 40 # some padding
+        # minimum button width in main_window is ~110, plus layout spacing
+        item_width = 120 
+        col_count = max(1, available_width // item_width)
+        
+        for idx, button in enumerate(self._gesture_buttons):
+            row = idx // col_count
+            col = idx % col_count
+            self.grid_layout.addWidget(button, row, col)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._refresh_gesture_button_texts()
+        self._relayout_buttons()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Call relayout when the tab is first shown, using a timer to let layouts calc geometry
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(10, self._relayout_buttons)

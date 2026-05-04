@@ -82,9 +82,9 @@ class MainWindow(QMainWindow):
         ("Mão aberta", "assets/icons/mao_aberta_icon.png"),
         ("Punho", "assets/icons/punho_icon.png"),
         ("Apontando p/ cima", "assets/icons/apontando_cima_icon.png"),
-        ("ROCK", "assets/icons/rock_icon.png"),
-        ("TRES", "assets/icons/tres_icon.png"),
-        ("QUATRO", "assets/icons/quatro_icon.png"),
+        ("Rock", "assets/icons/rock_icon.png"),
+        ("Três", "assets/icons/tres_icon.png"),
+        ("Quatro", "assets/icons/quatro_icon.png"),
         ("OK", "assets/icons/ok_icon.png"),
         ("Me liga", "assets/icons/me_liga_icon.png"),
         ("Deslike", "assets/icons/deslike_icon.png"),
@@ -327,8 +327,8 @@ class MainWindow(QMainWindow):
             QPushButton#optionToggle:checked { background: #1f6feb; border: 1px solid #1f6feb; color: #ffffff; }
             QPushButton#optionToggle:checked:hover { background: #2c7dff; border: 1px solid #2c7dff; }
             QPushButton#optionToggle:checked:pressed { background: #1761cf; border: 1px solid #1761cf; }
-            QPushButton#gestureBtn { background: #252b33; border: 1px solid #3a4655; padding: 15px; max-height: 100px; }
-            QPushButton#gestureBtn:checked { border: 2px solid #ffcc33; background: #2f3742; }
+            QPushButton#gestureBtn, QToolButton#gestureBtn { background: #252b33; border: 1px solid #3a4655; padding: 15px; max-height: 150px; }
+            QPushButton#gestureBtn:checked, QToolButton#gestureBtn:checked { border: 2px solid #ffcc33; background: #2f3742; }
             QPushButton#gestureSelect, QToolButton#gestureSelect {
                 background: #252b33;
                 border: 1px solid #3a4655;
@@ -359,8 +359,8 @@ class MainWindow(QMainWindow):
             QFrame#card QPushButton#optionToggle:checked { background: #1f6feb; color: white; border: 1px solid #1f6feb; }
             QFrame#card QPushButton#optionToggle:checked:hover { background: #2c7dff; border: 1px solid #2c7dff; }
             QFrame#card QPushButton#optionToggle:checked:pressed { background: #1761cf; border: 1px solid #1761cf; }
-            QFrame#card QPushButton#gestureBtn { background: #252b33; color: white; }
-            QFrame#card QPushButton#gestureBtn:checked { background: #2f3742; color: #ffcc33; }
+            QFrame#card QPushButton#gestureBtn, QFrame#card QToolButton#gestureBtn { background: #252b33; color: white; }
+            QFrame#card QPushButton#gestureBtn:checked, QFrame#card QToolButton#gestureBtn:checked { background: #2f3742; color: #ffcc33; }
             QFrame#card QPushButton#gestureSelect, QFrame#card QToolButton#gestureSelect {
                 background: #252b33;
                 color: white;
@@ -568,8 +568,8 @@ class MainWindow(QMainWindow):
         visible_gestures = [item for item in self.ALL_GESTURES if item[0] in active]
 
         for idx, (gesture, icon_path) in enumerate(visible_gestures):
-            row = idx // 3
-            col = idx % 3
+            row = idx // 4
+            col = idx % 4
             callback = lambda _=None, g=gesture: self.select_gesture(g)
             btn = self.gestos_tab.add_gesture_button(row, col, gesture, callback)
             self._configure_gesture_button(btn, gesture, icon_path)
@@ -655,33 +655,33 @@ class MainWindow(QMainWindow):
         return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", icon_path))
 
     def _configure_gesture_button(self, button, gesture_name, icon_path):
-        button.setMinimumSize(80, 80)
-        button.setIconSize(QSize(40, 40))
+        button.setMinimumSize(110, 140)
+        button.setIconSize(QSize(64, 64))
 
+        formatted_text = self._format_selector_label(gesture_name)
         resolved_icon = self._resolve_asset_path(icon_path)
         if resolved_icon and os.path.exists(resolved_icon):
             button.setIcon(QIcon(resolved_icon))
-            button.setText("")
-            button.setProperty("emojiText", "")
-            button.setProperty("fullText", "")
-            return
+        else:
+            button.setIcon(QIcon())
 
-        button.setIcon(QIcon())
-        button.setText(gesture_name)
-        button.setProperty("emojiText", gesture_name)
-        button.setProperty("fullText", gesture_name)
+        button.setText(formatted_text)
+        button.setProperty("emojiText", formatted_text)
+        button.setProperty("fullText", formatted_text)
 
     def _format_selector_label(self, gesture_name):
         if gesture_name == "Apontando p/ cima":
             return "Apontando\np/ cima"
         if gesture_name == "Mão aberta":
             return "Mão\naberta"
+        if gesture_name == "Dedo do Meio":
+            return "Dedo\ndo Meio"
         return gesture_name
 
     def open_gesture_selector_dialog(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Escolher gestos ativos")
-        dialog.resize(420, 520)
+        dialog.resize(450, 720)
 
         dialog_layout = QVBoxLayout(dialog)
         dialog_layout.addWidget(QLabel("Selecione os gestos ativos para a tela principal:"))
