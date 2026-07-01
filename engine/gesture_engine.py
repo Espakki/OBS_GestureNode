@@ -1,4 +1,5 @@
 import math
+import threading
 import time
 from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor
@@ -7,27 +8,13 @@ from PySide6.QtCore import QThread, Signal
 from core.hand_tracker import HandTracker
 from core.gesture_detector import GestureDetector
 from core.camera import CameraManager
+from core.gesture_aliases import GESTURE_ALIASES
 from actions.action_manager import ActionManager
 from integrations.obs_controller import OBSController
 from util.logger import get_logger
 
 
 logger = get_logger(__name__)
-
-
-GESTURE_ALIASES = {
-    "THUMBS_UP": "Joinha",
-    "THUMBS_DOWN": "Deslike",
-    "OPEN_HAND": "Mão aberta",
-    "FIST": "Punho",
-    "POINT": "Apontando p/ cima",
-    "ROCK": "ROCK",
-    "THREE": "TRES",
-    "FOUR": "QUATRO",
-    "OK_SIGN": "OK",
-    "CALL_ME": "Me liga",
-    "V": "V"
-}
 
 
 class GestureStabilityMonitor:
@@ -182,6 +169,10 @@ class GestureEngine(QThread):
         self.action_executor = None
         self.action_future = None
 
+        self._bindings_lock = threading.RLock()
+        self._gesture_bindings = {}
+        self._mapa_cenas = {}
+
         self._setup()
 
     def _setup(self):
@@ -241,23 +232,46 @@ class GestureEngine(QThread):
         self.actions = ActionManager(None)
         self.action_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gesture-actions")
 
+    @property
+    def gesture_bindings(self):
+        with self._bindings_lock:
+            return self._gesture_bindings
+
+    @gesture_bindings.setter
+    def gesture_bindings(self, value):
+        with self._bindings_lock:
+            self._gesture_bindings = value or {}
+
+    @property
+    def mapa_cenas(self):
+        with self._bindings_lock:
+            return self._mapa_cenas
+
+    @mapa_cenas.setter
+    def mapa_cenas(self, value):
+        with self._bindings_lock:
+            self._mapa_cenas = value or {}
+
     def _normalize_gesture_name(self, gesture_name):
         if not gesture_name:
             return gesture_name
         return GESTURE_ALIASES.get(gesture_name, gesture_name)
 
     def _normalize_gesture_keys(self):
-        if isinstance(self.gesture_bindings, dict):
-            normalized_bindings = {}
-            for gesture_name, config in self.gesture_bindings.items():
-                normalized_bindings[self._normalize_gesture_name(gesture_name)] = config
-            self.gesture_bindings = normalized_bindings
-
-        if isinstance(self.mapa_cenas, dict):
-            normalized_scene_map = {}
-            for gesture_name, scene_name in self.mapa_cenas.items():
-                normalized_scene_map[self._normalize_gesture_name(gesture_name)] = scene_name
-            self.mapa_cenas = normalized_scene_map
+        # Acessa atributos privados diretamente sob RLock — evita re-aquisicao
+        # reentrante via property (RLock suporta reentrada, mas e desnecessario)
+        # e garante que a normalizacao de ambos os dicts seja atomica.
+        with self._bindings_lock:
+            if isinstance(self._gesture_bindings, dict):
+                self._gesture_bindings = {
+                    self._normalize_gesture_name(k): v
+                    for k, v in self._gesture_bindings.items()
+                }
+            if isinstance(self._mapa_cenas, dict):
+                self._mapa_cenas = {
+                    self._normalize_gesture_name(k): v
+                    for k, v in self._mapa_cenas.items()
+                }
 
     def _get_stable_gesture(self, raw_gesture):
         self.detection_window.append(raw_gesture)

@@ -1,8 +1,10 @@
 import json
 import os
+import tempfile
+from pathlib import Path
 import cv2
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -38,6 +40,7 @@ try:
 except Exception:  # pragma: no cover - pygrabber é opcional
     FilterGraph = None
 
+from core.gesture_aliases import GESTURE_ALIASES
 from engine.gesture_engine import GestureEngine
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
@@ -46,21 +49,6 @@ from util.logger import get_logger
 
 
 logger = get_logger(__name__)
-
-
-GESTURE_ALIASES = {
-    "THUMBS_UP": "Joinha",
-    "THUMBS_DOWN": "Deslike",
-    "OPEN_HAND": "Mão aberta",
-    "FIST": "Punho",
-    "POINT": "Apontando p/ cima",
-    "ROCK": "ROCK",
-    "THREE": "TRES",
-    "FOUR": "QUATRO",
-    "OK_SIGN": "OK",
-    "CALL_ME": "Me liga",
-    "V": "V"
-}
 
 
 RESOLUTION_PRESETS = {
@@ -93,17 +81,26 @@ class MainWindow(QMainWindow):
         ("Escoteiro", "assets/icons/scout.png"),
     ]
 
-    def __init__(self, config):
+    def __init__(self, config, config_path=None):
         super().__init__()
 
         self.setWindowTitle("OBS GestureNode")
         self.setMinimumSize(1200, 760)
 
         self.config = config or {}
+        self._config_path = (
+            Path(config_path)
+            if config_path is not None
+            else (Path(__file__).resolve().parent.parent / "config.json")
+        )
         self.engine = None
         self.current_gesture = self.ALL_GESTURES[0][0]
         self._updating_gesture_form = False
         self.gesture_buttons = {}
+
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.timeout.connect(self._do_save_config)
 
         self._init_config_schema()
         self._setup_ui()
@@ -483,6 +480,7 @@ class MainWindow(QMainWindow):
         self.scene_edit.textChanged.connect(self.on_current_gesture_changed)
         self.sound_file_edit.textChanged.connect(self.on_current_gesture_changed)
         self.hotkey_edit.textChanged.connect(self.on_current_gesture_changed)
+        self.hotkey_edit.hotkeyCommitted.connect(self.on_current_gesture_changed)
         self.browse_sound_button.clicked.connect(self.select_sound_file)
 
         self.obs_host.textChanged.connect(self.on_obs_changed)
@@ -1136,9 +1134,31 @@ class MainWindow(QMainWindow):
         }
 
     def salvar_config_automatico(self):
+        # Agenda o save com debounce de 500ms. start() reinicia o timer se ja
+        # estava contando, entao callsites rapidos (ex: arrastar slider) colapsam
+        # em um unico write.
+        self._save_timer.start(500)
+
+    def _do_save_config(self):
+        # Executado na main thread Qt quando o timer dispara (500ms apos o ultimo
+        # agendamento). Faz write atomico via tempfile + os.replace para nunca
+        # deixar config.json parcial se o processo morrer no meio.
         self._sync_scene_map_from_bindings()
-        with open("config.json", "w", encoding="utf-8") as file:
-            json.dump(self.config, file, indent=4)
+        try:
+            dir_path = self._config_path.parent
+            fd, tmp_path = tempfile.mkstemp(dir=str(dir_path), suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self.config, f, indent=4, ensure_ascii=False)
+                os.replace(tmp_path, str(self._config_path))
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+        except OSError as exc:
+            logger.error("Falha ao salvar configuracao: %s", exc)
 
     def set_config_enabled(self, enabled):
         self.camera_device_combo.setEnabled(enabled)

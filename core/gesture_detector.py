@@ -1,18 +1,9 @@
 import math
 
+from core.gesture_aliases import GESTURE_ALIASES
+
+
 class GestureDetector:
-    GESTURE_ALIASES = {
-        "THUMBS_UP": "Joinha",
-        "THUMBS_DOWN": "Deslike",
-        "OPEN_HAND": "Mão aberta",
-        "FIST": "Punho",
-        "POINT": "Apontando p/ cima",
-        "ROCK": "ROCK",
-        "THREE": "TRES",
-        "FOUR": "QUATRO",
-        "OK_SIGN": "OK",
-        "CALL_ME": "Me liga",
-    }
 
     def distancia(self, p1, p2):
         x1, y1 = p1
