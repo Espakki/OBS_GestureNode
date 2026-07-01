@@ -1,4 +1,6 @@
-mediapipe==0.10.9
+PySide6
 opencv-python
-obsws-python
+mediapipe==0.10.14
 pyvirtualcam
+obsws-python
+keyboard

@@ -8,7 +8,7 @@ class CameraManager:
 		camera_index=0,
 		width=1280,
 		height=720,
-		fps=60,
+		fps=30,
 		enable_virtual_camera=True,
 		virtual_camera_device=None,
 	):
@@ -23,7 +23,7 @@ class CameraManager:
 		self.virtual_camera = None
 
 	def iniciar(self):
-		self.capture = cv2.VideoCapture(self.camera_index)
+		self.capture = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
 
 		self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
 		self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
