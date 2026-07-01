@@ -11,6 +11,7 @@ from core.camera import CameraManager
 from core.gesture_aliases import GESTURE_ALIASES
 from actions.action_manager import ActionManager
 from integrations.obs_controller import OBSController
+from integrations.obs_connect_thread import _classificar_erro
 from util.logger import get_logger
 
 
@@ -192,8 +193,8 @@ class GestureEngine(QThread):
         self.mapa_cenas = gestures_cfg.get("scene_map", {})
         self._normalize_gesture_keys()
 
-        self.detection_window_size = int(gestures_cfg.get("detection_window_size", 5))
-        self.detection_min_hits = int(gestures_cfg.get("detection_min_hits", 3))
+        self.detection_window_size = int(gestures_cfg.get("detection_window_size", 7))
+        self.detection_min_hits = int(gestures_cfg.get("detection_min_hits", 5))
         self.detection_window = deque(maxlen=max(3, self.detection_window_size))
 
         # Stability monitoring - garante que mão está parada antes de executar gesto
@@ -226,6 +227,9 @@ class GestureEngine(QThread):
             enable_virtual_camera=camera_cfg.get("enable_virtual_camera"),
             virtual_camera_device=camera_cfg.get("virtual_camera_device"),
         )
+
+        self.process_fps = int(camera_cfg.get("process_fps", 30))
+        self._frame_interval = 1.0 / max(1, self.process_fps)
 
         self.tracker = HandTracker()
         self.detector = GestureDetector()
@@ -308,7 +312,8 @@ class GestureEngine(QThread):
             self.status_changed.emit("OBS conectado")
         except Exception as exc:
             logger.exception("Falha ao conectar OBS: %s", exc)
-            self.status_changed.emit("Falha ao conectar OBS")
+            mensagem = _classificar_erro(exc)
+            self.status_changed.emit(f"OBS: {mensagem}")
             self.obs = None
 
     def run(self):
@@ -331,6 +336,7 @@ class GestureEngine(QThread):
 
         try:
             while self.running:
+                _loop_start = time.monotonic()
                 try:
                     ok, frame = self.camera.ler_frame()
                     if not ok:
@@ -378,18 +384,6 @@ class GestureEngine(QThread):
                         if inicio_gesto and (tempo_atual - inicio_gesto) >= hold_time and is_stable:
                             if (tempo_atual - ultimo_disparo) > cooldown:
                                 action_submitted = False
-                                nome_cena = self.mapa_cenas.get(gesto)
-
-                                if not gesture_cfg and nome_cena:
-                                    gesture_cfg = {
-                                        "enabled": True,
-                                        "hold_time": self.tempo_minimo,
-                                        "cooldown": self.cooldown,
-                                        "scene": nome_cena,
-                                        "play_sound": False,
-                                        "sound_file": "",
-                                        "hotkey": "",
-                                    }
 
                                 if self.actions and gesture_cfg:
                                     try:
@@ -442,6 +436,10 @@ class GestureEngine(QThread):
                     if self.camera.enable_virtual_camera:
                         self.camera.enviar_para_virtual(frame)
                     self.frame_ready.emit(frame)
+                    elapsed = time.monotonic() - _loop_start
+                    sleep_time = self._frame_interval - elapsed
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
                 except Exception as exc:
                     logger.exception("Erro no loop principal: %s", exc)
                     time.sleep(0.1)
@@ -471,8 +469,13 @@ class GestureEngine(QThread):
         if use_hotkey and hotkey:
             self.actions.executar("atalho", hotkey)
 
+    def set_obs_controller(self, obs_controller):
+        """Troca atômica do OBSController. Chamado pela thread da UI via sinal."""
+        self.obs = obs_controller
+        if self.actions:
+            self.actions.obs = obs_controller
+
     def stop(self):
         self.running = False
         if self.isRunning():
             self.wait(2000)
-        

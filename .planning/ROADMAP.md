@@ -11,8 +11,8 @@
 ## Phases
 
 - [x] **Phase 1: Foundation** - Corrigir os 5 defeitos críticos e reparar dependências quebradas
-- [ ] **Phase 2: Engine & Camera** - Otimizar pipeline MediaPipe e estabilizar parâmetros de detecção
-- [ ] **Phase 3: OBS Connection** - Tornar a conexão OBS confiável e não-bloqueante
+- [x] **Phase 2: Engine & Camera** - Otimizar pipeline MediaPipe e estabilizar parâmetros de detecção (completed 2026-06-25)
+- [x] **Phase 3: OBS Connection** - Tornar a conexão OBS confiável e não-bloqueante (completed 2026-06-25)
 - [ ] **Phase 4: Preview UX** - Adicionar feedback visual de gesto detectado no preview da câmera
 - [ ] **Phase 5: Onboarding & Config** - Implementar onboarding de primeira execução e validação inline
 - [ ] **Phase 6: UI Visual Redesign** - Redesenhar identidade visual, layout e componentização da interface
@@ -65,7 +65,22 @@
   4. Usuário consegue reduzir hold_time para 0.5s nas configurações e o campo aceita o valor sem resetar
   5. Preview de câmera mantém frame rate estável mesmo quando MediaPipe demora mais que o usual em um frame
 
-**Plans:** TBD
+**Plans:** 5/5 plans complete
+
+**Wave 1** *(paralelo — sem conflito de arquivos)*
+
+- [x] 02-01-PLAN.md — Shutdown limpo da câmera: grab()+retrieve() + encerrar() resiliente + print→logger (CAM-04)
+- [x] 02-02-PLAN.md — Parâmetros de estabilização detection_window_size=7, min_hits=5 + chaves no config (ENG-02)
+- [x] 02-04-PLAN.md — hold_time mínimo 0.5s (slider/spinbox + 3 clamps) + nota de recomendação na UI (ENG-01)
+
+**Wave 2**
+
+- [x] 02-03-PLAN.md — Resize 640×480 (INTER_AREA) + MediaPipe lite (model_complexity=0, tracking 0.5); engine emite frame processado (CAM-01, CAM-02)
+
+**Wave 3**
+
+- [x] 02-05-PLAN.md — Teto de FPS de processamento time-based via process_fps + schema (CAM-03)
+
 **UI hint**: yes
 
 ### Phase 3: OBS Connection
@@ -82,7 +97,17 @@
   4. Erro de senha incorreta exibe mensagem "Senha incorreta — verifique as configurações do WebSocket no OBS"
   5. Estado "conectado" só aparece após o handshake get_version() ter sido bem-sucedido
 
-**Plans:** TBD
+**Plans:** 3/3 plans complete
+
+**Wave 1**
+
+- [x] 03-01-PLAN.md — OBSConnectThread(QThread) + handshake get_version() em OBSController.connect() + classificador de erros (OBS-01, UX-04, UX-03)
+
+**Wave 2** *(paralelo — arquivos disjuntos)*
+
+- [x] 03-02-PLAN.md — Botão "Testar conexão" não-bloqueante + label de status OBS no rodapé + slots de resultado (UX-04, UX-02, UX-03)
+- [x] 03-03-PLAN.md — engine._connect_obs() com handshake + mensagens de erro classificadas reutilizando _classificar_erro (OBS-01, UX-03, UX-02)
+
 **UI hint**: yes
 
 ### Phase 4: Preview UX
@@ -153,9 +178,9 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 3/5 | In Progress|  |
-| 2. Engine & Camera | 0/? | Not started | - |
-| 3. OBS Connection | 0/? | Not started | - |
+| 1. Foundation | 5/5 | Complete | 2026-06-23 |
+| 2. Engine & Camera | 5/5 | Complete   | 2026-06-25 |
+| 3. OBS Connection | 3/3 | Complete   | 2026-06-25 |
 | 4. Preview UX | 0/? | Not started | - |
 | 5. Onboarding & Config | 0/? | Not started | - |
 | 6. UI Visual Redesign | 0/? | Not started | - |

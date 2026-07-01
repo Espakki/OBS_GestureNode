@@ -1,6 +1,10 @@
 import cv2
 import pyvirtualcam
 
+from util.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class CameraManager:
 	def __init__(
@@ -36,14 +40,17 @@ class CameraManager:
 				fps=self.fps,
 				device=self.virtual_camera_device,
 			)
-			print(f"Câmera virtual ativa: {self.virtual_camera.device}")
+			logger.info("Câmera virtual ativa: %s", self.virtual_camera.device)
 
 	def ler_frame(self):
 		if not self.capture:
 			return False, None
 
-		ok, frame = self.capture.read()
-		if not ok:
+		if not self.capture.grab():
+			return False, None
+
+		ok, frame = self.capture.retrieve()
+		if not ok or frame is None:
 			return False, None
 
 		frame = cv2.flip(frame, 1)
@@ -58,8 +65,14 @@ class CameraManager:
 		self.virtual_camera.sleep_until_next_frame()
 
 	def encerrar(self):
-		if self.capture:
-			self.capture.release()
+		try:
+			if self.capture:
+				self.capture.release()
+		except Exception as exc:
+			logger.exception("Erro ao liberar capture: %s", exc)
 
-		if self.virtual_camera:
-			self.virtual_camera.close()
+		try:
+			if self.virtual_camera:
+				self.virtual_camera.close()
+		except Exception as exc:
+			logger.exception("Erro ao fechar câmera virtual: %s", exc)

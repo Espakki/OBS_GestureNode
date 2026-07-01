@@ -336,21 +336,25 @@ class GestosTab(QWidget):
         hold_label.setMinimumWidth(140)
         hold_row.addWidget(hold_label)
         self.hold_slider = QSlider(Qt.Horizontal)
-        self.hold_slider.setRange(20, 50)  # 2.0 a 5.0s (multiplicador de 0.1)
+        self.hold_slider.setRange(5, 50)  # 0.5 a 5.0s (multiplicador de 0.1)
         self.hold_slider.setMinimumHeight(30)
         self.hold_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.hold_value_spinbox = QDoubleSpinBox()
-        self.hold_value_spinbox.setRange(2.0, 5.0)  # 2.0 a 5.0 segundos
+        self.hold_value_spinbox.setRange(0.5, 5.0)  # 0.5 a 5.0 segundos
         self.hold_value_spinbox.setSingleStep(1.0)  # Incremento de 1s com ↑↓ (mas permite digitar decimais)
         self.hold_value_spinbox.setDecimals(1)  # 1 casa decimal
         self.hold_value_spinbox.setSuffix("s")
         self.hold_value_spinbox.setMinimumWidth(80)
         self.hold_value_spinbox.setAlignment(Qt.AlignCenter)
         # Tooltip para indicar que é clicável
-        self.hold_value_spinbox.setToolTip("Clique para editar ou use as setas (2.0-5.0s)")
+        self.hold_value_spinbox.setToolTip("Clique para editar ou use as setas (0.5-5.0s)")
         hold_row.addWidget(self.hold_slider)
         hold_row.addWidget(self.hold_value_spinbox)
         editor_layout.addLayout(hold_row)
+        self.hold_time_note = QLabel("Recomendado: 2.0s para streaming ao vivo (protege contra gestos acidentais durante fala)")
+        self.hold_time_note.setObjectName("muted")
+        self.hold_time_note.setWordWrap(True)
+        editor_layout.addWidget(self.hold_time_note)
 
         cooldown_row = QHBoxLayout()
         cooldown_row.setSpacing(10)

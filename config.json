@@ -5,11 +5,12 @@
         "width": 640,
         "height": 480,
         "fps": 30,
+        "process_fps": 30,
         "enable_virtual_camera": false,
         "virtual_camera_device": null,
         "show_preview": false,
         "show_skeleton": true,
-        "device_name": ""
+        "device_name": "HD Pro Webcam C920"
     },
     "obs": {
         "host": "localhost",
@@ -19,33 +20,33 @@
     "gestures": {
         "bindings": {
             "V": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
-                "scene": "",
+                "scene": "Exemplo",
                 "play_sound": false,
                 "sound_file": "",
                 "hotkey": "",
-                "use_scene": false,
+                "use_scene": true,
                 "use_sound": false,
                 "use_hotkey": false
             },
             "Joinha": {
-                "enabled": true,
-                "hold_time": 2.0,
+                "enabled": false,
+                "hold_time": 3.3,
                 "cooldown": 2.0,
-                "scene": "",
-                "play_sound": false,
+                "scene": "AWDASD",
+                "play_sound": true,
                 "sound_file": "",
                 "hotkey": "",
-                "use_scene": false,
-                "use_sound": false,
+                "use_scene": true,
+                "use_sound": true,
                 "use_hotkey": false
             },
             "Mão aberta": {
-                "enabled": true,
-                "hold_time": 2.0,
-                "cooldown": 2.0,
+                "enabled": false,
+                "hold_time": 4.9,
+                "cooldown": 3.0,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
@@ -55,9 +56,9 @@
                 "use_hotkey": false
             },
             "Punho": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.0,
-                "cooldown": 4.0,
+                "cooldown": 4.6,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
@@ -67,7 +68,7 @@
                 "use_hotkey": false
             },
             "Apontando p/ cima": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -79,43 +80,43 @@
                 "use_hotkey": false
             },
             "Rock": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
-                "hotkey": "",
+                "hotkey": "Ctrl+Shift+X",
                 "use_scene": false,
                 "use_sound": false,
-                "use_hotkey": false
+                "use_hotkey": true
             },
             "Três": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
-                "hotkey": "",
+                "hotkey": "Ctrl+Shift+Z",
                 "use_scene": false,
                 "use_sound": false,
-                "use_hotkey": false
+                "use_hotkey": true
             },
             "Quatro": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
-                "hotkey": "",
+                "hotkey": "Ctrl+Shift+F",
                 "use_scene": false,
                 "use_sound": false,
-                "use_hotkey": false
+                "use_hotkey": true
             },
             "OK": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -127,7 +128,7 @@
                 "use_hotkey": false
             },
             "Me liga": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -139,7 +140,7 @@
                 "use_hotkey": false
             },
             "Deslike": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -151,7 +152,7 @@
                 "use_hotkey": false
             },
             "Dedo do Meio": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.5,
                 "cooldown": 2.0,
                 "scene": "",
@@ -163,7 +164,7 @@
                 "use_hotkey": false
             },
             "Arminha": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 3.7,
                 "cooldown": 2.0,
                 "scene": "",
@@ -175,9 +176,9 @@
                 "use_hotkey": false
             },
             "Escoteiro": {
-                "enabled": true,
+                "enabled": false,
                 "hold_time": 2.8,
-                "cooldown": 2.0,
+                "cooldown": 4.0,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
@@ -189,24 +190,21 @@
         },
         "default_hold_time": 2.0,
         "default_cooldown": 2.0,
+        "detection_window_size": 7,
+        "detection_min_hits": 5,
         "enable_stability_check": true,
         "motion_pixel_threshold": 4,
         "stability_min_frames": 3,
         "check_velocity_trend": true,
         "active_gestures": [
-            "V",
-            "Joinha",
-            "Mão aberta",
-            "Punho",
-            "Apontando p/ cima",
-            "OK",
-            "Me liga",
-            "Deslike",
-            "Dedo do Meio",
-            "Arminha",
-            "Escoteiro"
+            "Rock",
+            "Três",
+            "Quatro"
         ],
-        "scene_map": {}
+        "scene_map": {
+            "V": "Exemplo",
+            "Joinha": "AWDASD"
+        }
     },
     "features": {
         "use_sounds": false,

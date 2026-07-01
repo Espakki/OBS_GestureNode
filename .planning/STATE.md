@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-current_phase: 02
-current_phase_name: engine-camera
+current_phase: 04
+current_phase_name: preview-ux
 status: planning
-stopped_at: "Phase 1 completa (UAT 2026-06-23); pronta para Phase 2"
-last_updated: "2026-06-23T21:30:00-03:00"
+stopped_at: Phase 03 complete — UAT passed (8/9, 1 fix applied)
+last_updated: "2026-06-25T23:03:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 14
+  completed_phases: 3
+  total_plans: 13
+  completed_plans: 13
+  percent: 43
 ---
 
 # Project State
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-22)
 
 **Core value:** Um streamer deve conseguir trocar de cena no OBS com um gesto de mão sem tirar as mãos do controle — com detecção confiável e sem configuração técnica.
-**Current focus:** Phase 02 — Engine & Camera
+**Current focus:** Phase 04 — preview-ux
 
 ---
 
@@ -37,14 +37,14 @@ See: .planning/PROJECT.md (updated 2026-06-22)
 
 ## Current Position
 
-**Phase:** 02 (engine-camera) — não iniciada
-**Plan:** —
-**Status:** Phase 01 completa (UAT aprovado 2026-06-23, 2 fixes aplicados inline)
-**Progress:** 1/7 phases complete
+**Phase:** 04 (preview-ux) — PLANNING
+**Plan:** 0 of ?
+**Status:** Ready to plan
+**Progress:** [----------] 0%
 
 ```
 [Phase 1] [Phase 2] [Phase 3] [Phase 4] [Phase 5] [Phase 6] [Phase 7]
-   ✓          ○          ○          ○          ○          ○          ○
+   ✓          ✓          ✓          ○          ○          ○          ○
 ```
 
 ---
@@ -74,6 +74,11 @@ See: .planning/PROJECT.md (updated 2026-06-22)
 | Installs quebrados | pygrabber ausente | todas deps fixadas no requirements.txt ✓ DEP-01/02 |
 
 ---
+| Phase 02 P01 | 15m | 2 tasks | 1 files |
+| Phase 02 P01 | 15m | 3 tasks | 1 files |
+| Phase 02 P02 | 10m | 2 tasks | 2 files |
+| Phase 03 P02 | 10min | 2 tasks | 1 files |
+| Phase 03 P03 | 5min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -114,6 +119,10 @@ Phase 1-5                 →  Phase 7 (platform abstraction)
 - [ ] Testar comportamento de `obsws-python` em desconexão inesperada durante Phase 3
 - [ ] Pesquisa adicional sobre pynput + v4l2loopback antes de iniciar Phase 7
 
+### Pending Captured Todos (1)
+
+- [ ] [Investigar lag em resoluções altas com MediaPipe e webcams](.planning/todos/pending/2026-06-25-investigar-lag-em-resolu-es-altas-com-mediapipe-e-webcams.md) — engine · lag 720p/1080p · crítico para escopo
+
 ---
 
 ## Workflow Preferences
@@ -130,11 +139,11 @@ Phase 1-5                 →  Phase 7 (platform abstraction)
 
 ## Session Continuity
 
-**Stopped at:** Phase 2 — pronta para iniciar
-**Resume file:** .planning/ROADMAP.md
+**Stopped at:** Completed 03-02-PLAN.md
+**Resume file:** None
 
-**Last session:** 2026-06-23T21:30:00-03:00
-**Next action:** `/gsd-discuss-phase 2` ou `/gsd-plan-phase 2` para iniciar Phase 2 (Engine & Camera)
+**Last session:** 2026-06-25T21:54:09.621Z
+**Next action:** Executar planos restantes da Phase 2 (02-03, 02-04, 02-05) — Wave 2 e Wave 3
 **Context files:**
 
 - `.planning/PROJECT.md` — core value, constraints, decisions
@@ -146,3 +155,12 @@ Phase 1-5                 →  Phase 7 (platform abstraction)
 ---
 
 *Last updated: 2026-06-23*
+
+## Decisions
+
+- [Phase ?]: 02-01
+- [Phase ?]: 02-01: CAM-04 shutdown
+- [Phase ?]: 02-01: encerrar resiliente
+- [Phase ?]: 02-01: logger
+- [Phase ?]: detection_window_size=7 e detection_min_hits=5 (71%) reduzem falsos positivos em ENG-02
+- [Phase ?]: obs_footer_label em QHBoxLayout status_row com addStretch (03-02)

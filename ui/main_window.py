@@ -42,6 +42,7 @@ except Exception:  # pragma: no cover - pygrabber é opcional
 
 from core.gesture_aliases import GESTURE_ALIASES
 from engine.gesture_engine import GestureEngine
+from integrations.obs_connect_thread import _resumir_footer_obs as _resumir_footer_obs_fn
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
 from ui.tabs.obs_tab import OBSTab
@@ -94,6 +95,7 @@ class MainWindow(QMainWindow):
             else (Path(__file__).resolve().parent.parent / "config.json")
         )
         self.engine = None
+        self._obs_connect_thread = None
         self.current_gesture = self.ALL_GESTURES[0][0]
         self._updating_gesture_form = False
         self.gesture_buttons = {}
@@ -118,6 +120,7 @@ class MainWindow(QMainWindow):
         camera_cfg.setdefault("width", 1280)
         camera_cfg.setdefault("height", 720)
         camera_cfg.setdefault("fps", 30)
+        camera_cfg.setdefault("process_fps", 30)
         camera_cfg.setdefault("enable_virtual_camera", False)
         camera_cfg.setdefault("virtual_camera_device", None)
         camera_cfg.setdefault("show_skeleton", True)
@@ -130,9 +133,9 @@ class MainWindow(QMainWindow):
         gestures_cfg = self.config.setdefault("gestures", {})
         default_hold = gestures_cfg.get("default_hold_time", gestures_cfg.get("hold_time", 2.0))
         default_cooldown = gestures_cfg.get("default_cooldown", gestures_cfg.get("cooldown", 2.0))
-        # Garantir mínimo de 2.0 segundos para hold_time (evitar flood)
+        # Garantir mínimo de 0.5s para hold_time (2.0s é o recomendado)
         # e 2.0 segundos para cooldown
-        default_hold = max(2.0, float(default_hold))
+        default_hold = max(0.5, float(default_hold))
         default_cooldown = max(2.0, float(default_cooldown))
         gestures_cfg["default_hold_time"] = default_hold
         gestures_cfg["default_cooldown"] = default_cooldown
@@ -174,8 +177,8 @@ class MainWindow(QMainWindow):
             raw = bindings.get(gesture, {}) if isinstance(bindings, dict) else {}
             hold_time = float(raw.get("hold_time", gestures_cfg["default_hold_time"]))
             cooldown = float(raw.get("cooldown", gestures_cfg["default_cooldown"]))
-            # Garantir mínimos: hold_time >= 2.0s, cooldown >= 2.0s
-            hold_time = max(2.0, hold_time)
+            # Garantir mínimos: hold_time >= 0.5s, cooldown >= 2.0s
+            hold_time = max(0.5, hold_time)
             cooldown = max(2.0, cooldown)
             normalized[gesture] = {
                 "enabled": bool(raw.get("enabled", gesture in gestures_cfg["active_gestures"])),
@@ -529,7 +532,12 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.restart_button)
 
         self.status_label = QLabel("Status: Parado")
-        bottom_layout.addWidget(self.status_label)
+        self.obs_footer_label = QLabel("🔴 OBS: Desconectado")
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status_label)
+        status_row.addStretch()
+        status_row.addWidget(self.obs_footer_label)
+        bottom_layout.addLayout(status_row)
 
         log_title = QLabel("Logs")
         log_title.setObjectName("title")
@@ -803,7 +811,7 @@ class MainWindow(QMainWindow):
         
         # Hold time: converter para float (2.0-5.0)
         hold_time_seconds = float(cfg.get("hold_time", 2.0))
-        hold_time_seconds = max(2.0, min(5.0, hold_time_seconds))  # Garantir 2.0-5.0s
+        hold_time_seconds = max(0.5, min(5.0, hold_time_seconds))  # Garantir 0.5-5.0s
         self.hold_value_spinbox.setValue(hold_time_seconds)
         self.hold_slider.setValue(int(hold_time_seconds * 10))  # Converter para slider
         
@@ -963,24 +971,64 @@ class MainWindow(QMainWindow):
         self.salvar_config_automatico()
 
     def testar_conexao_obs(self):
-        from integrations.obs_controller import OBSController
+        from integrations.obs_connect_thread import OBSConnectThread
+
+        # Cancelar tentativa anterior: desconectar slots para ignorar sinais obsoletos
+        if self._obs_connect_thread is not None:
+            try:
+                self._obs_connect_thread.connected.disconnect()
+                self._obs_connect_thread.failed.disconnect()
+                self._obs_connect_thread.connecting.disconnect()
+            except Exception:
+                pass
+            self._obs_connect_thread = None
 
         host = self.obs_host.text().strip()
         port = self.obs_port.value()
         password = self.obs_password.text()
 
-        try:
-            obs = OBSController(host=host, port=port, password=password)
-            obs.connect()
-            cenas = obs.listar_cenas()
-            if cenas:
-                self.obs_status_label.setText("Status: Conectado ✅")
-            else:
-                self.obs_status_label.setText("Conectado, mas sem cenas")
-            obs.disconnect()
-        except Exception as exc:
-            self.obs_status_label.setText("Falha na conexão ❌")
-            logger.exception("Erro ao testar conexão OBS: %s", exc)
+        # D-03: desabilitar botão durante a tentativa e sinalizar estado
+        self.test_obs_button.setEnabled(False)
+        self.obs_status_label.setText("Conectando...")
+        self.obs_footer_label.setText("⏳ OBS: Conectando...")
+        from PySide6.QtWidgets import QApplication
+        QApplication.processEvents()  # garante repaint antes de iniciar thread (evita coalescing em falhas rápidas)
+
+        thread = OBSConnectThread(host, port, password)
+        thread.connecting.connect(self.on_obs_conectando)
+        thread.connected.connect(self.on_obs_conectado)
+        thread.failed.connect(self.on_obs_falhou)
+        thread.finished.connect(thread.deleteLater)  # Armadilha 2: libera thread ao completar
+        self._obs_connect_thread = thread  # Armadilha 4: manter referência viva
+        thread.start()
+
+    def on_obs_conectando(self):
+        """Slot chamado quando a thread inicia a tentativa de conexão."""
+        self.obs_status_label.setText("Conectando...")
+        self.obs_footer_label.setText("⏳ OBS: Conectando...")
+
+    def on_obs_conectado(self, obs_controller):
+        """Slot chamado quando a conexão OBS é estabelecida com sucesso."""
+        self.test_obs_button.setEnabled(True)
+        self.obs_status_label.setText("Status: Conectado ✅")
+        self.obs_footer_label.setText("🟢 OBS: Conectado")
+        # Atribuir OBSController à engine via método dedicado (co-localiza as duas escritas)
+        if self.engine and self.engine.isRunning():
+            self.engine.set_obs_controller(obs_controller)
+        self._refresh_health_panels()
+        self._obs_connect_thread = None
+
+    def on_obs_falhou(self, mensagem):
+        """Slot chamado quando a tentativa de conexão OBS falha."""
+        self.test_obs_button.setEnabled(True)
+        self.obs_status_label.setText(mensagem)  # mensagem acionável detalhada (D-08)
+        self.obs_footer_label.setText(self._resumir_footer_obs(mensagem))
+        self._refresh_health_panels()
+        self._obs_connect_thread = None
+
+    def _resumir_footer_obs(self, mensagem):
+        """Delega ao mapeamento co-localizado com _classificar_erro."""
+        return _resumir_footer_obs_fn(mensagem)
 
     def start_engine(self):
         erros, avisos = self._validar_config_execucao()
@@ -1044,10 +1092,36 @@ class MainWindow(QMainWindow):
         self._refresh_health_panels()
 
     def restart_engine(self):
-        running = bool(self.engine and self.engine.isRunning())
-        if running:
+        if self.engine and self.engine.isRunning():
+            self.engine.finished.connect(self._on_reiniciar_apos_parada)
             self.stop_engine()
+        else:
+            self.start_engine()
+
+    def _on_reiniciar_apos_parada(self):
+        try:
+            self.engine.finished.disconnect(self._on_reiniciar_apos_parada)
+        except Exception:
+            pass
         self.start_engine()
+
+    def closeEvent(self, event):
+        # Encerrar thread de conexão OBS em andamento
+        if self._obs_connect_thread is not None:
+            try:
+                self._obs_connect_thread.connected.disconnect()
+                self._obs_connect_thread.failed.disconnect()
+                self._obs_connect_thread.connecting.disconnect()
+            except Exception:
+                pass
+            self._obs_connect_thread.wait(3000)
+            self._obs_connect_thread = None
+
+        # Encerrar engine de gestos
+        if self.engine and self.engine.isRunning():
+            self.engine.stop()
+
+        super().closeEvent(event)
 
     def _validar_config_execucao(self):
         erros = []
@@ -1192,6 +1266,12 @@ class MainWindow(QMainWindow):
         self.status_label.setText(text)
         self._append_log(text)
         self._update_runtime_health_from_status(text)
+        # Rotear mensagens OBS do startup da engine (Plano 03) ao rodapé
+        if text == "OBS conectado":
+            self.obs_footer_label.setText("🟢 OBS: Conectado")
+        elif text.startswith("OBS:"):
+            mensagem_obs = text[len("OBS:"):].strip()
+            self.obs_footer_label.setText(self._resumir_footer_obs(mensagem_obs))
 
     def _append_log(self, message):
         if not message:

@@ -26,13 +26,21 @@ class OBSController:
             timeout=5
         )
 
+        # D-04: Handshake — verifica que a conexão é funcional antes de setar connected
+        self.cliente.get_version()  # lança OBSSDKTimeoutError ou OBSSDKRequestError se falhar
+
         self.connected = True
 
         logger.info("Conectado ao OBS!")
         logger.info("Tempo OBS: %.3fs", time.time() - inicio)
 
     def disconnect(self):
-        self.cliente = None
+        if self.cliente is not None:
+            try:
+                self.cliente.disconnect()
+            except Exception:
+                pass
+            self.cliente = None
         self.connected = False
 
     def listar_cenas(self):
