@@ -2,9 +2,10 @@ import cv2
 import mediapipe as mp
 
 
-# Resolução de processamento fixa para MediaPipe — desacoplada da resolução de captura
+# Largura de processamento fixa para MediaPipe — desacoplada da resolução de captura.
+# A altura é calculada proporcionalmente a partir do frame real para preservar o
+# aspect ratio e evitar distorção horizontal em câmeras 16:9 (720p/1080p).
 PROCESS_W = 640
-PROCESS_H = 480
 
 
 class HandTracker:
@@ -22,8 +23,12 @@ class HandTracker:
         )
 
     def processar(self, frame, draw_skeleton=True):
-        # Redimensionar para 640×480 antes da inferência — normaliza custo independente da câmera
-        frame_small = cv2.resize(frame, (PROCESS_W, PROCESS_H), interpolation=cv2.INTER_AREA)
+        h_orig, w_orig = frame.shape[:2]
+
+        # Redimensionar preservando aspect ratio — normaliza custo de inferência
+        # independente da câmera e elimina distorção horizontal em resoluções 16:9
+        process_h = max(1, int(h_orig * PROCESS_W / w_orig))
+        frame_small = cv2.resize(frame, (PROCESS_W, process_h), interpolation=cv2.INTER_AREA)
 
         frame_rgb = cv2.cvtColor(frame_small, cv2.COLOR_BGR2RGB)
         resultado = self.maos.process(frame_rgb)
@@ -35,7 +40,7 @@ class HandTracker:
                 # Calcular landmarks na escala do frame reduzido (NÃO da resolução nativa)
                 for id, lm in enumerate(hand_landmarks.landmark):
                     px = int(lm.x * PROCESS_W)
-                    py = int(lm.y * PROCESS_H)
+                    py = int(lm.y * process_h)
                     pontos.append((px, py))
 
                 if draw_skeleton:

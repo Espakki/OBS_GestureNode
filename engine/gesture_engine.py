@@ -221,8 +221,9 @@ class GestureEngine(QThread):
 
         self.camera = CameraManager(
             camera_index=camera_cfg.get("index", 0),
-            width=camera_cfg.get("width", 1280),
-            height=camera_cfg.get("height", 720),
+            camera_name=camera_cfg.get("device_name", ""),
+            width=camera_cfg.get("width", 1920),
+            height=camera_cfg.get("height", 1080),
             fps=camera_cfg.get("fps", 30),
             enable_virtual_camera=camera_cfg.get("enable_virtual_camera"),
             virtual_camera_device=camera_cfg.get("virtual_camera_device"),
@@ -321,9 +322,15 @@ class GestureEngine(QThread):
         self.status_changed.emit("Engine iniciada")
 
         self._connect_obs()
-        self.camera.iniciar()
+        try:
+            self.camera.iniciar()
+        except Exception as exc:
+            logger.exception("Falha ao iniciar câmera: %s", exc)
+            self.status_changed.emit("Falha ao iniciar câmera")
+            self.running = False
+            return
 
-        if not self.camera.capture or not self.camera.capture.isOpened():
+        if not self.camera.aberta:
             self.status_changed.emit("Falha ao iniciar câmera")
             self.running = False
             return

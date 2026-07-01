@@ -2,8 +2,8 @@
     "modo": "test",
     "camera": {
         "index": 0,
-        "width": 640,
-        "height": 480,
+        "width": 1920,
+        "height": 1080,
         "fps": 30,
         "process_fps": 30,
         "enable_virtual_camera": false,
@@ -20,8 +20,8 @@
     "gestures": {
         "bindings": {
             "V": {
-                "enabled": false,
-                "hold_time": 2.0,
+                "enabled": true,
+                "hold_time": 0.5,
                 "cooldown": 2.0,
                 "scene": "Exemplo",
                 "play_sound": false,
@@ -32,21 +32,21 @@
                 "use_hotkey": false
             },
             "Joinha": {
-                "enabled": false,
-                "hold_time": 3.3,
+                "enabled": true,
+                "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "AWDASD",
-                "play_sound": true,
+                "play_sound": false,
                 "sound_file": "",
                 "hotkey": "",
-                "use_scene": true,
-                "use_sound": true,
+                "use_scene": false,
+                "use_sound": false,
                 "use_hotkey": false
             },
             "Mão aberta": {
-                "enabled": false,
-                "hold_time": 4.9,
-                "cooldown": 3.0,
+                "enabled": true,
+                "hold_time": 2.6,
+                "cooldown": 2.0,
                 "scene": "",
                 "play_sound": false,
                 "sound_file": "",
@@ -56,7 +56,7 @@
                 "use_hotkey": false
             },
             "Punho": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 4.6,
                 "scene": "",
@@ -68,7 +68,7 @@
                 "use_hotkey": false
             },
             "Apontando p/ cima": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -116,7 +116,7 @@
                 "use_hotkey": true
             },
             "OK": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -128,7 +128,7 @@
                 "use_hotkey": false
             },
             "Me liga": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -140,7 +140,7 @@
                 "use_hotkey": false
             },
             "Deslike": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.0,
                 "cooldown": 2.0,
                 "scene": "",
@@ -152,8 +152,8 @@
                 "use_hotkey": false
             },
             "Dedo do Meio": {
-                "enabled": false,
-                "hold_time": 2.5,
+                "enabled": true,
+                "hold_time": 0.5,
                 "cooldown": 2.0,
                 "scene": "",
                 "play_sound": false,
@@ -164,7 +164,7 @@
                 "use_hotkey": false
             },
             "Arminha": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 3.7,
                 "cooldown": 2.0,
                 "scene": "",
@@ -176,7 +176,7 @@
                 "use_hotkey": false
             },
             "Escoteiro": {
-                "enabled": false,
+                "enabled": true,
                 "hold_time": 2.8,
                 "cooldown": 4.0,
                 "scene": "",
@@ -197,9 +197,20 @@
         "stability_min_frames": 3,
         "check_velocity_trend": true,
         "active_gestures": [
+            "V",
+            "Joinha",
+            "Mão aberta",
+            "Punho",
+            "Apontando p/ cima",
             "Rock",
             "Três",
-            "Quatro"
+            "Quatro",
+            "OK",
+            "Me liga",
+            "Deslike",
+            "Dedo do Meio",
+            "Arminha",
+            "Escoteiro"
         ],
         "scene_map": {
             "V": "Exemplo",
