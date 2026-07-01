@@ -177,6 +177,13 @@ class GestureEngine(QThread):
         self._setup()
 
     def _setup(self):
+        # Normalização do modo canônico: migração silenciosa de valores legados v1.1
+        _legado_map = {"test": "teste", "obs": "automatico"}
+        _modos_validos = {"teste", "manual", "automatico"}
+        _raw_modo = str(self.config.get("modo", "automatico") or "automatico").lower()
+        _raw_modo = _legado_map.get(_raw_modo, _raw_modo)
+        self.modo = _raw_modo if _raw_modo in _modos_validos else "automatico"
+
         camera_cfg = self.config.get("camera", {})
         gestures_cfg = self.config.get("gestures", {})
         self.show_skeleton = bool(camera_cfg.get("show_skeleton", True))
@@ -225,7 +232,7 @@ class GestureEngine(QThread):
             width=camera_cfg.get("width", 1920),
             height=camera_cfg.get("height", 1080),
             fps=camera_cfg.get("fps", 30),
-            enable_virtual_camera=camera_cfg.get("enable_virtual_camera"),
+            enable_virtual_camera=(self.modo == "automatico"),
             virtual_camera_device=camera_cfg.get("virtual_camera_device"),
         )
 
@@ -234,7 +241,7 @@ class GestureEngine(QThread):
 
         self.tracker = HandTracker()
         self.detector = GestureDetector()
-        self.actions = ActionManager(None)
+        self.actions = ActionManager(None, modo=self.modo)
         self.action_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gesture-actions")
 
     @property
@@ -296,7 +303,7 @@ class GestureEngine(QThread):
         if self.actions:
             self.actions.obs = None
 
-        if self.config.get("modo") != "obs":
+        if self.modo not in ("manual", "automatico"):
             return
 
         obs_cfg = self.config.get("obs", {})
@@ -322,6 +329,14 @@ class GestureEngine(QThread):
         self.status_changed.emit("Engine iniciada")
 
         self._connect_obs()
+
+        if self.modo == "automatico" and self.obs is not None:
+            try:
+                self.obs.ativar_driver_virtual_cam()
+                logger.info("Driver da câmera virtual ativado")
+            except Exception as exc:
+                logger.warning("Não foi possível ativar driver VirtualCam: %s", exc)
+
         try:
             self.camera.iniciar()
         except Exception as exc:
@@ -336,6 +351,9 @@ class GestureEngine(QThread):
             return
 
         self.status_changed.emit("Câmera iniciada")
+
+        if self.modo == "teste":
+            self.status_changed.emit("Modo Teste — ações desativadas")
 
         ultimo_disparo_por_gesto = {}
         inicio_gesto = None
@@ -392,7 +410,7 @@ class GestureEngine(QThread):
                             if (tempo_atual - ultimo_disparo) > cooldown:
                                 action_submitted = False
 
-                                if self.actions and gesture_cfg:
+                                if self.actions and gesture_cfg and self.modo != "teste":
                                     try:
                                         scene = gesture_cfg.get("scene", "").strip()
                                         use_scene = bool(gesture_cfg.get("use_scene", bool(scene)))
@@ -433,6 +451,10 @@ class GestureEngine(QThread):
                                             self.status_changed.emit(": ".join([status_parts[0], ", ".join(status_parts[1:])]))
                                     except Exception as exc:
                                         logger.exception("Erro ao executar ação: %s", exc)
+
+                                elif self.modo == "teste" and gesture_cfg:
+                                    self.status_changed.emit(f"Gesto detectado: {gesto} (Modo Teste — ação bloqueada)")
+                                    action_submitted = True
 
                                 if action_submitted:
                                     ultimo_disparo_por_gesto[gesto] = tempo_atual
@@ -475,6 +497,7 @@ class GestureEngine(QThread):
 
         if use_hotkey and hotkey:
             self.actions.executar("atalho", hotkey)
+            self.status_changed.emit(f"Hotkey enviada: {hotkey}")
 
     def set_obs_controller(self, obs_controller):
         """Troca atômica do OBSController. Chamado pela thread da UI via sinal."""

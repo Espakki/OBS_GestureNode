@@ -216,13 +216,28 @@
 **Requirements:** MODE-01, MODE-02, MODE-03, MODE-04
 **Files affected:** ui/tabs/geral_tab.py, ui/main_window.py, engine/gesture_engine.py, config.json
 **Success Criteria** (what must be TRUE):
+
   1. Modo "Teste": câmera roda e gestos aparecem no preview, mas nenhuma ação OBS ou hotkey é executada — mesmo com OBS aberto
   2. Modo "Manual": atalhos de teclado e áudio funcionam; VCam output permanece desativado; usuário decide quando conectar ao OBS
   3. Modo "Automático": conexão WebSocket e VCam output iniciam automaticamente ao abrir o app sem clique adicional do usuário
   4. Reiniciar o app após trocar de modo carrega o mesmo modo selecionado — seleção não retorna ao padrão
-  5. Primeira execução inicia no modo "Teste" sem exigir OBS aberto
+  5. Primeira execução inicia no modo "Teste" sem exigir OBS aberto *(NOTE: substituído por D-01 — padrão de fábrica é "automatico")*
 
-**Plans:** TBD
+**Plans:** 3/4 plans executed
+
+**Wave 1** *(paralelo — arquivos disjuntos)*
+
+- [x] 08-01-PLAN.md — Matriz de comportamento no backend: engine (_connect_obs manual/automatico, VCam só automatico, status Teste) + ActionManager bloqueia ações em Teste (MODE-01, MODE-02, MODE-03)
+- [x] 08-02-PLAN.md — Aba Geral: botão Manual + renomear OBS→Automático, tooltips, mode_help_label e set_mode para 3 modos (MODE-01, MODE-02, MODE-03)
+
+**Wave 2**
+
+- [x] 08-03-PLAN.md — main_window: migração silenciosa do modo + padrão automatico, wiring dos 3 botões, VCam por modo, health/validação (MODE-04, MODE-01, MODE-02, MODE-03)
+
+**Wave 3** *(checkpoint)*
+
+- [ ] 08-04-PLAN.md — Verificação humana da matriz de comportamento e persistência entre sessões (MODE-01, MODE-02, MODE-03, MODE-04)
+
 **UI hint**: yes
 
 #### Phase 9: HandTracker API Refactor
@@ -232,6 +247,7 @@
 **Requirements:** GES-01, GES-02
 **CRITICAL:** hand_tracker.py e gesture_engine.py devem ser commitados atomicamente — a mudança de API quebra o engine se os arquivos não forem atualizados juntos
 **Success Criteria** (what must be TRUE):
+
   1. Levantar a mão direita física exibe label "Right" no preview; mão esquerda exibe "Left" — sem inversão com câmera espelhada
   2. Modo "1 mão" funciona identicamente ao comportamento anterior da v1.1 — nenhuma regressão observável
   3. Com uma mão saindo e entrando do frame em modo "2 mãos", o engine não lança exceção nem congela o preview
@@ -244,6 +260,7 @@
 **Depends on:** Phase 9
 **Requirements:** GES-06, GES-07
 **Success Criteria** (what must be TRUE):
+
   1. Carregar config.json v1.1 (sem max_maos) inicia o app em modo "1 mão" sem exceção nem perda de bindings existentes
   2. Gesto combinado dispara somente quando AMBAS as mãos mantêm seus gestos pelo hold_time completo — uma mão sozinha não dispara
   3. config.json salvo contém config_version: 2, max_maos e combined_bindings sem sobrescrever bindings de 1 mão
@@ -256,6 +273,7 @@
 **Depends on:** Phase 10
 **Requirements:** GES-03, GES-04, GES-05
 **Success Criteria** (what must be TRUE):
+
   1. Aba Gestos exibe seção "Gestos Combinados" com 6 presets quando modo "2 mãos" está ativo — seção oculta no modo "1 mão"
   2. Ativar preset "Go Live (mão aberta + mão aberta)" e salvar registra chave canônica "OPEN_PALM+OPEN_PALM" no config.json — não o nome de display
   3. Dialog de configuração personalizada exibe qual gesto está sendo detectado em cada mão em tempo real durante a configuração
@@ -270,6 +288,7 @@
 **Depends on:** Phase 9
 **Requirements:** UX-05, UX-06
 **Success Criteria** (what must be TRUE):
+
   1. Preview exibe nome do gesto detectado sobreposto no frame em modo "1 mão"
   2. Em modo "2 mãos", labels "Esquerda: [Gesto]" e "Direita: [Gesto]" aparecem posicionados espacialmente nos lados correspondentes do frame
   3. Barra de progresso de hold time cresce enquanto o gesto é mantido e desaparece ao soltar — uma barra por mão no modo "2 mãos"
@@ -285,6 +304,7 @@
 **Requirements:** CAM-05, CAM-06, CAM-07, CAM-08
 **NOTE:** CAP_MSMF e virtual cam relay são explicitamente excluídos — não implementar como itens desta fase
 **Success Criteria** (what must be TRUE):
+
   1. Sub-modo "Padrão do sistema" deixa câmera negociar formato automaticamente — nenhuma opção manual exposta ao usuário
   2. Sub-modo "Personalizado" exibe lista real de resoluções, FPS e formatos (YUY2, MJPEG) suportados pelo dispositivo via DirectShow/pygrabber
   3. Badge de latência (verde/amarelo/vermelho) aparece na aba Geral após os primeiros 30 frames — sem modal, sem interrupção do fluxo
@@ -299,6 +319,7 @@
 **Depends on:** Phase 11, Phase 12
 **Requirements:** UX-07, UX-08, UX-09
 **Success Criteria** (what must be TRUE):
+
   1. Na primeira execução, dialog de 4 passos abre automaticamente: (1) verificar câmera, (2) selecionar modo, (3) conectar OBS se necessário, (4) configurar primeiro gesto
   2. Campo de arquivo .wav exibe erro inline "Arquivo não encontrado" imediatamente ao sair do campo com caminho inválido
   3. Campo de hotkey exibe a combinação capturada em tempo real enquanto o usuário pressiona as teclas
@@ -313,6 +334,7 @@
 **Depends on:** Phase 14
 **Requirements:** UI-01, UI-02, UI-03, UI-04
 **Success Criteria** (what must be TRUE):
+
   1. Dark mode ativo por padrão em todas as abas — nenhum fundo branco ou cinza genérico visível em nenhuma aba
   2. Todas as abas usam a mesma paleta de cores, tipografia e espaçamento — zero inconsistências visuais entre abas
   3. Hover states e transições visíveis em todos os controles interativos — botões, sliders, toggles
@@ -328,6 +350,7 @@
 **Requirements:** PLT-01, PLT-02, PLT-03
 **NOTE:** Sempre última — maior superfície de merge conflict com qualquer feature ainda em andamento
 **Success Criteria** (what must be TRUE):
+
   1. Nenhum import de winsound, ctypes, cv2.CAP_DSHOW ou pygrabber aparece fora de platform/_windows.py
   2. ActionManager recebe AudioBackend e InputBackend no construtor — não referencia winsound ou ctypes diretamente
   3. Módulo platform/ contém _protocol.py com interfaces (AudioBackend, InputBackend, CameraEnumerator) e _windows.py com implementações Windows
@@ -341,7 +364,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. Modos de Operação | 0/? | Not started | - |
+| 8. Modos de Operação | 3/4 | In Progress|  |
 | 9. HandTracker API Refactor | 0/? | Not started | - |
 | 10. Config Schema + Detection Engine | 0/? | Not started | - |
 | 11. Combined Gesture UI + Presets | 0/? | Not started | - |

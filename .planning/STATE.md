@@ -2,14 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Features & Polish
-status: planning
-last_updated: "2026-06-27T00:32:00.000Z"
+current_phase: 08
+current_phase_name: Modos de Operação
+status: executing
+stopped_at: context exhaustion at 75% (2026-06-27)
+last_updated: "2026-06-27T15:11:07.747Z"
 last_activity: 2026-06-27
+last_activity_desc: 08-03 concluído (MainWindow 3-mode wiring, commit 6f82f3d)
 progress:
   total_phases: 9
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 3
   percent: 0
 ---
 
@@ -20,7 +24,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Um streamer deve conseguir trocar de cena no OBS com um gesto de mão sem tirar as mãos do controle — com detecção confiável e sem configuração técnica.
-**Current focus:** Phase 8 — Modos de Operação (não iniciada)
+**Current focus:** Phase 08 — Modos de Operação
 
 ---
 
@@ -35,10 +39,10 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Current Position
 
-Phase: 8 — Modos de Operação
-Plan: —
-Status: Roadmap criado — aguardando início da Phase 8
-Last activity: 2026-06-26 — Roadmap v1.2 criado (9 fases, Phases 8–16)
+Phase: 08 (Modos de Operação) — EXECUTING
+Plan: 4 of 4
+Status: Waves 1+2 completas (08-01 ✓, 08-02 ✓, 08-03 ✓) — aguardando Wave 3 (08-04 checkpoint humano)
+Last activity: 2026-06-27 — 08-03 concluído (MainWindow 3-mode wiring, commit 6f82f3d)
 
 ## Phase Status (v1.1 — histórico)
 
@@ -56,7 +60,7 @@ Last activity: 2026-06-26 — Roadmap v1.2 criado (9 fases, Phases 8–16)
 
 | Phase | Name | Status | Completed |
 |-------|------|--------|-----------|
-| 8 | Modos de Operação | Not started | - |
+| 8 | Modos de Operação | In Progress (3/4 planos) | - |
 | 9 | HandTracker API Refactor | Not started | - |
 | 10 | Config Schema + Detection Engine | Not started | - |
 | 11 | Combined Gesture UI + Presets | Not started | - |
@@ -157,10 +161,10 @@ Phase 16 (platform abstraction) → sempre última
 
 ## Session Continuity
 
-**Stopped at:** Spike PyAV confirmado + escopo v1.2 atualizado
-**Resume file:** None
+**Stopped at:** context exhaustion at 75% (2026-06-27)
+**Resume file:** .planning/phases/08-modos-de-opera-o/08-CONTEXT.md
 
-**Last session:** 2026-06-27
+**Last session:** 2026-06-27T15:11:07.729Z
 **Next action:** Iniciar Phase 8 — `/gsd-plan-phase 8`
 **Context files:**
 
@@ -181,3 +185,6 @@ Phase 16 (platform abstraction) → sempre última
 - [Phase 1]: 02-01: logger
 - [Phase 2]: detection_window_size=7 e detection_min_hits=5 (71%) reduzem falsos positivos em ENG-02
 - [Phase 3]: obs_footer_label em QHBoxLayout status_row com addStretch (03-02)
+- [Phase ?]: Default 'automatico' em ActionManager evita bloqueio silencioso
+- [Phase ?]: Dupla barreira Teste: ActionManager.executar() + guard no loop do engine (D-02)
+- [Phase ?]: enable_virtual_camera derivado de self.modo=='automatico' — modo como única fonte de verdade da VCam

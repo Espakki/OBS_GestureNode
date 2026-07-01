@@ -112,7 +112,15 @@ class MainWindow(QMainWindow):
         self._append_log("Interface inicializada")
 
     def _init_config_schema(self):
-        self.config.setdefault("modo", "test")
+        _legado_map = {"test": "teste", "obs": "automatico"}
+        _validos = {"teste", "manual", "automatico"}
+        _raw = self.config.get("modo")
+        if _raw in _legado_map:
+            self.config["modo"] = _legado_map[_raw]
+        elif _raw in _validos:
+            pass
+        else:
+            self.config["modo"] = "automatico"
 
         camera_cfg = self.config.setdefault("camera", {})
         camera_cfg.setdefault("index", 0)
@@ -419,7 +427,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.obs_tab, "OBS")
 
         self.mode_test_button = self.geral_tab.mode_test_button
-        self.mode_obs_button = self.geral_tab.mode_obs_button
+        self.mode_manual_button = self.geral_tab.mode_manual_button
+        self.mode_auto_button = self.geral_tab.mode_auto_button
         self.show_skeleton_checkbox = self.geral_tab.show_skeleton_checkbox
         self.camera_device_combo = self.geral_tab.camera_device_combo
         self.resolution_buttons = self.geral_tab.resolution_buttons
@@ -452,8 +461,9 @@ class MainWindow(QMainWindow):
         self.test_obs_button = self.obs_tab.test_obs_button
         self.obs_status_label = self.obs_tab.obs_status_label
 
-        self.mode_test_button.toggled.connect(lambda checked: self.on_modo_changed("test") if checked else None)
-        self.mode_obs_button.toggled.connect(lambda checked: self.on_modo_changed("obs") if checked else None)
+        self.mode_test_button.toggled.connect(lambda checked: self.on_modo_changed("teste") if checked else None)
+        self.mode_manual_button.toggled.connect(lambda checked: self.on_modo_changed("manual") if checked else None)
+        self.mode_auto_button.toggled.connect(lambda checked: self.on_modo_changed("automatico") if checked else None)
         self.show_skeleton_checkbox.toggled.connect(self.on_show_skeleton_changed)
         self.show_skeleton_checkbox.toggled.connect(self.on_dynamic_setting_changed)
         self.camera_device_combo.currentIndexChanged.connect(self.on_camera_changed)
@@ -762,7 +772,7 @@ class MainWindow(QMainWindow):
         camera_cfg = self.config.get("camera", {})
         obs_cfg = self.config.get("obs", {})
 
-        self.geral_tab.set_mode(self.config.get("modo", "test"))
+        self.geral_tab.set_mode(self.config.get("modo", "automatico"))
 
         self._populate_camera_devices()
         width = int(camera_cfg.get("width", 1280))
@@ -936,7 +946,7 @@ class MainWindow(QMainWindow):
     def on_modo_changed(self, modo):
         self.config["modo"] = modo
         self.config.setdefault("camera", {})
-        self.config["camera"]["enable_virtual_camera"] = modo == "obs"
+        self.config["camera"]["enable_virtual_camera"] = modo == "automatico"
         self._refresh_health_panels()
         self.salvar_config_automatico()
 
@@ -1127,12 +1137,12 @@ class MainWindow(QMainWindow):
         erros = []
         avisos = []
 
-        modo = self.config.get("modo", "test")
+        modo = self.config.get("modo", "automatico")
         obs_cfg = self.config.get("obs", {})
         bindings = self.config.get("gestures", {}).get("bindings", {})
         active_set = set(self._active_gestures())
 
-        if modo == "obs":
+        if modo in ("manual", "automatico"):
             if not str(obs_cfg.get("host", "")).strip():
                 erros.append("Host do OBS está vazio")
             porta = int(obs_cfg.get("port", 0) or 0)
@@ -1290,7 +1300,7 @@ class MainWindow(QMainWindow):
         label_widget.setStyleSheet(f"color: {color}; font-weight: 600;")
 
     def _refresh_health_panels(self):
-        modo = self.config.get("modo", "test")
+        modo = self.config.get("modo", "automatico")
         bindings = self.config.get("gestures", {}).get("bindings", {})
         active_set = set(self._active_gestures())
 
@@ -1301,7 +1311,7 @@ class MainWindow(QMainWindow):
             selected_name = self.camera_device_combo.currentText() or "Câmera"
             self._set_health_label(self.health_camera, "Câmera", "idle", f"Pronta ({selected_name})")
 
-        if modo == "obs":
+        if modo in ("manual", "automatico"):
             obs_status_text = self.obs_status_label.text().lower()
             if "conectado" in obs_status_text and "falha" not in obs_status_text:
                 self._set_health_label(self.health_obs, "OBS", "ok", "Conectado")
@@ -1310,7 +1320,7 @@ class MainWindow(QMainWindow):
             else:
                 self._set_health_label(self.health_obs, "OBS", "idle", "Não testado")
         else:
-            self._set_health_label(self.health_obs, "OBS", "idle", "Desativado (modo test)")
+            self._set_health_label(self.health_obs, "OBS", "idle", "Desativado (modo Teste)")
 
         ativos = [gesture for gesture in active_set if gesture in bindings]
         if not ativos:

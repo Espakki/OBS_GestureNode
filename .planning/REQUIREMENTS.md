@@ -13,9 +13,9 @@
 Sistema de 3 modos que controla exclusivamente como a integração WebSocket/VCam funciona.
 O modo NÃO afeta as configurações de câmera (separação explícita).
 
-- [ ] **MODE-01**: Modo **Teste** (existente, renomear/preservar) — sem conexão WebSocket, sem VCam output. Câmera roda e gestos são detectados e exibidos no preview, mas nenhuma ação é executada. Útil para calibrar hold_time e testar gestos sem OBS aberto.
-- [ ] **MODE-02**: Modo **Manual** (novo) — WebSocket disponível para conexão manual pelo usuário; VCam output desativado. Ações de atalho de teclado e áudio funcionam normalmente. O usuário pode selecionar OBS Virtual Camera como câmera de entrada sem conflito com output.
-- [ ] **MODE-03**: Modo **Automático** (renomear de "OBS") — WebSocket conecta automaticamente ao iniciar; VCam output ativado. Comportamento equivalente ao modo "OBS" atual.
+- [x] **MODE-01**: Modo **Teste** (existente, renomear/preservar) — sem conexão WebSocket, sem VCam output. Câmera roda e gestos são detectados e exibidos no preview, mas nenhuma ação é executada. Útil para calibrar hold_time e testar gestos sem OBS aberto.
+- [x] **MODE-02**: Modo **Manual** (novo) — WebSocket disponível para conexão manual pelo usuário; VCam output desativado. Ações de atalho de teclado e áudio funcionam normalmente. O usuário pode selecionar OBS Virtual Camera como câmera de entrada sem conflito com output.
+- [x] **MODE-03**: Modo **Automático** (renomear de "OBS") — WebSocket conecta automaticamente ao iniciar; VCam output ativado. Comportamento equivalente ao modo "OBS" atual.
 - [ ] **MODE-04**: Seleção de modo é persistida no config.json; padrão é "Teste" na primeira execução para não depender do OBS estar aberto.
 
 ### Categoria: Configurações de Câmera (novo)

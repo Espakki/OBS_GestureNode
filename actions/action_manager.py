@@ -40,8 +40,9 @@ class INPUT(ctypes.Structure):
 
 
 class ActionManager:
-    def __init__(self, obs_controller):
+    def __init__(self, obs_controller, modo="automatico"):
         self.obs = obs_controller
+        self.modo = str(modo or "automatico").lower()
         self._sendinput_available = False
         self._user32 = None
         if platform.system().lower() == "windows":
@@ -52,6 +53,10 @@ class ActionManager:
                 self._sendinput_available = False
 
     def executar(self, tipo, valor=None):
+        if self.modo == "teste":
+            logger.info("Ação bloqueada pelo Modo Teste: tipo=%s valor=%s", tipo, valor)
+            return
+
         if tipo == "trocar_cena":
             if self.obs and self.obs.connected:
                 self.obs.trocar_cena(valor)

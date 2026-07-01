@@ -1,5 +1,5 @@
 {
-    "modo": "test",
+    "modo": "automatico",
     "camera": {
         "index": 0,
         "width": 1920,

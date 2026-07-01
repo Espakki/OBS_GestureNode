@@ -61,13 +61,22 @@ class CameraManager:
         self._captura_thread.start()
 
         if self.enable_virtual_camera:
-            self.virtual_camera = pyvirtualcam.Camera(
-                width=self.width,
-                height=self.height,
-                fps=self.fps,
-                device=self.virtual_camera_device,
-            )
-            logger.info("Câmera virtual ativa: %s", self.virtual_camera.device)
+            try:
+                self.virtual_camera = pyvirtualcam.Camera(
+                    width=self.width,
+                    height=self.height,
+                    fps=self.fps,
+                    device=self.virtual_camera_device,
+                )
+                logger.info("Câmera virtual ativa: %s", self.virtual_camera.device)
+            except Exception as exc:
+                logger.warning(
+                    "Câmera virtual indisponível: %s — "
+                    "No OBS: Ferramentas → Câmera Virtual → Iniciar",
+                    exc,
+                )
+                self.virtual_camera = None
+                self.enable_virtual_camera = False
 
     @property
     def aberta(self) -> bool:

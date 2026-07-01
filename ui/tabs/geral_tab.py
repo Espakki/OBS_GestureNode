@@ -46,8 +46,9 @@ class GeralTab(QWidget):
         mode_layout.setContentsMargins(0, 0, 0, 0)
         mode_layout.setSpacing(8)
         self.mode_test_button = QPushButton("Teste")
-        self.mode_obs_button = QPushButton("OBS")
-        for button in (self.mode_test_button, self.mode_obs_button):
+        self.mode_manual_button = QPushButton("Manual")
+        self.mode_auto_button = QPushButton("Automático")
+        for button in (self.mode_test_button, self.mode_manual_button, self.mode_auto_button):
             button.setObjectName("optionToggle")
             button.setCheckable(True)
             button.setMinimumWidth(92)
@@ -57,15 +58,21 @@ class GeralTab(QWidget):
         form.addRow("Modo:", mode_row)
 
         self.mode_test_button.setToolTip(
-            "Modo Teste: use para calibrar gestos, câmera e ações sem enviar comandos para o OBS."
+            "Modo Teste: calibre gestos, câmera e ações sem executar nada — "
+            "nenhum comando ao OBS, hotkey ou áudio."
         )
-        self.mode_obs_button.setToolTip(
-            "Modo OBS: use na live para enviar ações ao OBS e usar câmera virtual quando habilitada."
+        self.mode_manual_button.setToolTip(
+            "Modo Manual: conecta automaticamente ao OBS e executa hotkeys/áudio, "
+            "mas mantém a câmera virtual desligada (para quem tem conflito de driver de VCam)."
+        )
+        self.mode_auto_button.setToolTip(
+            "Modo Automático: gerencia conexão ao OBS e câmera virtual automaticamente ao iniciar."
         )
 
         self.mode_help_label = QLabel(
-            "Modo Teste: ideal para configurar e validar seus gestos com segurança.\n"
-            "Modo OBS: ativa integração ao OBS para executar ações e operar com câmera virtual."
+            "Teste: calibre gestos sem enviar comandos — nenhuma ação executada.\n"
+            "Manual: conecta ao OBS automaticamente e executa ações, sem câmera virtual.\n"
+            "Automático: câmera virtual e OBS gerenciados automaticamente."
         )
         self.mode_help_label.setObjectName("muted")
         self.mode_help_label.setWordWrap(True)
@@ -146,8 +153,11 @@ class GeralTab(QWidget):
         layout.addStretch(1)
 
     def set_mode(self, modo):
-        if str(modo).lower() == "obs":
-            self.mode_obs_button.setChecked(True)
+        modo_norm = str(modo).lower()
+        if modo_norm == "automatico":
+            self.mode_auto_button.setChecked(True)
+        elif modo_norm == "manual":
+            self.mode_manual_button.setChecked(True)
         else:
             self.mode_test_button.setChecked(True)
 
