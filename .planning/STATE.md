@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Features & Polish
-current_phase: 08
-current_phase_name: Modos de Operação
-status: executing
-stopped_at: context exhaustion at 75% (2026-06-27)
-last_updated: "2026-06-27T15:11:07.747Z"
+current_phase: 09
+current_phase_name: HandTracker API Refactor
+status: ready
+stopped_at: Phase 9 context gathered
+last_updated: "2026-06-27T21:06:14.250Z"
 last_activity: 2026-06-27
-last_activity_desc: 08-03 concluído (MainWindow 3-mode wiring, commit 6f82f3d)
+last_activity_desc: Phase 8 fechada; roadmap corrigido (Virtual Cam → Phase 13; Configurações Avançadas → Phase 14; Preview Suppression → Phase 15)
 progress:
   total_phases: 9
   completed_phases: 0
@@ -39,10 +39,10 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Current Position
 
-Phase: 08 (Modos de Operação) — EXECUTING
-Plan: 4 of 4
-Status: Waves 1+2 completas (08-01 ✓, 08-02 ✓, 08-03 ✓) — aguardando Wave 3 (08-04 checkpoint humano)
-Last activity: 2026-06-27 — 08-03 concluído (MainWindow 3-mode wiring, commit 6f82f3d)
+Phase: 09 (HandTracker API Refactor) — NOT STARTED
+Plan: 0 of TBD
+Status: Phase 8 completa ✓ — roadmap reformulado 2026-06-27
+Last activity: 2026-06-27 — Phase 8 fechada; roadmap corrigido (Virtual Cam → Phase 13; Configurações Avançadas → Phase 14; Preview Suppression → Phase 15)
 
 ## Phase Status (v1.1 — histórico)
 
@@ -60,7 +60,7 @@ Last activity: 2026-06-27 — 08-03 concluído (MainWindow 3-mode wiring, commit
 
 | Phase | Name | Status | Completed |
 |-------|------|--------|-----------|
-| 8 | Modos de Operação | In Progress (3/4 planos) | - |
+| 8 | Modos de Operação | Completa ✓ | 2026-06-27 |
 | 9 | HandTracker API Refactor | Not started | - |
 | 10 | Config Schema + Detection Engine | Not started | - |
 | 11 | Combined Gesture UI + Presets | Not started | - |
@@ -161,10 +161,10 @@ Phase 16 (platform abstraction) → sempre última
 
 ## Session Continuity
 
-**Stopped at:** context exhaustion at 75% (2026-06-27)
-**Resume file:** .planning/phases/08-modos-de-opera-o/08-CONTEXT.md
+**Stopped at:** Phase 9 context gathered
+**Resume file:** .planning/phases/09-handtracker-api-refactor/09-CONTEXT.md
 
-**Last session:** 2026-06-27T15:11:07.729Z
+**Last session:** 2026-06-27T21:06:14.230Z
 **Next action:** Iniciar Phase 8 — `/gsd-plan-phase 8`
 **Context files:**
 

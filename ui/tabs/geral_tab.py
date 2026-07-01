@@ -57,6 +57,27 @@ class GeralTab(QWidget):
             self.mode_group.addButton(button)
         form.addRow("Modo:", mode_row)
 
+        self.maos_group = QButtonGroup(self)
+        self.maos_group.setExclusive(True)
+        maos_row = QWidget()
+        maos_layout = QHBoxLayout(maos_row)
+        maos_layout.setContentsMargins(0, 0, 0, 0)
+        maos_layout.setSpacing(8)
+        self.maos_1_button = QPushButton("1 Mão")
+        self.maos_2_button = QPushButton("2 Mãos")
+        for button in (self.maos_1_button, self.maos_2_button):
+            button.setObjectName("optionToggle")
+            button.setCheckable(True)
+            button.setMinimumWidth(92)
+            button.setMinimumHeight(38)
+            maos_layout.addWidget(button)
+            self.maos_group.addButton(button)
+        self.maos_1_button.setToolTip("Detecta apenas uma mão. Menor custo de CPU.")
+        self.maos_2_button.setToolTip(
+            "Detecta duas mãos simultaneamente. Qualquer mão pode acionar a mesma binding."
+        )
+        form.addRow("Mãos:", maos_row)
+
         self.mode_test_button.setToolTip(
             "Modo Teste: calibre gestos, câmera e ações sem executar nada — "
             "nenhum comando ao OBS, hotkey ou áudio."
@@ -151,6 +172,12 @@ class GeralTab(QWidget):
         layout.addWidget(self.health_gestos)
 
         layout.addStretch(1)
+
+    def set_max_maos(self, max_maos):
+        if int(max_maos) == 2:
+            self.maos_2_button.setChecked(True)
+        else:
+            self.maos_1_button.setChecked(True)
 
     def set_mode(self, modo):
         modo_norm = str(modo).lower()
