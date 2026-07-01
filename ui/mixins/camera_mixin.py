@@ -1,5 +1,3 @@
-import cv2
-
 try:
     from PySide6.QtMultimedia import QMediaDevices
 except Exception:
@@ -40,37 +38,9 @@ class CameraMixin:
         return f"Câmera {index}"
 
     @staticmethod
-    def _probe_opencv_camera_indexes(max_devices=10):
-        import sys
-        from io import StringIO
-
-        available_indexes = []
-
-        old_stderr = sys.stderr
-        sys.stderr = StringIO()
-
-        try:
-            for index in range(max_devices):
-                capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-                if not capture or not capture.isOpened():
-                    if capture:
-                        capture.release()
-                    continue
-
-                ok, _ = capture.read()
-                capture.release()
-                if ok:
-                    available_indexes.append(index)
-        finally:
-            sys.stderr = old_stderr
-
-        return available_indexes
-
-    @staticmethod
     def _dshow_device_names():
         if FilterGraph is None:
             return []
-
         try:
             graph = FilterGraph()
             return list(graph.get_input_devices() or [])
@@ -86,28 +56,25 @@ class CameraMixin:
         selected_index = int(camera_cfg.get("index", 0))
         selected_name = str(camera_cfg.get("device_name", "") or "").strip()
 
-        available_indexes = self._probe_opencv_camera_indexes()
-        if not available_indexes:
-            available_indexes = [0]
-
-        dshow_names = self._dshow_device_names()
-        qt_names = []
+        # Preferir QMediaDevices (rápido, sem cv2)
+        raw_names = []
         if QMediaDevices is not None:
             try:
-                qt_names = [device.description() for device in QMediaDevices.videoInputs()]
+                raw_names = [d.description() for d in QMediaDevices.videoInputs()]
             except Exception as exc:
-                logger.debug("Falha ao listar dispositivos de vídeo no Qt: %s", exc)
+                logger.debug("Falha ao listar via QMediaDevices: %s", exc)
+
+        # Fallback: pygrabber DirectShow
+        if not raw_names:
+            raw_names = self._dshow_device_names()
 
         camera_entries = []
-        for index in available_indexes:
-            name = ""
-            if index < len(dshow_names):
-                name = dshow_names[index]
-            elif index < len(qt_names):
-                name = qt_names[index]
-            name = self._normalize_camera_display_name(name, index)
-
-            camera_entries.append((name, index))
+        if raw_names:
+            for index, name in enumerate(raw_names):
+                display_name = self._normalize_camera_display_name(name, index)
+                camera_entries.append((display_name, index))
+        else:
+            camera_entries = [(selected_name or "Câmera 0", 0)]
 
         camera_entries.sort(key=lambda item: (self._is_virtual_camera_name(item[0]), item[1]))
 
@@ -155,9 +122,7 @@ class CameraMixin:
     def on_resolution_changed(self, value):
         if value not in RESOLUTION_PRESETS:
             return
-
         width, height = RESOLUTION_PRESETS[value]
-
         self.config.setdefault("camera", {})["width"] = width
         self.config.setdefault("camera", {})["height"] = height
         self.salvar_config_automatico()

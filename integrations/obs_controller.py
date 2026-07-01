@@ -49,23 +49,6 @@ class OBSController:
 
         return self.cliente.get_scene_list().scenes
 
-    def ativar_driver_virtual_cam(self):
-        """Inicializa o driver da câmera virtual do OBS e libera o output imediatamente.
-
-        pyvirtualcam precisa que o driver DirectShow do OBS esteja ativo para
-        conseguir escrever frames. Iniciar e parar o output do OBS ativa o driver
-        sem conflitar com o pyvirtualcam, que assume como único escritor.
-        """
-        if not self.connected or not self.cliente:
-            raise RuntimeError("OBS não conectado")
-        import time
-        self.cliente.start_virtual_cam()
-        time.sleep(0.2)
-        try:
-            self.cliente.stop_virtual_cam()
-        except Exception:
-            pass
-
     def trocar_cena(self, nome_cena):
         if not self.connected or not self.cliente:
             return False

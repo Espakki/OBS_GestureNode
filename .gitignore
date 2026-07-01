@@ -7,11 +7,16 @@ env/
 __pycache__/
 *.pyc
 
-# Configurações do VS Code (opcional, mas recomendado)
+#planning
+*.md
+.planning/
+.claude/
+
+# Configurações do VS Code
 .vscode/
 
 # Arquivos de testes
 tests/
 
-#arquivos md
-*.md
+# Configuração do app (contém senha do OBS WebSocket e paths locais)
+config.json

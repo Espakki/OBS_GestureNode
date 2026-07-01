@@ -51,6 +51,7 @@ class EngineMixin:
         self.engine = GestureEngine(self.config)
         self.engine.frame_ready.connect(self.update_frame)
         self.engine.status_changed.connect(self.update_status)
+        self.engine.latency_updated.connect(self.geral_tab.update_latency_badge)
         self.engine.start()
 
         self.status_label.setText("Status: Rodando")
@@ -97,6 +98,7 @@ class EngineMixin:
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self._clear_preview()
+        self.geral_tab.reset_latency_badge()
         self.engine = None
         self._refresh_health_panels()
 

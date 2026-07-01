@@ -156,12 +156,14 @@ class GestureEngine(QThread):
 
     frame_ready = Signal(object)
     status_changed = Signal(str)
+    latency_updated = Signal(float)  # ms médio a cada 30 frames
 
     def __init__(self, config):
         super().__init__()
 
         self.config = config
         self.running = False
+        self._preview_suprimido = False
         self.camera = None
         self.tracker = None
         self.detector = None
@@ -275,6 +277,9 @@ class GestureEngine(QThread):
         with self._bindings_lock:
             self._mapa_cenas = value or {}
 
+    def set_preview_suprimido(self, valor: bool):
+        self._preview_suprimido = bool(valor)
+
     def _normalize_gesture_name(self, gesture_name):
         if not gesture_name:
             return gesture_name
@@ -360,6 +365,8 @@ class GestureEngine(QThread):
             self.status_changed.emit("Modo Teste — ações desativadas")
 
         ultimo_disparo_por_gesto = {}
+        _latency_count = 0
+        _latency_sum = 0.0
 
         try:
             while self.running:
@@ -370,6 +377,7 @@ class GestureEngine(QThread):
                         time.sleep(0.01)
                         continue
 
+                    _proc_start = time.monotonic()
                     frame, maos = self.tracker.processar(frame, draw_skeleton=self.show_skeleton)
                     tempo_atual = time.time()
 
@@ -480,7 +488,16 @@ class GestureEngine(QThread):
 
                     if self.camera.enable_virtual_camera:
                         self.camera.enviar_para_virtual(frame)
-                    self.frame_ready.emit(frame)
+                    if not self._preview_suprimido:
+                        self.frame_ready.emit(frame)
+
+                    _latency_sum += (time.monotonic() - _proc_start) * 1000
+                    _latency_count += 1
+                    if _latency_count >= 30:
+                        self.latency_updated.emit(_latency_sum / _latency_count)
+                        _latency_sum = 0.0
+                        _latency_count = 0
+
                     elapsed = time.monotonic() - _loop_start
                     sleep_time = self._frame_interval - elapsed
                     if sleep_time > 0:

@@ -1,7 +1,7 @@
 import cv2
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QEvent, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QMainWindow
 
@@ -62,6 +62,14 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self.salvar_config_automatico()
 
         self._append_log("Interface inicializada")
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.WindowStateChange:
+            engine_ativo = self.engine and self.engine.isRunning()
+            modo_automatico = self.config.get("modo") == "automatico"
+            if engine_ativo and modo_automatico:
+                self.engine.set_preview_suprimido(self.isMinimized())
+        super().changeEvent(event)
 
     def closeEvent(self, event):
         if self._obs_connect_thread is not None:

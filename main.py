@@ -4,6 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from ui.main_window import MainWindow
+from ui.styles import APP_STYLESHEET
 from util.logger import get_logger
 
 
@@ -29,10 +30,16 @@ def carregar_config(caminho=CONFIG_PATH):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyleSheet(APP_STYLESHEET)
 
     config = carregar_config()
 
     window = MainWindow(config, config_path=CONFIG_PATH)
     window.show()
+
+    if not config.get("onboarding_done", False):
+        from ui.onboarding import OnboardingDialog
+        dialog = OnboardingDialog(config, window.salvar_config_automatico, parent=window)
+        dialog.exec()
 
     sys.exit(app.exec())

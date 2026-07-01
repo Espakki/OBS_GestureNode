@@ -5,14 +5,14 @@ milestone_name: Features & Polish
 current_phase: 09
 current_phase_name: HandTracker API Refactor
 status: ready
-stopped_at: Phase 9 context gathered
-last_updated: "2026-06-27T21:06:14.250Z"
+stopped_at: Phase 15 context gathered
+last_updated: "2026-07-01T11:17:28.400Z"
 last_activity: 2026-06-27
 last_activity_desc: Phase 8 fechada; roadmap corrigido (Virtual Cam → Phase 13; Configurações Avançadas → Phase 14; Preview Suppression → Phase 15)
 progress:
   total_phases: 9
   completed_phases: 0
-  total_plans: 4
+  total_plans: 7
   completed_plans: 3
   percent: 0
 ---
@@ -161,10 +161,10 @@ Phase 16 (platform abstraction) → sempre última
 
 ## Session Continuity
 
-**Stopped at:** Phase 9 context gathered
-**Resume file:** .planning/phases/09-handtracker-api-refactor/09-CONTEXT.md
+**Stopped at:** Phase 15 context gathered
+**Resume file:** .planning/phases/15-ui-visual-redesign-preview-suppression/15-CONTEXT.md
 
-**Last session:** 2026-06-27T21:06:14.230Z
+**Last session:** 2026-07-01T11:17:28.385Z
 **Next action:** Iniciar Phase 8 — `/gsd-plan-phase 8`
 **Context files:**
 

@@ -1,3 +1,5 @@
+import os
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
@@ -120,6 +122,11 @@ class HotkeyLineEdit(QLineEdit):
 
         if key_code in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
             self._pressed_modifiers.add(key_code)
+            mods = self._ordered_modifiers_from_state()
+            if mods:
+                self.blockSignals(True)
+                self.setText("+".join(mods) + "+...")
+                self.blockSignals(False)
             return
 
         self._commit_if_possible(event)
@@ -136,6 +143,10 @@ class HotkeyLineEdit(QLineEdit):
         key_code = event.key()
         if key_code in self._pressed_modifiers:
             self._pressed_modifiers.discard(key_code)
+            mods = self._ordered_modifiers_from_state()
+            self.blockSignals(True)
+            self.setText("+".join(mods) + "+..." if mods else "")
+            self.blockSignals(False)
             return
 
         if key_code not in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
@@ -418,6 +429,12 @@ class GestosTab(QWidget):
         sound_row_layout.setStretch(1, 1)
         editor_layout.addWidget(self.sound_row)
 
+        self.sound_file_error_label = QLabel()
+        self.sound_file_error_label.setStyleSheet("color: #f44336; font-size: 12px;")
+        self.sound_file_error_label.setVisible(False)
+        editor_layout.addWidget(self.sound_file_error_label)
+        self.sound_file_edit.editingFinished.connect(self._validate_sound_file)
+
         self.hotkey_row = QWidget()
         self.hotkey_row.setObjectName("transparentRow")
         hotkey_row_layout = QHBoxLayout(self.hotkey_row)
@@ -434,6 +451,14 @@ class GestosTab(QWidget):
 
         layout.addWidget(self.gesture_editor)
         layout.addStretch(1)
+
+    def _validate_sound_file(self):
+        path = self.sound_file_edit.text().strip()
+        if path and not os.path.isfile(path):
+            self.sound_file_error_label.setText(f"Arquivo não encontrado: {path}")
+            self.sound_file_error_label.setVisible(True)
+        else:
+            self.sound_file_error_label.setVisible(False)
 
     def clear_gesture_grid(self):
         while self.grid_layout.count():

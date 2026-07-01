@@ -118,6 +118,26 @@ class GeralTab(QWidget):
         self.camera_device_combo.setToolTip("Selecione a câmera física usada para detecção dos gestos.")
         camera_form.addRow("Dispositivo:", self.camera_device_combo)
 
+        # Painel colapsível de configurações avançadas
+        self.advanced_toggle = QPushButton("Configurações Avançadas ▼")
+        self.advanced_toggle.setObjectName("ghost")
+        self.advanced_toggle.setCheckable(True)
+        self.advanced_toggle.setChecked(False)
+        self.advanced_toggle.setMinimumHeight(38)
+        self.advanced_toggle.clicked.connect(self._on_advanced_toggle)
+        layout.addWidget(self.advanced_toggle)
+
+        self.advanced_panel = QWidget()
+        self.advanced_panel.setVisible(False)
+        adv_layout = QVBoxLayout(self.advanced_panel)
+        adv_layout.setContentsMargins(8, 4, 8, 4)
+        adv_layout.setSpacing(10)
+
+        adv_form = QFormLayout()
+        adv_form.setVerticalSpacing(14)
+        adv_form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        adv_layout.addLayout(adv_form)
+
         self.resolution_group = QButtonGroup(self)
         self.resolution_group.setExclusive(True)
         self.resolution_buttons = {}
@@ -135,7 +155,7 @@ class GeralTab(QWidget):
             resolution_layout.addWidget(button)
             self.resolution_group.addButton(button)
             self.resolution_buttons[label] = button
-        camera_form.addRow("Resolução:", resolution_row)
+        adv_form.addRow("Resolução:", resolution_row)
 
         self.fps_group = QButtonGroup(self)
         self.fps_group.setExclusive(True)
@@ -154,11 +174,17 @@ class GeralTab(QWidget):
             fps_layout.addWidget(button)
             self.fps_group.addButton(button)
             self.fps_buttons[value] = button
-        camera_form.addRow("FPS:", fps_row)
+        adv_form.addRow("FPS:", fps_row)
+
+        layout.addWidget(self.advanced_panel)
 
         status_title = QLabel("Status do sistema")
         status_title.setObjectName("sectionTitle")
         layout.addWidget(status_title)
+
+        self.latency_badge = QLabel("Latência: aguardando...")
+        self.latency_badge.setObjectName("healthLabel")
+        layout.addWidget(self.latency_badge)
 
         self.health_camera = QLabel()
         self.health_camera.setObjectName("healthLabel")
@@ -172,6 +198,12 @@ class GeralTab(QWidget):
         layout.addWidget(self.health_gestos)
 
         layout.addStretch(1)
+
+    def _on_advanced_toggle(self, checked):
+        self.advanced_panel.setVisible(checked)
+        self.advanced_toggle.setText(
+            "Configurações Avançadas ▲" if checked else "Configurações Avançadas ▼"
+        )
 
     def set_max_maos(self, max_maos):
         if int(max_maos) == 2:
@@ -200,3 +232,20 @@ class GeralTab(QWidget):
             self.fps_buttons[fps_value].setChecked(True)
             return
         self.fps_buttons[30].setChecked(True)
+
+    def update_latency_badge(self, ms):
+        if ms <= 33:
+            color = "#4CAF50"
+            status = "Ótima"
+        elif ms <= 66:
+            color = "#FFC107"
+            status = "Boa"
+        else:
+            color = "#f44336"
+            status = "Lenta"
+        self.latency_badge.setText(f"⚡ Latência de processamento: {ms:.0f}ms — {status}")
+        self.latency_badge.setStyleSheet(f"color: {color};")
+
+    def reset_latency_badge(self):
+        self.latency_badge.setText("Latência: aguardando...")
+        self.latency_badge.setStyleSheet("")

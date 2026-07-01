@@ -36,6 +36,8 @@ class ConfigMixin:
         camera_cfg.setdefault("virtual_camera_device", None)
         camera_cfg.setdefault("show_skeleton", True)
 
+        self.config.setdefault("onboarding_done", False)
+
         obs_cfg = self.config.setdefault("obs", {})
         obs_cfg.setdefault("host", "localhost")
         obs_cfg.setdefault("port", 4455)
@@ -117,7 +119,6 @@ class ConfigMixin:
         self.geral_tab.set_resolution(RESOLUTION_PRESETS_REVERSED.get((width, height), "720p"))
         self.geral_tab.set_fps(int(camera_cfg.get("fps", 30)))
         self.show_skeleton_checkbox.setChecked(bool(camera_cfg.get("show_skeleton", True)))
-
         self.obs_host.setText(obs_cfg.get("host", "localhost"))
         self.obs_port.setValue(int(obs_cfg.get("port", 4455)))
         self.obs_password.setText(obs_cfg.get("password", ""))

@@ -38,7 +38,55 @@ class CameraManager:
         self._captura_ativa = False
         self._captura_thread = None
 
+    def _iniciar_virtual_cam_com_timeout(self, timeout=3.0):
+        """Inicializa pyvirtualcam em thread daemon com timeout.
+
+        pyvirtualcam.Camera() trava indefinidamente quando o OBS segura o driver
+        DirectShow exclusivamente. O timeout garante que o PyAV (preview) sempre
+        inicia mesmo se a câmera virtual não estiver disponível.
+
+        Ordem correta de uso: fechar OBS → iniciar app → abrir OBS e adicionar
+        "OBS Virtual Camera" como fonte "Dispositivo de captura de vídeo".
+        """
+        cam_result = [None]
+        cam_error = [None]
+
+        def _criar():
+            try:
+                cam_result[0] = pyvirtualcam.Camera(
+                    width=self.width,
+                    height=self.height,
+                    fps=self.fps,
+                    device=self.virtual_camera_device,
+                )
+            except Exception as exc:
+                cam_error[0] = exc
+
+        t = threading.Thread(target=_criar, daemon=True, name="vcam-init")
+        t.start()
+        t.join(timeout=timeout)
+
+        if t.is_alive():
+            logger.warning(
+                "Câmera virtual travou na inicialização — OBS pode estar segurando o driver. "
+                "Ordem correta: feche o OBS, inicie o app, depois abra o OBS e adicione "
+                "'OBS Virtual Camera' como fonte."
+            )
+            self.enable_virtual_camera = False
+            return None
+
+        if cam_error[0] is not None:
+            logger.warning("Câmera virtual indisponível: %s", cam_error[0])
+            self.enable_virtual_camera = False
+            return None
+
+        logger.info("Câmera virtual ativa: %s", cam_result[0].device)
+        return cam_result[0]
+
     def iniciar(self):
+        if self.enable_virtual_camera:
+            self.virtual_camera = self._iniciar_virtual_cam_com_timeout()
+
         options = {
             'video_size': f'{self.width}x{self.height}',
             'framerate': str(self.fps),
@@ -59,24 +107,6 @@ class CameraManager:
             name="camera-capture",
         )
         self._captura_thread.start()
-
-        if self.enable_virtual_camera:
-            try:
-                self.virtual_camera = pyvirtualcam.Camera(
-                    width=self.width,
-                    height=self.height,
-                    fps=self.fps,
-                    device=self.virtual_camera_device,
-                )
-                logger.info("Câmera virtual ativa: %s", self.virtual_camera.device)
-            except Exception as exc:
-                logger.warning(
-                    "Câmera virtual indisponível: %s — "
-                    "No OBS: Ferramentas → Câmera Virtual → Iniciar",
-                    exc,
-                )
-                self.virtual_camera = None
-                self.enable_virtual_camera = False
 
     @property
     def aberta(self) -> bool:
@@ -132,6 +162,11 @@ class CameraManager:
             return
 
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        h, w = frame_rgb.shape[:2]
+        if h != self.height or w != self.width:
+            frame_rgb = cv2.resize(
+                frame_rgb, (self.width, self.height), interpolation=cv2.INTER_LINEAR
+            )
         self.virtual_camera.send(frame_rgb)
         self.virtual_camera.sleep_until_next_frame()
 

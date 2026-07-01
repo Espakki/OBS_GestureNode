@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ui.styles import APP_STYLESHEET
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
 from ui.tabs.obs_tab import OBSTab
@@ -20,8 +19,6 @@ from ui.tabs.obs_tab import OBSTab
 class SetupMixin:
 
     def _setup_ui(self):
-        self.setStyleSheet(APP_STYLESHEET)
-
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         root_layout = QVBoxLayout(central_widget)
@@ -58,7 +55,6 @@ class SetupMixin:
         self.health_camera = self.geral_tab.health_camera
         self.health_obs = self.geral_tab.health_obs
         self.health_gestos = self.geral_tab.health_gestos
-
         self.grid_layout = self.gestos_tab.grid_layout
         self.choose_gestures_button = self.gestos_tab.choose_gestures_button
         self.selected_gesture_label = self.gestos_tab.selected_gesture_label
@@ -138,7 +134,7 @@ class SetupMixin:
         self.preview_label = QLabel("Preview")
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setMinimumHeight(360)
-        self.preview_label.setStyleSheet("background-color: #0f1318; border: 1px solid #2a2f36; border-radius: 8px;")
+        self.preview_label.setStyleSheet("background-color: #0d0d0d; border: 1px solid #2d2d2d; border-radius: 8px;")
         right_layout.addWidget(self.preview_label, stretch=1)
 
         bottom_panel = QFrame()
@@ -151,6 +147,7 @@ class SetupMixin:
         bottom_layout.addLayout(controls_layout)
 
         self.start_button = QPushButton("Iniciar")
+        self.start_button.setObjectName("primary")
         self.stop_button = QPushButton("Parar")
         self.stop_button.setObjectName("danger")
         self.restart_button = QPushButton("Reiniciar")
