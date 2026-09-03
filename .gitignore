@@ -9,6 +9,7 @@ __pycache__/
 
 #planning
 *.md
+!README.md
 .planning/
 .claude/
 
@@ -17,6 +18,10 @@ __pycache__/
 
 # Arquivos de testes
 tests/
+
+# Build do PyInstaller
+build/
+dist/
 
 # Configuração do app (contém senha do OBS WebSocket e paths locais)
 config.json
