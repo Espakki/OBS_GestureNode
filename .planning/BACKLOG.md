@@ -55,3 +55,29 @@ aparece em runtime. Só encarar com o build sendo testado a cada passo, e depois
 
 _Fechada: B-13 em `c7715b0`, B-11 em `f7a92a9`, B-12 em `035a4c5`._
 
+
+---
+
+## Fase H — Pontas soltas
+
+### B-20 · Capacidades da câmera são consultadas duas vezes na abertura · **P**
+
+Medido instrumentando a chamada: abrir a janela dispara `capacidades()` **duas vezes**,
+~170ms cada. Vem de `_load_ui_from_config` chamar `aplicar_capacidades_da_camera` depois de
+`_populate_camera_devices` já ter provocado o caminho por outra via.
+
+Não quebra nada e o resultado é o mesmo — é desperdício. Quando apareceu, eu tratei o
+sintoma (guarda para não repetir o aviso no log) e não a causa.
+
+### B-21 · Trocar o framework da UI · **G** · ideia, não decisão
+
+Levantado pelo dono em 2026-09-04, sem compromisso: vontade de reavaliar o PySide6 para a
+interface. Registrado só para não se perder.
+
+**Antes de encarar, vale saber o que se perde:** o PySide6 hoje carrega a `QThread` da
+engine, os `Signal` que ligam engine e UI (a fronteira que o CLAUDE.md trata como
+invariante), o `QMediaDevices` da listagem de câmeras e o tema em QSS (D-19). Trocar a UI
+significa reescrever essa ponte inteira, não só as telas.
+
+**Não é item de backlog no sentido usual** — é uma decisão de arquitetura que precisa de
+motivo concreto (o que exatamente o PySide6 está impedindo?) antes de virar plano.
