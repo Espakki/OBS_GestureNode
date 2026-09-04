@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-04
-**Branch:** `main` · **Último commit:** `a7a1088`
+**Branch:** `main` · **Último commit:** `f41d5c2`
 
 ---
 
@@ -48,6 +48,8 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Feature | `9565642` | Gestos combinados — **revertido** em `a7a1088`, ver D-31 |
 | Câmera | `9a0aad9` | Corrige falha ao parar e reiniciar a captura |
 | Engine | `a7a1088` | Duas mãos rastreadas, uma ação só: a primeira vence (D-31) |
+| Câmera | `9ef7217` | `[Errno 5]` ambíguo: retry curto + fallback de FPS (D-32) |
+| Polimento | `f41d5c2` | Traço proporcional, VCam em BGR, confirmação ao reiniciar — B-14/16/18 |
 
 ---
 
