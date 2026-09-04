@@ -169,6 +169,43 @@ class TestRotacao:
             )
 
 
+class TestPolegarEmProfundidade:
+    """O ângulo do polegar só vale se ele estiver de frente para a câmera. Ver D-35.
+
+    `_angulo_do_polegar` mede apenas X/Y. Um polegar apontando para a câmera ou para longe
+    dela projeta um vetor curto, cuja direção é quase ruído — mas caía dentro da tolerância
+    angular e virava joinha. Relatado como "joinha de lado, com o dedão apontando para
+    trás".
+    """
+
+    # Ponta a ~44% do palm_size da base do polegar: aberto, mas encurtado na projeção.
+    # Antes deste gate, isto era classificado como THUMBS_DOWN.
+    PONTA_EM_PROFUNDIDADE = (40, 391)
+
+    def test_polegar_encurtado_nao_vira_gesto(self, detector):
+        forma = mao_com(mao(polegar="aberto_cima"), {4: self.PONTA_EM_PROFUNDIDADE})
+        assert detector.detectar(forma) is None
+
+    def test_polegar_de_frente_continua_valendo(self, detector):
+        """A correção não pode custar o caso normal — este é o joinha de sempre."""
+        assert detector.detectar(mao(polegar="aberto_cima")) == "THUMBS_UP"
+        assert detector.detectar(mao(polegar="aberto_baixo")) == "THUMBS_DOWN"
+
+    def test_o_gate_e_invariante_a_rotacao(self, detector):
+        """Comprimento é distância, e distância não muda com rotação.
+
+        Garante que o gate do D-35 não reintroduz a fragilidade que o D-28 removeu: um
+        joinha inclinado continua sendo joinha dentro da tolerância angular.
+        """
+        for graus in (-20, 0, 20, 45):
+            girada = rotacionar(mao(polegar="aberto_cima"), graus)
+            assert detector.detectar(girada) == "THUMBS_UP"
+
+    def test_punho_nao_e_afetado(self, detector):
+        """FIST não depende do ângulo do polegar, só de ele estar recolhido."""
+        assert detector.detectar(mao(polegar="fechado")) == "FIST"
+
+
 class TestLimiarDeDedoEstendido:
     """Fixa o limiar `dist_tip > dist_mcp * 1.2` de `_finger_extended`.
 

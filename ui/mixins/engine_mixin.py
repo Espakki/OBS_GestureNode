@@ -111,6 +111,12 @@ class EngineMixin:
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
 
+        # Limpa o preview já: os frames param no instante em que `running` vira False, mas
+        # o `on_engine_finished` (que também limpa) só chega depois do `container.close()`
+        # do DirectShow, ~2.2s. Sem isto a última imagem ficava congelada na tela nesse
+        # intervalo, parecendo travamento.
+        self._clear_preview()
+
         # Não bloqueia: a limpeza roda na thread da engine e a UI segue respondendo.
         self.engine.stop()
         self._refresh_health_panels()

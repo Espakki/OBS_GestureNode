@@ -11,6 +11,19 @@ import math
 # dois indistinguíveis. O que dá é fazer a fronteira ser explícita e simétrica.
 TOLERANCIA_POLEGAR_GRAUS = 60
 
+# Comprimento mínimo do polegar projetado, como fração do `palm_size`.
+#
+# O ângulo acima só enxerga X/Y. Um polegar apontando PARA a câmera ou para longe dela
+# projeta um vetor curto, e a direção desse vetor curto é quase ruído — mas ainda podia
+# cair dentro da tolerância angular e virar joinha. Era o caso do "joinha de lado, com o
+# dedão apontando para trás".
+#
+# Medido nas mãos sintéticas: joinha e deslike de frente dão 0.83; um polegar em
+# profundidade dá 0.44. O corte em 0.55 rejeita o segundo com folga e aceita o primeiro
+# com muita. Em termos de rotação em profundidade, equivale a exigir que a mão não esteja
+# mais de ~48° girada para o lado. Ver D-35.
+COMPRIMENTO_MINIMO_POLEGAR = 0.55
+
 
 class GestureDetector:
 
@@ -63,8 +76,19 @@ class GestureDetector:
         # fronteira assimétrica e fazia joinha virar deslike a ~70° de inclinação, sem
         # passar por zona morta. Ver D-28.
         angulo_polegar = self._angulo_do_polegar(pontos)
-        thumb_up = thumb_open and angulo_polegar <= TOLERANCIA_POLEGAR_GRAUS
-        thumb_down = thumb_open and angulo_polegar >= (180 - TOLERANCIA_POLEGAR_GRAUS)
+
+        # O ângulo só é confiável se o polegar estiver razoavelmente de frente. Muito
+        # encurtado na projeção significa apontando na profundidade, e aí a direção X/Y
+        # não diz nada. Ver D-35.
+        comprimento_polegar = self.distancia(pontos[2], pontos[4])
+        polegar_de_frente = comprimento_polegar > (palm_size * COMPRIMENTO_MINIMO_POLEGAR)
+
+        thumb_up = thumb_open and polegar_de_frente and angulo_polegar <= TOLERANCIA_POLEGAR_GRAUS
+        thumb_down = (
+            thumb_open
+            and polegar_de_frente
+            and angulo_polegar >= (180 - TOLERANCIA_POLEGAR_GRAUS)
+        )
 
         thumb_index_close = self.distancia(pontos[4], pontos[8]) < (palm_size * 0.3)
         if thumb_index_close and not index_up:

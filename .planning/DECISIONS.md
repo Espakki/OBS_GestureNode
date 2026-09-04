@@ -205,6 +205,34 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-35 · O ângulo do polegar só vale se ele estiver de frente para a câmera**
+*2026-09-04 · B-19 — polimento do D-28*
+
+O D-28 resolveu a inclinação **no plano da imagem**. Ficou de fora a rotação em
+**profundidade**: `_angulo_do_polegar` mede só X/Y, então um polegar apontando para a
+câmera ou para longe dela projeta um vetor curto — cuja direção é quase ruído — e ainda
+podia cair dentro dos 60° e virar joinha. Relatado como "joinha de lado, com o dedão
+apontando para trás".
+
+**Solução:** exigir que o polegar projetado tenha ao menos `COMPRIMENTO_MINIMO_POLEGAR`
+(0.55) do `palm_size`. Medido nas mãos sintéticas: joinha e deslike de frente dão **0.83**,
+um polegar em profundidade dá **0.44**. O corte rejeita o segundo com folga e aceita o
+primeiro com muita. Em rotação de profundidade, equivale a exigir a mão a menos de ~48°
+girada para o lado.
+
+**Por que não usar o `z` do MediaPipe**, que seria o sinal direto: os landmarks hoje
+trafegam como `(x, y)` em todo o detector e nos testes. Passar a `(x, y, z)` mudaria o
+contrato de tudo, e o `z` do MediaPipe é relativo e notoriamente ruidoso. O comprimento
+projetado resolve o caso real sem tocar no contrato — se um dia houver necessidade de
+distinguir "para a câmera" de "para longe da câmera", aí o `z` se justifica.
+
+**Invariante preservada:** o gate é distância, e distância não muda com rotação no plano.
+Fixado em `TestPolegarEmProfundidade::test_o_gate_e_invariante_a_rotacao`, para que isto
+não reintroduza a fragilidade que o D-28 removeu.
+
+**Pendente de validação:** o valor 0.55, como o 60° do D-28. Se joinhas legítimos passarem
+a ser recusados, é o primeiro número a baixar.
+
 **D-34 · `stop()` é assíncrono; quem dirige a UI é o sinal `finished`**
 *2026-09-04 · B-17, B-13*
 
