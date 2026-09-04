@@ -53,18 +53,5 @@ aparece em runtime. Só encarar com o build sendo testado a cada passo, e depois
 
 ## Fase F — Câmera: saber antes de falhar
 
-_B-13 fechado em `c7715b0`, B-11 em `f7a92a9`._
-
-### B-12 · Recomendar preset de câmera · **M** · depende de B-11
-
-Filtrar o que não existe é objetivo. **Recomendar** exige definir "melhor", e isso não é
-propriedade da câmera sozinha — é câmera × modo de operação:
-
-- **teste / manual (sem VCam):** resolução acima de 720p é desperdício puro. O
-  `HandTracker` reduz tudo para `PROCESS_W=640` antes da inferência, então 1080p custa CPU
-  e não melhora detecção em nada.
-- **automático:** a resolução **é** o que o público vê no OBS. Aí 1080p importa.
-
-O óbvio ("pega a maior resolução suportada") estaria errado em dois dos três modos.
-Decidir isso é o trabalho principal do item — o código é a parte fácil.
+_Fechada: B-13 em `c7715b0`, B-11 em `f7a92a9`, B-12 em `035a4c5`._
 

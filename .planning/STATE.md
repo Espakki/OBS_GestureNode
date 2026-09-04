@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-04
-**Branch:** `main` · **Último commit:** `f7a92a9`
+**Branch:** `main` · **Último commit:** `035a4c5`
 
 ---
 
@@ -55,6 +55,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Detector | `f8e3ca3` | Tolerância do polegar 60°→45°, calibrada com foto real (D-36) |
 | OBS | `512beb4` | Cena inexistente não derruba a conexão — B-15 |
 | Câmera | `f7a92a9` | UI filtra modos que a câmera não oferece — B-11 |
+| Câmera | `035a4c5` | Faixa de limitação na tela e preset por modo — B-12 |
 
 ---
 
@@ -64,7 +65,7 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
 1. **Abrir o `.exe`** (itens 6–8 abaixo). É o único bloco de validação que resta, e
    destrava o B-10.
-2. **B-12 — Recomendar preset de câmera.** Precisa de decisão: o que é "melhor" muda por modo de operação.
+2. **B-10 — Cortar as 774 MB do `dist`.** Destrava assim que o `.exe` for validado.
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 
