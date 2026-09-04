@@ -6,3 +6,14 @@ pyvirtualcam==0.15.0
 obsws-python==1.7.2
 keyboard==0.13.5
 pygrabber==0.2
+
+# Captura de câmera via FFmpeg/DirectShow (core/camera.py).
+# Faixa, não pin exato: a versão usada na migração pro PyAV se perdeu junto com o
+# ambiente da máquina anterior. Após a primeira instalação limpa bem-sucedida,
+# rodar `pip freeze | grep -i "^av=="` e fixar aqui. Ver D-24.
+av>=12,<15
+
+# Importado diretamente em integrations/obs_connect_thread.py (WebSocketTimeoutException).
+# Chega como dependência transitiva do obsws-python; declarado aqui porque o import é
+# direto. Sem pin exato para não conflitar com a resolução do obsws-python.
+websocket-client>=1.6

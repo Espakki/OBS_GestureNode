@@ -169,6 +169,25 @@ trabalho criava o config dentro de `C:\Windows\system32`.
 
 ---
 
+## Dependências
+
+**D-24 · `av` entra por faixa, não por pin exato — provisoriamente**
+*2026-09-03*
+A convenção do projeto (fase 1) é pinar tudo com `==` para máxima reprodutibilidade. `av`
+entra como `av>=12,<15`, abrindo exceção.
+**Por quê:** o `av` nunca esteve no `requirements.txt` — entrou no código junto com a
+migração pro PyAV (`76607d8`) e a declaração ficou faltando. A versão realmente usada morreu
+junto com o ambiente da máquina anterior, e a máquina atual não tem Python instalado, então
+não há como verificar. Pinar um `==` que não pode ser testado é falsa precisão: se o palpite
+errar, `pip install` falha e o app fica bloqueado pelo mesmo motivo de antes. Uma faixa
+instala algo funcional e permite derivar o pin real de uma instalação que de fato subiu.
+**Pendência:** após a primeira instalação limpa bem-sucedida, rodar `pip freeze` e converter
+para `==`. Só então a convenção volta a ser respeitada.
+**Mesmo caso:** `websocket-client`, importado direto em `obs_connect_thread.py` mas nunca
+declarado. Fica sem pin exato para não conflitar com a resolução do `obsws-python`.
+
+---
+
 ## Processo
 
 **D-23 · Planning enxuto: status em um lugar só, feito = SHA**
