@@ -186,6 +186,28 @@ para `==`. Só então a convenção volta a ser respeitada.
 **Mesmo caso:** `websocket-client`, importado direto em `obs_connect_thread.py` mas nunca
 declarado. Fica sem pin exato para não conflitar com a resolução do `obsws-python`.
 
+**D-25 · `av` pinado em 14.2.0; `opencv-contrib-python` declarado para travar o `cv2`**
+*2026-09-03 · commit `9e044dd`*
+Fecha a pendência do D-24: a faixa vira `av==14.2.0`, e `opencv-contrib-python==4.10.0.84`
+passa a ser declarado.
+**Por quê (`av`):** não foi só "derivar o pin de uma instalação que subiu" — a faixa estava
+ativamente quebrada. `av>=12,<15` resolve para a 14.4.x, e o PyAV parou de publicar wheel
+cp310 para win_amd64 a partir da 14.3. O pip **não retrocede** para achar uma versão com
+wheel: ele prefere a mais nova, aceita o sdist como candidato válido e tenta compilar,
+morrendo em `Microsoft Visual C++ 14.0 or greater is required`. A 14.2.0 é a última com
+wheel para o 3.10. Verificado: o wheel traz `dshow` compilado, que é o backend de
+`core/camera.py`.
+**Por quê (OpenCV):** `opencv-python` e `opencv-contrib-python` instalam no MESMO diretório
+`cv2`, e o último a instalar vence. O contrib chega como transitivo do `mediapipe`, sem
+limite superior, e resolvia para 5.0.0.93 — então `import cv2` respondia 5.0.0 enquanto o
+`requirements.txt` pinava 4.10.0.84. O pin do `opencv-python` era decorativo. Travar os dois
+na mesma versão upstream torna o resultado independente da ordem de instalação.
+**O que NÃO motivou a mudança:** o OpenCV 5.0 não removeu nenhuma API usada pelo projeto
+(`VideoWriter_fourcc` inclusive), e `numpy 2.2.6` convive com `mediapipe 0.10.14` sem erro
+de import. Ambos foram testados. O alinhamento é por fidelidade ao pin declarado e por
+evitar um major não auditado no caminho da câmera, não por quebra observada.
+**Pitfalls:** ENV-01 e ENV-02.
+
 ---
 
 ## Processo

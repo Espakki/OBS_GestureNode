@@ -247,6 +247,66 @@ Config schema task at the start of the 2-hand detection phase (same task as MODE
 
 ---
 
+## Environment & Dependency Pitfalls
+
+Mistakes in this category block a clean install outright, or produce an environment that
+silently differs from what `requirements.txt` declares.
+
+---
+
+### ENV-01: A Version Range Lets pip Fall Through to a Source Build
+
+**What goes wrong:**
+`pip install -r requirements.txt` dies on `av` with
+`error: Microsoft Visual C++ 14.0 or greater is required`, after ~250 lines of Cython output.
+It reads like a missing toolchain on the machine. It is not — it is a missing wheel upstream.
+
+**Why it happens:**
+PyAV stopped publishing `cp310-win_amd64` wheels at 14.3. The range `av>=12,<15` resolved to
+14.4.x, which ships only an sdist for Python 3.10. pip does **not** backtrack to an older
+version just because the newest lacks a wheel: an sdist is a valid candidate, so it picks the
+newest version and builds it. Any unbounded-at-the-top range on a compiled package can do
+this at any time, without the repo changing.
+
+**How to avoid:**
+Pin compiled dependencies with `==` to a version verified to have a wheel for this
+interpreter and platform. To find the newest version that actually has one:
+`pip install --only-binary=:all: --dry-run "<pkg><range>"` — it skips sdists entirely, so the
+version it reports is wheel-backed. Current pin: `av==14.2.0` (D-25).
+
+**Warning signs:**
+- `Building wheel for <pkg> (pyproject.toml) ... error` for a package that normally installs instantly
+- `Warning! You are installing from source.` in the build log
+- The install worked months ago with the same requirements file and no local change
+
+---
+
+### ENV-02: Both OpenCV Distributions Installed — the Pin Silently Loses
+
+**What goes wrong:**
+`requirements.txt` pins `opencv-python==4.10.0.84`, the install reports success, and
+`cv2.__version__` returns `5.0.0`. No error, no warning. The declared pin has no effect on
+what the code actually imports.
+
+**Why it happens:**
+`opencv-python` and `opencv-contrib-python` are separate PyPI projects that unpack into the
+**same** `cv2/` directory. Whichever pip installs last overwrites the other. `mediapipe`
+depends on `opencv-contrib-python` with no upper bound, so it pulls the newest release
+(5.0.0.93) and it lands on top of the pinned 4.10.0.84.
+
+**How to avoid:**
+Declare `opencv-contrib-python` explicitly at the same upstream version as `opencv-python`,
+so the outcome does not depend on install order. Verify with `cv2.__version__` after a clean
+install — not with `pip list`, which happily shows both packages at their own versions and
+hides the collision.
+
+**Warning signs:**
+- `pip list` shows `opencv-python 4.x` and `opencv-contrib-python 5.x` side by side
+- `cv2.__version__` disagrees with the pin in `requirements.txt`
+- Uninstalling either package breaks `import cv2` — they share files
+
+---
+
 ## Technical Debt Patterns
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |

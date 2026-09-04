@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `28dcb61`
+**Branch:** `fix/deps-wheel-cp310` (a mesclar em `main`) · **Último commit:** `9e044dd`
 
 ---
 
@@ -12,10 +12,12 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue. O que falta é robustez: uma dependência não declarada que
-quebra instalação limpa, qualidade da câmera virtual, e ausência de testes.
+operação) está entregue. O que falta é robustez: qualidade da câmera virtual e
+ausência de testes.
 
-**Estado real:** roda, mas nunca foi validado em ambiente limpo.
+**Estado real:** a instalação limpa foi validada nesta máquina — Python 3.10.11, `.venv`
+recriado, os 10 imports do projeto passam. O app em si ainda não foi executado aqui:
+câmera, VCam e OBS seguem sem verificação de runtime.
 
 ---
 
@@ -35,6 +37,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Repo | `c9d2271` | Build PyInstaller versionado, `config.json` destrackeado, README |
 | Planning | `a7b0dd6` | Modelo GSD substituído por 4 arquivos; `CLAUDE.md` na raiz |
 | Deps | `28dcb61` | `av` e `websocket-client` declarados — B-01 fechado |
+| Deps | `9e044dd` | `av` pinado em 14.2.0, `opencv-contrib` travado; instalação limpa validada |
 
 ---
 
@@ -45,19 +48,20 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 1. **B-02 — Câmera virtual recebendo upscale de 640px.** Regressão de qualidade visível.
    Bloqueado pela decisão em aberto D-09: o que a VCam deve entregar?
 2. **B-05 — Suíte de testes do núcleo.** Pré-requisito pra encostar no detector.
-3. **B-03 — Validar o `main.spec`.** Só possível depois que houver Python na máquina.
+3. **B-03 — Validar o `main.spec`.** Desbloqueado — já há Python e `.venv` funcional.
 
-**Pendência aberta do B-01:** `av` entrou por faixa, não por pin exato (D-24). Depois da
-primeira instalação limpa que subir, rodar `pip freeze` e converter para `==`.
+A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 
 ---
 
 ## Bloqueios
 
-- **Sem Python nesta máquina.** Só o stub da Microsoft Store. Os venvs `.venv/` e `venv/`
-  apontam para `C:\Users\Computer\...\Python310` (outro PC) e estão mortos — apagar e
-  recriar. Versão correta: **3.10.11** (é o que o `requirements.txt` declara).
-- Enquanto isso, nada é executável nem testável localmente. Análise estática só.
+- **Nenhum bloqueio de ambiente.** Python 3.10.11 instalado em
+  `C:\Users\wini\AppData\Local\Programs\Python\Python310`, `.venv/` recriado do zero e
+  validado. O `venv/` antigo, que apontava para `C:\Users\Computer\...` (outro PC), foi
+  apagado — junto com ele se perderam os pins que funcionavam na máquina anterior.
+- **Instalar não é funcionar.** Nada de runtime foi exercitado: câmera, VCam e conexão OBS
+  nunca subiram aqui. B-02 e B-03 continuam sem verificação de fato.
 
 ---
 
