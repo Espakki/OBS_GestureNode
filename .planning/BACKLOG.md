@@ -60,14 +60,7 @@ _Fechada: B-13 em `c7715b0`, B-11 em `f7a92a9`, B-12 em `035a4c5`._
 
 ## Fase H — Pontas soltas
 
-### B-20 · Capacidades da câmera são consultadas duas vezes na abertura · **P**
-
-Medido instrumentando a chamada: abrir a janela dispara `capacidades()` **duas vezes**,
-~170ms cada. Vem de `_load_ui_from_config` chamar `aplicar_capacidades_da_camera` depois de
-`_populate_camera_devices` já ter provocado o caminho por outra via.
-
-Não quebra nada e o resultado é o mesmo — é desperdício. Quando apareceu, eu tratei o
-sintoma (guarda para não repetir o aviso no log) e não a causa.
+_B-20 fechado em `e28e0bf`._
 
 ### B-21 · Trocar o framework da UI · **G** · ideia, não decisão
 
