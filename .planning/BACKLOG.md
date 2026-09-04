@@ -14,22 +14,6 @@ plano em `active/`.
 Objetivo: `git clone` + `pip install -r requirements.txt` + `python main.py` funciona numa
 máquina virgem. Hoje não funciona.
 
-### B-01 · Declarar `av` (PyAV) no requirements · **P**
-
-`core/camera.py` faz `import av` no topo, e a cadeia `main.py → ui/main_window → mixins →
-engine → core.camera` é toda import de nível de módulo. Numa máquina limpa o app morre com
-`ModuleNotFoundError: No module named 'av'` antes de desenhar a janela.
-
-Entrou junto com a migração pro PyAV (`76607d8`), depois que a fase 1 já tinha fechado o
-critério "pip install em ambiente limpo instala tudo" — o critério ficou verde no papel e a
-dependência entrou depois.
-
-Menor, mesma categoria: `integrations/obs_connect_thread.py` importa `websocket` direto.
-Funciona de carona com o `obsws-python`, mas é transitiva não declarada.
-
-**Arquivos:** `requirements.txt`
-**Validar:** venv novo, `pip install -r requirements.txt`, `python main.py` abre.
-
 ### B-02 · Câmera virtual recebe upscale de 640px · **M**
 
 No modo `automatico` o frame percorre: captura 1920×1080 → `HandTracker.processar()` reduz

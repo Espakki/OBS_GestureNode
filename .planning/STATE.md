@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `c9d2271`
+**Branch:** `main` · **Último commit:** `28dcb61`
 
 ---
 
@@ -33,6 +33,8 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | UI | `b6a55b8` | `MainWindow` extraída em mixins por domínio |
 | Polish | `e61397e` | Configurações Avançadas, tema Streamer Dark, supressão de preview |
 | Repo | `c9d2271` | Build PyInstaller versionado, `config.json` destrackeado, README |
+| Planning | `a7b0dd6` | Modelo GSD substituído por 4 arquivos; `CLAUDE.md` na raiz |
+| Deps | `28dcb61` | `av` e `websocket-client` declarados — B-01 fechado |
 
 ---
 
@@ -40,9 +42,13 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-01 — Declarar `av` no requirements.** Bloqueador: instalação limpa não sobe.
-2. **B-02 — Câmera virtual recebendo upscale de 640px.** Regressão de qualidade visível.
-3. **B-05 — Suíte de testes do núcleo.** Pré-requisito pra encostar no detector.
+1. **B-02 — Câmera virtual recebendo upscale de 640px.** Regressão de qualidade visível.
+   Bloqueado pela decisão em aberto D-09: o que a VCam deve entregar?
+2. **B-05 — Suíte de testes do núcleo.** Pré-requisito pra encostar no detector.
+3. **B-03 — Validar o `main.spec`.** Só possível depois que houver Python na máquina.
+
+**Pendência aberta do B-01:** `av` entrou por faixa, não por pin exato (D-24). Depois da
+primeira instalação limpa que subir, rodar `pip freeze` e converter para `==`.
 
 ---
 
