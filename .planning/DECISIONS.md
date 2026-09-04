@@ -69,12 +69,10 @@ Thread própria drenando o container, com `Condition` notificando por número de
 **Por quê:** elimina frame staleness e o buffer interno do DirectShow, que entregava frames
 atrasados. Ver [PITFALLS.md](PITFALLS.md).
 
-**D-09 · ABERTA — o que a câmera virtual deve entregar?**
-*2026-09-03*
-Hoje a VCam recebe o frame de inferência (640px) upscalado de volta, não a captura nativa.
-Precisa decidir: frame nativo limpo, ou nativo com esqueleto (o que exige escalar os
-landmarks de volta pra resolução original)?
-**Bloqueia:** B-02 no [BACKLOG.md](BACKLOG.md).
+**D-09 · ~~ABERTA~~ RESOLVIDA — o que a câmera virtual deve entregar?**
+*2026-09-03* · **substituída por D-26**
+A VCam recebia o frame de inferência (640px) upscalado de volta, não a captura nativa. A
+pergunta era: frame nativo limpo, ou nativo com esqueleto?
 
 **D-10 · Inicialização da VCam tem timeout de 3s em thread daemon**
 *Origem: fase 13*
@@ -185,6 +183,30 @@ instala algo funcional e permite derivar o pin real de uma instalação que de f
 para `==`. Só então a convenção volta a ser respeitada.
 **Mesmo caso:** `websocket-client`, importado direto em `obs_connect_thread.py` mas nunca
 declarado. Fica sem pin exato para não conflitar com a resolução do `obsws-python`.
+
+**D-26 · A VCam recebe resolução nativa; o esqueleto nela é escolha do usuário**
+*2026-09-03 · resolve D-09*
+Duas decisões separadas, porque são problemas diferentes:
+
+**Resolução — não é escolha, é correção.** A câmera virtual passa a receber o frame de
+captura nativo. `HandTracker.processar()` continua devolvendo a versão reduzida da
+inferência, mas a engine agora guarda `frame_nativo` antes de chamar e usa cada um no
+consumidor certo: reduzido no preview, nativo na VCam. Medido com listras de 4px em 1080p,
+a variância do Laplaciano ia de 97503 para 390 no caminho antigo — 99,6% do detalhe fino
+perdido (pior caso sintético; imagem real perde menos, mas o upscale era o mesmo).
+
+**Esqueleto — é escolha, e do usuário do app.** Novo `camera.skeleton_na_vcam`, default
+`False`, com checkbox próprio na aba Geral, independente do `show_skeleton` do preview.
+**Por quê dois controles e não um:** o streamer quer o esqueleto no preview para calibrar e
+quase nunca quer que o público veja. Um toggle único forçaria escolher entre calibrar às
+cegas ou vazar as linhas na live. Como bônus, o label existente ("Mostrar esqueleto da mão
+no preview") volta a ser verdadeiro — antes ele prometia preview e entregava preview + OBS,
+porque os dois compartilhavam o mesmo frame.
+**Nota sobre D-11:** a fase 15 tirou os controles de VCam da aba Geral. Este checkbox não
+contraria aquilo: D-11 removeu plumbing técnico (device, modo), e este é escolha de conteúdo
+— mora ao lado do checkbox de esqueleto, não numa seção de VCam.
+**Custo:** `frame_nativo.copy()` só acontece quando o usuário liga o esqueleto na VCam e há
+mão em quadro. Desligado (default), zero cópia extra.
 
 **D-25 · `av` pinado em 14.2.0; `opencv-contrib-python` declarado para travar o `cv2`**
 *2026-09-03 · commit `9e044dd`*

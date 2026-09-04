@@ -26,12 +26,39 @@ class HandTracker:
             min_tracking_confidence=0.5
         )
 
+    def desenhar_esqueleto(self, frame, maos):
+        """Desenha o esqueleto das mãos em um frame de QUALQUER resolução, in-place.
+
+        Os landmarks do MediaPipe são normalizados (0..1), então o desenho independe do
+        tamanho do frame — o mesmo resultado de `processar()` serve tanto para o preview
+        reduzido quanto para o frame nativo que vai para a câmera virtual.
+
+        Só funciona com dicts vindos de `processar()`, que carregam `_mp_landmarks`.
+        """
+        for mao in maos:
+            mp_landmarks = mao.get("_mp_landmarks")
+            if mp_landmarks is None:
+                continue
+            self.mp_desenho.draw_landmarks(
+                frame,
+                mp_landmarks,
+                self.mp_maos.HAND_CONNECTIONS,
+            )
+
     def processar(self, frame, draw_skeleton=True):
-        """Processa o frame e retorna (frame_anotado, list[dict]).
+        """Processa o frame e retorna (frame_reduzido, list[dict]).
+
+        O frame retornado é a versão reduzida usada na inferência (largura `PROCESS_W`) —
+        NÃO é o frame de captura. Quem precisa da resolução nativa (a câmera virtual) deve
+        guardar o frame original antes de chamar este método e usar `desenhar_esqueleto()`
+        para anotá-lo.
 
         Cada dict: {"landmarks": list[tuple[int,int]], "handedness": "Left"|"Right"}
-        O handedness já está com inversão aplicada — fisicamente correto para câmera frontal.
-        Lista vazia quando nenhuma mão é detectada.
+        Os landmarks estão na escala do frame reduzido. O handedness já está com inversão
+        aplicada — fisicamente correto para câmera frontal. Lista vazia quando nenhuma mão
+        é detectada.
+
+        `draw_skeleton` afeta apenas o frame reduzido retornado.
         """
         h_orig, w_orig = frame.shape[:2]
 
@@ -65,6 +92,12 @@ class HandTracker:
                         self.mp_maos.HAND_CONNECTIONS
                     )
 
-                maos.append({"landmarks": pontos, "handedness": physical_label})
+                # _mp_landmarks: objeto normalizado do MediaPipe, guardado para permitir
+                # desenhar o esqueleto em outra resolução (ver desenhar_esqueleto).
+                maos.append({
+                    "landmarks": pontos,
+                    "handedness": physical_label,
+                    "_mp_landmarks": hand_landmarks,
+                })
 
         return frame_small, maos

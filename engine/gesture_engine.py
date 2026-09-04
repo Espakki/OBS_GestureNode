@@ -189,6 +189,9 @@ class GestureEngine(QThread):
         camera_cfg = self.config.get("camera", {})
         gestures_cfg = self.config.get("gestures", {})
         self.show_skeleton = bool(camera_cfg.get("show_skeleton", True))
+        # Independente do preview: o que o público vê no OBS é escolha separada do que o
+        # streamer vê para calibrar. Default False — esqueleto não vaza para a live.
+        self.skeleton_na_vcam = bool(camera_cfg.get("skeleton_na_vcam", False))
 
         self.tempo_minimo = gestures_cfg.get(
             "default_hold_time",
@@ -378,7 +381,13 @@ class GestureEngine(QThread):
                         continue
 
                     _proc_start = time.monotonic()
-                    frame, maos = self.tracker.processar(frame, draw_skeleton=self.show_skeleton)
+                    # frame_nativo preserva a resolução de captura. processar() devolve a
+                    # versão reduzida da inferência, que serve ao preview mas seria um
+                    # upscale borrado se fosse parar na câmera virtual.
+                    frame_nativo = frame
+                    frame_preview, maos = self.tracker.processar(
+                        frame, draw_skeleton=self.show_skeleton
+                    )
                     tempo_atual = time.time()
 
                     maos_detectadas = {mao["handedness"] for mao in maos}
@@ -487,9 +496,16 @@ class GestureEngine(QThread):
                             hand_state["inicio_gesto"] = None
 
                     if self.camera.enable_virtual_camera:
-                        self.camera.enviar_para_virtual(frame)
+                        # Câmera virtual recebe a resolução nativa. Só copia quando vai
+                        # anotar — desenhar direto mutaria o frame compartilhado.
+                        if self.skeleton_na_vcam and maos:
+                            frame_vcam = frame_nativo.copy()
+                            self.tracker.desenhar_esqueleto(frame_vcam, maos)
+                        else:
+                            frame_vcam = frame_nativo
+                        self.camera.enviar_para_virtual(frame_vcam)
                     if not self._preview_suprimido:
-                        self.frame_ready.emit(frame)
+                        self.frame_ready.emit(frame_preview)
 
                     _latency_sum += (time.monotonic() - _proc_start) * 1000
                     _latency_count += 1

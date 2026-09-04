@@ -101,9 +101,18 @@ class GeralTab(QWidget):
 
         self.show_skeleton_checkbox = QCheckBox("Mostrar esqueleto da mão no preview")
         self.show_skeleton_checkbox.setToolTip(
-            "Exibe o esqueleto da mão no preview para facilitar o ajuste de posição e iluminação."
+            "Exibe o esqueleto da mão no preview para facilitar o ajuste de posição e iluminação.\n"
+            "Afeta apenas esta janela — não altera o que sai para o OBS."
         )
         layout.addWidget(self.show_skeleton_checkbox)
+
+        self.skeleton_vcam_checkbox = QCheckBox("Mostrar esqueleto também na saída para o OBS")
+        self.skeleton_vcam_checkbox.setToolTip(
+            "Desenha o esqueleto na imagem enviada para a câmera virtual — ou seja, o público "
+            "da live passa a ver as linhas da mão.\n"
+            "Desligado por padrão: normalmente o esqueleto serve só para você calibrar."
+        )
+        layout.addWidget(self.skeleton_vcam_checkbox)
 
         camera_title = QLabel("Configuração da câmera")
         camera_title.setObjectName("sectionTitle")

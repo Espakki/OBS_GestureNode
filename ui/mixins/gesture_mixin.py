@@ -254,9 +254,14 @@ class GestureMixin:
         self.config.setdefault("camera", {})
         self.config["camera"]["show_skeleton"] = bool(checked)
 
+    def on_skeleton_vcam_changed(self, checked):
+        self.config.setdefault("camera", {})
+        self.config["camera"]["skeleton_na_vcam"] = bool(checked)
+
     def on_dynamic_setting_changed(self, *_):
         self.config.setdefault("camera", {})
         self.config["camera"]["show_skeleton"] = self.show_skeleton_checkbox.isChecked()
+        self.config["camera"]["skeleton_na_vcam"] = self.skeleton_vcam_checkbox.isChecked()
 
         binding = self._get_current_binding()
         binding["hold_time"] = self.hold_slider.value() / 10
@@ -270,6 +275,7 @@ class GestureMixin:
             return
 
         self.engine.show_skeleton = self.config["camera"]["show_skeleton"]
+        self.engine.skeleton_na_vcam = self.config["camera"]["skeleton_na_vcam"]
         self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
         self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
         self.engine.tempo_minimo = float(binding["hold_time"])
