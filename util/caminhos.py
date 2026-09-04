@@ -20,6 +20,9 @@ logger = get_logger(__name__)
 NOME_DO_APP = "OBS GestureNode"
 NOME_DO_ARQUIVO = "config.json"
 
+# Em Linux, nome de pasta de config não leva maiúscula nem espaço.
+_NOME_EM_PASTA = NOME_DO_APP.lower().replace(" ", "-")
+
 
 def esta_congelado():
     """True quando rodando a partir do executável do PyInstaller."""
@@ -36,12 +39,21 @@ def diretorio_do_config():
     if not esta_congelado():
         return _raiz_do_projeto()
 
-    base = os.environ.get("APPDATA")
-    if base:
-        return Path(base) / NOME_DO_APP
+    # Windows: %APPDATA%. Linux e afins: $XDG_CONFIG_HOME, com ~/.config de padrão,
+    # que é a convenção da freedesktop. Ver D-42.
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA")
+        if base:
+            return Path(base) / NOME_DO_APP
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME")
+        if base:
+            return Path(base) / _NOME_EM_PASTA
 
-    # Sem APPDATA (ambiente atípico), a home do usuário é gravável e serve.
-    return Path.home() / f".{NOME_DO_APP.lower().replace(' ', '-')}"
+        return Path.home() / ".config" / _NOME_EM_PASTA
+
+    # Sem variável de ambiente (caso atípico), a home do usuário é gravável e serve.
+    return Path.home() / f".{_NOME_EM_PASTA}"
 
 
 def caminho_do_config(criar_diretorio=True):

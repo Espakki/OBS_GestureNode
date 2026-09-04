@@ -5,6 +5,7 @@ import av
 import cv2
 import pyvirtualcam
 
+import plataforma
 from util.logger import get_logger
 
 logger = get_logger(__name__)
@@ -96,9 +97,11 @@ class CameraManager:
         return cam_result[0]
 
     def _tentar_abrir(self, fps):
+        # Formato e endereçamento do dispositivo mudam por sistema: o Windows usa
+        # DirectShow com `video=<nome>`, o Linux usa v4l2 com `/dev/videoN`. Ver D-42.
         return av.open(
-            f'video={self.camera_name}',
-            format='dshow',
+            plataforma.url_do_dispositivo(self.camera_name, self.camera_index),
+            format=plataforma.formato_de_captura(),
             options={
                 'video_size': f'{self.width}x{self.height}',
                 'framerate': str(int(fps)),

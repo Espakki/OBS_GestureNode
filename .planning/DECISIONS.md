@@ -205,6 +205,70 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-43 · Script manual que testa lógica pura vira teste automatizado**
+*2026-09-04*
+
+`teste/` guardava dois scripts que não precisavam de hardware nenhum:
+`test_hotkey_capture_logic.py` (eventos de tecla no `HotkeyLineEdit`, com Qt offscreen) e
+`test_hotkey_dispatch.py` (normalização de texto de atalho — string pura).
+
+Enquanto ficaram lá, **tiveram zero cobertura automática**: ninguém roda script manual
+antes de commitar. Migrados para `tests/test_hotkeys.py`, viraram 19 testes que rodam em
+0.3s junto com o resto.
+
+**O que isso resgatou:** a regressão do **AltGr** (commit `8838edf`). Em layouts como o
+ABNT2, Ctrl+Alt age como AltGr e o Qt entrega o caractere composto — `æ` no lugar de `z`.
+Gravar isso produziria um atalho que nunca casa com o registrado no OBS. Validado por
+mutação: fazer o campo preferir `event.text()` ao código da tecla quebra exatamente esse
+teste.
+
+**Critério para o que fica em `teste/`:** só o que exige webcam ou OBS ligado. O
+`teste_pyav_vs_opencv.py` fica por valor histórico — foi a medição dele que motivou trocar
+o OpenCV pelo PyAV na captura.
+
+**D-42 · Tudo que depende do sistema operacional vive em `plataforma/`**
+*2026-09-04 · B-22*
+
+`actions/action_manager.py` fazia `import winsound` no topo. Como a cadeia
+`main.py → ui → engine → action_manager` é toda import de nível de módulo, isso derrubava o
+app em qualquer sistema que não fosse Windows **antes de a janela abrir**. Não era detalhe
+de organização: era o bloqueador do port.
+
+**O arquivo existir não é problema; o `import` executar é.** Distribuir `_windows.py` para
+um usuário Linux custa alguns KB parados. Um `import winsound` no topo de um módulo sempre
+carregado custa o app inteiro. A abstração existe para adiar o import até saber onde
+estamos rodando.
+
+**O nome é `plataforma`, não `platform`**, porque `platform` é módulo da stdlib — e o
+próprio `action_manager` usava `platform.system()`. Um pacote com esse nome sombrearia a
+stdlib inclusive para bibliotecas de terceiros.
+
+```
+plataforma/
+  __init__.py    escolhe em runtime, olhando sys.platform
+  _generico.py   teclado via pacote `keyboard`; base do futuro _linux.py
+  _windows.py    winsound + SendInput — só importado no Windows
+```
+
+**Mover, não reescrever.** `action_manager.py` foi de 367 para 150 linhas e não sabe mais o
+que é `ctypes` ou `winsound`; o que ficou é despacho e parsing, que não dependem de
+sistema. Os 174 testes de então garantiram que o comportamento no Windows não mudou.
+
+**Também atravessaram a fronteira:** o formato de captura (`dshow`/`v4l2`) e o
+endereçamento do dispositivo — que não é só sintaxe, é identidade: o DirectShow endereça
+por **nome**, o v4l2 por **número**. E o diretório de config, que passou a respeitar
+`$XDG_CONFIG_HOME` fora do Windows.
+
+**O teste que protege isso:** varre a árvore procurando `import` de API de sistema
+(`winsound`, `msvcrt`, `fcntl`, `pwd`...) no topo de qualquer módulo fora de `plataforma/`.
+Reintroduzir o padrão quebra na hora, em vez de aparecer quando alguém tentar rodar no
+Linux.
+
+**O que isto NÃO faz:** não implementa Linux (é o B-23) e não pode ser provado daqui.
+Fingir `sys.platform` confunde bibliotecas de terceiros — o opencv passa a procurar API
+POSIX. O que dá para provar, e foi provado, é que `action_manager` importa com `winsound`
+inexistente.
+
 **D-41 · Os `set_*` da aba Geral bloqueiam sinais: refletir config não é clicar**
 *2026-09-04 · B-20*
 
