@@ -3,7 +3,7 @@
 > **Este é o único arquivo que diz status.** Se outro arquivo parecer contradizer este,
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
-**Última atualização:** 2026-09-03
+**Última atualização:** 2026-09-04
 **Branch:** `main` · **Último commit:** `a7a1088`
 
 ---
@@ -12,12 +12,12 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue. O que falta é robustez: ausência de testes automatizados e a
-fragilidade do detector a rotação.
+operação) está entregue, com 131 testes automatizados cobrindo detector, estabilidade,
+despacho por mão e caminhos de config.
 
-**Estado real:** a instalação limpa foi validada nesta máquina — Python 3.10.11, `.venv`
-recriado, os 10 imports do projeto passam. O app em si ainda não foi executado aqui:
-câmera, VCam e OBS seguem sem verificação de runtime.
+**Estado real:** o app já foi executado pelo dono e o ciclo parar/reiniciar da câmera foi
+reproduzido e corrigido contra a C920 real. O que segue sem verificação de runtime é o
+`.exe` empacotado, a câmera virtual no OBS e a conexão OBS — ver a lista no fim.
 
 ---
 
@@ -67,8 +67,8 @@ A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`.
   `C:\Users\wini\AppData\Local\Programs\Python\Python310`, `.venv/` recriado do zero e
   validado. O `venv/` antigo, que apontava para `C:\Users\Computer\...` (outro PC), foi
   apagado — junto com ele se perderam os pins que funcionavam na máquina anterior.
-- **Instalar não é funcionar.** Nada de runtime foi exercitado: câmera, VCam e conexão OBS
-  nunca subiram aqui. B-02 e B-03 continuam sem verificação de fato.
+- **Câmera real já foi exercitada** (ciclo parar/iniciar, 3x seguidas, na C920). Seguem sem
+  verificação: o `.exe` empacotado, a câmera virtual dentro do OBS e a conexão OBS.
 
 ---
 
