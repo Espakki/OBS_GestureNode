@@ -99,18 +99,3 @@ propriedade da câmera sozinha — é câmera × modo de operação:
 O óbvio ("pega a maior resolução suportada") estaria errado em dois dos três modos.
 Decidir isso é o trabalho principal do item — o código é a parte fácil.
 
-### B-15 · Config do OBS não aplica na engine em execução · **M**
-
-`on_obs_changed` grava host/porta/senha no config, mas **nunca reaplica na engine viva** —
-a conexão foi feita no start com os valores antigos. Gestos, esqueleto e hold/cooldown
-aplicam ao vivo (`on_dynamic_setting_changed`); OBS não.
-
-Para o usuário parece que "não salvou", quando na verdade salvou e não surtiu efeito.
-
-**Decidir:** reconectar sozinho ao mudar host/porta, ou avisar na UI que aquele campo
-precisa de restart? Reconectar a cada tecla digitada no campo de host seria pior — exige
-debounce ou um botão explícito.
-
-**Relacionado:** `set_config_enabled` desabilita só câmera, resolução e FPS enquanto roda.
-O resto fica editável, o que é bom — mas então tudo que fica editável deveria aplicar.
-
