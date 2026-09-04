@@ -99,25 +99,6 @@ propriedade da câmera sozinha — é câmera × modo de operação:
 O óbvio ("pega a maior resolução suportada") estaria errado em dois dos três modos.
 Decidir isso é o trabalho principal do item — o código é a parte fácil.
 
-### B-13 · UI não reflete o FPS quando o fallback dispara · **P**
-
-Pendência registrada no D-32. Quando a câmera cai de 60 para 30, o usuário recebe o aviso
-no status, mas o botão de FPS na aba Geral continua marcando 60. A interface passa a
-discordar da realidade até ele trocar na mão.
-
-É a fatia barata do B-11: não precisa de probe nenhum, só propagar o `camera.aviso` /
-`camera.fps` efetivo de volta para a UI depois de um start bem-sucedido.
-
----
-
-## Fase G — Achados da validação manual (2026-09-04)
-
-_B-14, B-16 e B-18 fechados em `f41d5c2`._
-
-Vieram da primeira validação com câmera, OBS e mãos de verdade. Passaram sem ressalva:
-conexão OBS em automático, resolução nativa da VCam, esqueleto na saída, joinha sem
-confusão, duas mãos com uma ação só, e o ciclo parar/iniciar/reiniciar.
-
 ### B-15 · Config do OBS não aplica na engine em execução · **M**
 
 `on_obs_changed` grava host/porta/senha no config, mas **nunca reaplica na engine viva** —
@@ -132,21 +113,6 @@ debounce ou um botão explícito.
 
 **Relacionado:** `set_config_enabled` desabilita só câmera, resolução e FPS enquanto roda.
 O resto fica editável, o que é bom — mas então tudo que fica editável deveria aplicar.
-
-### B-17 · UI trava e pisca ao parar a engine · **M**
-
-`GestureEngine.stop()` chama `self.wait(8000)` **a partir da thread da UI**, que é o que
-congela a janela por ~2,5 s (o `container.close()` do DirectShow, medido no D-32).
-
-Introduzido por mim ao corrigir o bug de parar/reiniciar: o `wait` garante que a câmera foi
-liberada antes de retornar, mas paga com a UI travada.
-
-**O padrão Qt correto** é não bloquear: `stop()` só sinaliza, e o sinal `finished` dirige a
-UI. A infraestrutura já existe — `stop_engine` já mostra "Parando..." e já espera o
-`finished` para reabilitar o Start. O `wait` virou redundante com essa mudança.
-
-**Cuidado:** o `restart_engine` depende de a parada ter terminado antes do novo start.
-Remover o `wait` sem encadear pelo `finished` traria o bug do `[Errno 5]` de volta.
 
 ### B-19 · Joinha de lado ainda é aceito · **P** · polimento do D-28
 
