@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-04
-**Branch:** `main` · **Último commit:** `035a4c5`
+**Branch:** `main` · **Último commit:** `0ab76f5`
 
 ---
 
@@ -12,7 +12,7 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue, com 141 testes automatizados cobrindo detector, estabilidade,
+operação) está entregue, com 203 testes automatizados cobrindo detector, estabilidade,
 despacho por mão e caminhos de config.
 
 **Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
@@ -56,6 +56,9 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | OBS | `512beb4` | Cena inexistente não derruba a conexão — B-15 |
 | Câmera | `f7a92a9` | UI filtra modos que a câmera não oferece — B-11 |
 | Câmera | `035a4c5` | Faixa de limitação na tela e preset por modo — B-12 |
+| UI | `5aea31f` | Aba Geral fala por forma, não por parágrafo (D-40) |
+| Docs | `c0a7a4a` | LICENSE (MIT) e README reescrito |
+| Plataforma | `0ab76f5` | `plataforma/` isola o SO; testes de atalho migrados — B-22 |
 
 ---
 
@@ -63,9 +66,10 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **Abrir o `.exe`** (itens 6–8 abaixo). É o único bloco de validação que resta, e
+1. **Abrir o `.exe`** — `distmainmain.exe`, agora com tudo desta semana. Destrava o B-10.
    destrava o B-10.
 2. **B-10 — Cortar as 774 MB do `dist`.** Destrava assim que o `.exe` for validado.
+3. **B-23 — Implementação Linux.** Precisa de máquina Linux; a interface já existe (D-42).
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 

@@ -79,37 +79,7 @@ motivo concreto (o que exatamente o PySide6 está impedindo?) antes de virar pla
 
 ## Fase I — Port para Linux
 
-### B-22 · Abstrair a camada de plataforma · **G** · pré-requisito do B-23
-
-O app é Windows-only por construção, não por acidente. O planning antigo já tinha previsto
-isto como *Phase 7 — Platform Abstraction*, absorvida na v1.2 e **nunca executada**.
-
-**Cinco pontos de acoplamento**, levantados por varredura:
-
-| Ponto | Onde | Windows | Linux |
-|---|---|---|---|
-| Áudio | `action_manager._tocar_som` | `winsound` | `simpleaudio`, `paplay`, ou `aplay` |
-| Hotkeys | `action_manager`, ~130 linhas | `ctypes.WinDLL("user32")` + `SendInput` | `ydotool`/`evdev` no Wayland, `xdotool`/`Xlib` no X11 |
-| Captura | `camera._tentar_abrir` | `format='dshow'` | `format='v4l2'`, device em `/dev/videoN` |
-| Capacidades | `capacidades_camera` | `pygrabber` (**não existe em Linux**) | `v4l2-ctl --list-formats-ext` ou ioctl direto |
-| Config | `util/caminhos` | `%APPDATA%` | `$XDG_CONFIG_HOME` / `~/.config` |
-
-**41% de `action_manager.py` é código Windows** (~152 de 367 linhas), quase tudo no envio de
-teclas. É o ponto mais caro do port, e o mais chato de testar sem a máquina alvo.
-
-**As dependências quase todas já cruzam:** PySide6, opencv, mediapipe, av, obsws-python e
-websocket-client rodam em Linux. `pyvirtualcam` também, mas exige o módulo de kernel
-`v4l2loopback` instalado — ou seja, o modo automático depende de setup fora do app.
-`keyboard` funciona, mas **exige root** em Linux. **`pygrabber` não tem substituto direto**
-e precisa ser reescrito.
-
-**O núcleo já é portátil.** Detector, monitor de estabilidade, aliases, modos, despacho por
-mão e cliente OBS não têm nada de plataforma — e são justamente os que têm os 174 testes.
-A fronteira já está quase desenhada, só não está explícita.
-
-**Escopo desta fase:** criar `platform/` com uma interface e a implementação Windows,
-movendo o código existente para lá **sem mudar comportamento**. Nada de Linux ainda. Isso
-deixa o port como preenchimento de uma interface conhecida, em vez de arqueologia.
+_B-22 fechado em `0ab76f5`._
 
 ### B-23 · Implementação Linux · **G** · depende de B-22
 
