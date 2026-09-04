@@ -26,28 +26,7 @@ _Fechada: B-05 em `627d997`, B-04 em `70fe7cf`._
 
 ## Fase C — Robustez da detecção
 
-### B-06 · Detector não é invariante a rotação · **G**
-
-Duas fragilidades estruturais em `GestureDetector`:
-
-- **`_finger_extended` mede distância até o pulso.** Funciona de frente e ereto. Inclinando
-  ou rotacionando a mão, a distância pulso→ponta deixa de discriminar dedo estendido de
-  dobrado. O robusto compara a ponta com a articulação PIP ao longo do eixo do dedo.
-- **`thumb_up`/`thumb_down` comparam coordenada Y crua** — rotação-dependente por definição.
-  Joinha com a mão deitada fica ambíguo, e `FIST` (que exige nem up nem down) pode capturar
-  o caso.
-
-Além disso vários gestos diferem por **um único booleano**: `Arminha` vs `POINT` só pelo
-`thumb_open`; `V` vs `Escoteiro` só pela distância entre as pontas. A cascata de `if` não
-tem margem de confiança nem histerese — a janela de votação (5 de 7) suaviza, mas não
-resolve confusão sistemática entre vizinhos.
-
-Num live um falso positivo é caro.
-
-**Medir antes de refatorar:** modo diagnóstico que loga as classificações e revela quais
-pares realmente se confundem. Refatorar no escuro aqui é caro e arriscado.
-
-**Depende de:** B-05 (fechado em `627d997` — a rede existe).
+_Fechada: B-06 em `6080496`. Falta validar com câmera real a tolerância de 60° (D-28)._
 
 ---
 
