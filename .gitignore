@@ -7,17 +7,11 @@ env/
 __pycache__/
 *.pyc
 
-#planning
-*.md
-!README.md
-.planning/
+# Ferramentas de IA (sessões locais, não versionadas)
 .claude/
 
 # Configurações do VS Code
 .vscode/
-
-# Arquivos de testes
-tests/
 
 # Build do PyInstaller
 build/
@@ -25,3 +19,6 @@ dist/
 
 # Configuração do app (contém senha do OBS WebSocket e paths locais)
 config.json
+
+# Cache de pesquisa do planning antigo
+.planning/archive/research/.cache/

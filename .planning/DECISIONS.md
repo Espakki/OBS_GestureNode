@@ -1,0 +1,184 @@
+# Decisões
+
+Log append-only. Nunca reescreva nem apague uma entrada — se uma decisão muda, adicione uma
+nova que a substitui e marque a antiga como **substituída por**.
+
+**Leia antes de julgar código como estranho.** Várias escolhas aqui parecem inconsistência
+até você conhecer o motivo. Se você está prestes a "consertar" algo que está nesta lista,
+o que você quer é uma nova decisão, não um patch.
+
+`FIXA` = invariante. Não mexa sem uma decisão nova que justifique.
+
+---
+
+## Detecção e engine
+
+**D-01 · `FIXA` · Handedness é invertido na saída do HandTracker**
+*Origem: fase 9 · 2026-06-27*
+MediaPipe retorna handedness invertido para frames pré-espelhados (câmera frontal): label
+`"Right"` no resultado = mão física **esquerda** do usuário. A inversão é aplicada dentro de
+`HandTracker.processar()`, então a engine recebe o label fisicamente correto e não tem
+lógica de inversão própria.
+**Por quê:** um único ponto de inversão. Espalhar isso pela engine garante que alguém
+inverta duas vezes.
+
+**D-02 · Cooldown é compartilhado por gesto entre as mãos, não per-hand**
+*Origem: fase 9 (D-05) · 2026-06-27*
+`ultimo_disparo_por_gesto` é um dict único chaveado só pelo nome do gesto. Se "Joinha"
+disparou em qualquer mão, **ambas** ficam bloqueadas pelo cooldown — primeira mão vence.
+**Por quê:** evita duplo-disparo acidental quando as duas mãos fazem o mesmo gesto.
+**Nota:** todo o resto do estado (`detection_window`, `stability_monitor`, `gesto_ativo`,
+`inicio_gesto`) **é** per-hand. A assimetria é intencional, não um descuido — já foi
+reportada como bug uma vez, por leitura do código sem esta decisão.
+
+**D-03 · Cada mão dispara sua própria binding, independentemente**
+*Origem: fase 9 (D-04) · 2026-06-27*
+As duas mãos usam o mesmo pool de bindings. "Joinha" na esquerda **ou** na direita aciona a
+mesma ação configurada. Sem bindings separadas por mão.
+**Por quê:** zero migração de config e nenhuma UI nova. Bindings por mão, se um dia fizerem
+sentido, são decisão futura.
+
+**D-04 · `FIXA` · `model_complexity=0` no MediaPipe Hands**
+*Origem: fase 9 (D-12) · 2026-06-27*
+Obrigatório para sustentar 20–28 FPS em modo 2 mãos.
+**Por quê:** o modelo lite foi medido em ~40–55% de ganho. Subir a complexidade derruba o
+FPS abaixo do usável em 2 mãos.
+
+**D-05 · `max_maos` no config, default 1**
+*Origem: fase 9 (D-09) · 2026-06-27*
+Lido com `.get("max_maos", 1)`. Sem migração: configs antigas carregam em modo 1 mão.
+
+**D-06 · Trocar 1↔2 mãos com a engine rodando reinicia a engine**
+*Origem: fase 9 (D-10, D-11) · 2026-06-27*
+Engine parada: persiste no config e aplica no próximo Start. Sem restart desnecessário.
+
+**D-07 · `gesture_aliases.py` é fonte única de verdade dos nomes de gesto**
+*Origem: fase 1 (D-07, D-09) · 2026-06-23*
+Só o dict, sem helpers. Nasceu da união de 3 cópias divergidas que tinham valores
+diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca casavam.
+**Por quê:** qualquer módulo que precise do mapa importa deste arquivo. Nunca redeclare.
+
+---
+
+## Câmera e VCam
+
+**D-08 · Captura via PyAV/FFmpeg DirectShow, não OpenCV**
+*Origem: fase 2 · commit `76607d8`*
+Thread própria drenando o container, com `Condition` notificando por número de sequência.
+`ler_frame()` bloqueia até um frame **novo** chegar.
+**Por quê:** elimina frame staleness e o buffer interno do DirectShow, que entregava frames
+atrasados. Ver [PITFALLS.md](PITFALLS.md).
+
+**D-09 · ABERTA — o que a câmera virtual deve entregar?**
+*2026-09-03*
+Hoje a VCam recebe o frame de inferência (640px) upscalado de volta, não a captura nativa.
+Precisa decidir: frame nativo limpo, ou nativo com esqueleto (o que exige escalar os
+landmarks de volta pra resolução original)?
+**Bloqueia:** B-02 no [BACKLOG.md](BACKLOG.md).
+
+**D-10 · Inicialização da VCam tem timeout de 3s em thread daemon**
+*Origem: fase 13*
+`pyvirtualcam.Camera()` trava indefinidamente quando o OBS segura o driver DirectShow com
+exclusividade. Estourando o timeout, o app desliga a VCam e segue — o preview sempre sobe.
+**Ordem correta de uso:** fechar OBS, iniciar o app, depois abrir OBS e adicionar a
+"OBS Virtual Camera" como fonte.
+
+**D-11 · Controles de VCam saíram da aba Geral**
+*Origem: fase 15 (D-10, D-13)*
+`vcam_mode_group`, `vcam_device_edit` e afins foram removidos. O campo `virtual_cam_mode` no
+config deveria ter sido removido junto — ainda está lá. Ver B-04.
+
+---
+
+## OBS
+
+**D-12 · `FIXA` · connect() faz handshake com get_version() antes de marcar conectado**
+*Origem: fase 3 (D-04) · 2026-06-25*
+O construtor do `ReqClient` sozinho não prova que a conexão funciona.
+**Por quê:** sem o handshake o app se declarava conectado e só falhava no primeiro comando
+real — o usuário via "conectado" e nada acontecia.
+
+**D-13 · Conexão em thread por tentativa, descartada ao completar**
+*Origem: fase 3 (D-01, D-02) · 2026-06-25*
+`OBSConnectThread` emite `connected`/`failed`. Sem fila de comandos, sem thread persistente.
+**Por quê:** a conexão bloqueava a UI. Thread por tentativa é o modelo mais simples que
+resolve sem introduzir estado compartilhado.
+
+**D-14 · Erros de OBS viram mensagem acionável, não stack trace**
+*Origem: fase 3 (D-07, D-08) · 2026-06-25*
+`_classificar_erro()` cobre 4 casos: conexão recusada, timeout, host inválido, senha errada.
+Mensagem detalhada na aba OBS, versão resumida no rodapé. As duas funções vivem coladas no
+mesmo arquivo de propósito, pra que mudar uma quebre a outra visivelmente.
+
+---
+
+## Modos de operação
+
+**D-15 · `automatico` é o padrão de fábrica**
+*Origem: fase 8 (D-01) · 2026-06-27*
+**Por quê:** o objetivo é o usuário abrir, configurar gestos, apertar iniciar e pronto — sem
+precisar entender que modos existem.
+
+**D-16 · Modo `teste` bloqueia TODAS as ações**
+*Origem: fase 8 (D-02) · 2026-06-27*
+Sem OBS, sem hotkey, sem áudio. Sandbox puro pra calibrar gestos, com aviso explícito na
+status bar.
+
+**D-17 · `manual` conecta no OBS, sem VCam**
+*Origem: fase 8 (D-04, D-05) · 2026-06-27*
+Única diferença pro automático é a câmera virtual.
+**Por quê:** fallback pra power user com conflito de driver de VCam.
+
+**D-18 · Valores internos sem acento: `teste`, `manual`, `automatico`**
+*Origem: fase 8 (D-09) · 2026-06-27*
+Valores legados migram silenciosamente na leitura: `test` vira `teste`, `obs` vira
+`automatico`. Valor desconhecido vira `automatico`.
+
+---
+
+## UI
+
+**D-19 · Tema via QSS global em `ui/styles.py`, sem dependência nova**
+*Origem: fase 15 (D-01, D-02) · 2026-07-01*
+Aplicado uma vez em `main.py`. Recusado `qdarktheme` e similares.
+**Por quê:** controle total sobre cada widget e zero dependência a mais num app que já
+sofre pra empacotar.
+
+**D-20 · Supressão de preview acontece na engine, não na UI**
+*Origem: fase 15 (D-06, D-07) · 2026-07-01*
+`GestureEngine.run()` pula o `frame_ready.emit()` quando `_preview_suprimido`. O loop de
+captura e a detecção continuam rodando normalmente.
+**Por quê:** minimizar a janela não pode parar de detectar gestos — só de desenhar.
+
+---
+
+## Config
+
+**D-21 · `config.json` não é versionado**
+*2026-09-03 · commit `c9d2271`*
+Contém senha do WebSocket do OBS e paths da máquina. O app regenera completo no primeiro
+boot via `_init_config_schema()`, então clone limpo funciona sem ele.
+**Nota:** já estava no `.gitignore` desde a fase 1, mas seguia rastreado por falta de
+`git rm --cached` — `.gitignore` não afeta o que já está no índice.
+
+**D-22 · Save do config é atômico e com debounce**
+*Origem: fase 1 (ENG-05, ENG-06) · 2026-06-23*
+`tempfile.mkstemp()` mais `os.replace()`, com path resolvido via `__file__`.
+**Por quê:** mover sliders rápido corrompia o arquivo, e iniciar pelo atalho da área de
+trabalho criava o config dentro de `C:\Windows\system32`.
+
+---
+
+## Processo
+
+**D-23 · Planning enxuto: status em um lugar só, feito = SHA**
+*2026-09-03*
+O modelo GSD anterior (64 arquivos) foi arquivado em `.planning/archive/`. Ele falhou por
+três motivos estruturais: status duplicado em frontmatter, ROADMAP e SUMMARYs, que
+divergiram; fases renumeradas no meio (4 para 12, 5 para 14, 6 para 15), tornando "fase 9"
+ambíguo; e custo alto de atualização, que fez o hábito de atualizar morrer. O resultado foi
+um `STATE.md` afirmando `completed_phases: 0` enquanto o último commit dizia
+`feat(phase-13-14-15)`, e 4 dos 5 todos "pendentes" já entregues.
+**Regras novas:** status só no `STATE.md`; feito exige SHA de commit; plano detalhado é
+descartável (vive em `active/`, morre ao fechar a fase); decisão e pitfall são duráveis.
+**O que foi resgatado:** este arquivo e o `PITFALLS.md`. O resto está no archive.
