@@ -28,21 +28,7 @@ Não dá pra afirmar que quebra sem rodar. Validar cedo, não na véspera de dis
 
 ## Fase B — Rede de segurança antes de mexer no núcleo
 
-### B-04 · Limpezas pequenas · **P**
-
-Podem ir juntas num commit:
-
-- `core/gesture_detector.py` importa `GESTURE_ALIASES` e **nunca usa** — sobrou da
-  consolidação da fase 1.
-- Migração de modo legado duplicada em `ui/mixins/config_mixin.py` e
-  `engine/gesture_engine.py::_setup`, com os mesmos dois dicts escritos duas vezes.
-- `config.json` ainda carrega `virtual_cam_mode`, que a decisão D-13 da fase 15 mandou
-  remover.
-- `_hand_states` indexado direto por `self._hand_states[hand_id]` — `KeyError` se o
-  handedness vier fora de `{"Left","Right"}`.
-- `_is_movement_decreasing()` retorna `velocity_trend <= motion_threshold * 0.5`, ou seja
-  aceita movimento que **aumentou** até 2px. Não é bug, mas o nome promete mais do que
-  entrega e o gate é redundante com `stable_frame_count`. Renomear ou endurecer.
+_Fechada: B-05 em `627d997`, B-04 em `70fe7cf`._
 
 ---
 
