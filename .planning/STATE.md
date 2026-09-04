@@ -83,3 +83,37 @@ A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`.
 
 Atualize a tabela **Entregue** com o SHA, tire o item do **Próximo**, e registre em
 [DECISIONS.md](DECISIONS.md) qualquer escolha que um leitor futuro possa achar arbitrária.
+
+---
+
+## Pendente: validação com o app rodando
+
+Nada abaixo foi exercitado — tudo que veio depois de `9e044dd` foi verificado por teste
+automatizado e análise estática, sem câmera, sem OBS e sem abrir o `.exe`.
+
+**Câmera virtual (B-02)**
+1. Modo automático + OBS: imagem da VCam nítida em 1080p, não borrada
+2. Checkbox "esqueleto na saída do OBS" desligado → esqueleto só no preview; ligado → nos dois
+
+**Polegar (B-06) — o mais importante**
+3. Joinha com a mão bem inclinada deve virar "nenhum gesto", **nunca** deslike
+4. Joinha e deslike normais ainda disparam confortavelmente
+5. Se 60° estiver apertado demais (joinha natural não dispara), ajustar
+   `TOLERANCIA_POLEGAR_GRAUS` no topo de `core/gesture_detector.py`
+
+**Executável (B-03)**
+6. `dist\main\main.exe` abre sem message box de erro
+7. Preview da câmera funciona (valida PyAV/dshow empacotado)
+8. Dropdown lista as câmeras (valida comtypes congelado)
+
+**Config (B-08)**
+9. Copiar `dist\main\` para `C:\Program Files\`, rodar de lá e mexer num slider:
+   deve **avisar** que não está salvando, não falhar em silêncio
+10. Rodando da pasta normal, a config persiste entre aberturas
+
+**Gestos combinados (B-07)**
+11. Criar um combinado pelo botão "+ Gesto combinado (2 mãos)"
+12. Com o par formado, disparar **só** a ação do combinado — se as individuais também
+    dispararem, a supressão furou
+13. Desfazer o par antes do hold não dispara nada
+14. Um gesto do par sozinho dispara a ação individual normalmente
