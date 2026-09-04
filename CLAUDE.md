@@ -32,6 +32,26 @@ caso do checkout local estar 4 meses atrás do remoto, e toda a análise saiu er
 - A engine roda numa `QThread` e conversa com a UI só por `Signal`. Não toque em widget
   de dentro da engine.
 
+## Testes
+
+```bash
+.venv\Scripts\python.exe -m pytest tests/ -q
+```
+
+65 testes, ~2s, sem webcam e sem OBS. Rode antes de commitar qualquer mudança em
+`core/`, `engine/` ou nos aliases.
+
+- `tests/` — testes automatizados (pytest). `tests/maos_sinteticas.py` monta os 21
+  landmarks a partir de uma descrição legível, sem precisar de câmera.
+- `teste/` — scripts **manuais** antigos, que exigem webcam e OBS ligados. Não são
+  coletados pelo pytest. Não confunda os dois.
+
+Deps de desenvolvimento em `requirements-dev.txt`, separadas das de runtime.
+
+Ao mexer no detector, prefira **adicionar um caso** em `tests/maos_sinteticas.py` a
+testar na mão. E confira que o teste novo falha se você reverter a mudança — teste que
+passa nos dois estados não está testando nada.
+
 ## Invariantes
 
 Marcados como `FIXA` em `DECISIONS.md`. Quebrar qualquer um destes é regressão conhecida:

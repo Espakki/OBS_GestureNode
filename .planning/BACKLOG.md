@@ -28,24 +28,6 @@ Não dá pra afirmar que quebra sem rodar. Validar cedo, não na véspera de dis
 
 ## Fase B — Rede de segurança antes de mexer no núcleo
 
-### B-05 · Suíte de testes do núcleo · **M**
-
-Não existe teste automatizado. `teste/` são cinco scripts manuais que exigem webcam e OBS
-ligados. Isso destoa do rigor do resto do projeto.
-
-A lógica mais delicada é pura e trivialmente testável, sem I/O:
-
-- `GestureDetector.detectar()` — 21 tuplas entram, string sai
-- `GestureStabilityMonitor` — sequência de landmarks entra, bool sai
-- `GestureEngine._get_stable_gesture()` — janela de votação
-- `_classificar_erro()` — exceção → mensagem
-- Migração de modo legado (`test→teste`, `obs→automatico`)
-
-Pré-requisito real do B-06: sem rede, mexer no detector é apostar.
-
-**Sugestão:** `pytest` + fixtures de landmarks gravados de gestos reais (capturar uma vez,
-salvar como JSON, virar golden files).
-
 ### B-04 · Limpezas pequenas · **P**
 
 Podem ir juntas num commit:
@@ -87,7 +69,7 @@ Num live um falso positivo é caro.
 **Medir antes de refatorar:** modo diagnóstico que loga as classificações e revela quais
 pares realmente se confundem. Refatorar no escuro aqui é caro e arriscado.
 
-**Depende de:** B-05.
+**Depende de:** B-05 (fechado em `627d997` — a rede existe).
 
 ---
 

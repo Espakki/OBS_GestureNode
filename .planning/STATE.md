@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `7a383e2`
+**Branch:** `main` · **Último commit:** `627d997`
 
 ---
 
@@ -39,6 +39,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Deps | `28dcb61` | `av` e `websocket-client` declarados — B-01 fechado |
 | Deps | `9e044dd` | `av` pinado em 14.2.0, `opencv-contrib` travado; instalação limpa validada |
 | Câmera | `7a383e2` | VCam com resolução nativa e toggle próprio de esqueleto — B-02 fechado |
+| Testes | `627d997` | 65 testes do núcleo com landmarks sintéticos — B-05 fechado |
 
 ---
 
@@ -46,9 +47,9 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-05 — Suíte de testes do núcleo.** Pré-requisito pra encostar no detector.
-2. **B-03 — Validar o `main.spec`.** Desbloqueado — já há Python e `.venv` funcional.
-3. **B-04 — Limpezas pequenas.** Import morto, migração de modo duplicada, `virtual_cam_mode` órfão.
+1. **B-03 — Validar o `main.spec`.** Em andamento.
+2. **B-04 — Limpezas pequenas.** Import morto, migração de modo duplicada, `virtual_cam_mode` órfão.
+3. **B-06 — Detector não é invariante a rotação.** Desbloqueado pelo B-05.
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 
