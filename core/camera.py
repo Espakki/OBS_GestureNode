@@ -1,4 +1,5 @@
 import threading
+import time
 
 import av
 import cv2
@@ -83,20 +84,47 @@ class CameraManager:
         logger.info("Câmera virtual ativa: %s", cam_result[0].device)
         return cam_result[0]
 
-    def iniciar(self):
-        if self.enable_virtual_camera:
-            self.virtual_camera = self._iniciar_virtual_cam_com_timeout()
+    def _abrir_container(self, tentativas=4, espera=0.4):
+        """Abre o dispositivo DirectShow, tolerando que ele ainda esteja sendo liberado.
 
+        O DirectShow não devolve a câmera instantaneamente quando o container anterior é
+        fechado: por um instante o dispositivo segue exclusivo e `av.open` falha com
+        `[Errno 5] I/O error`. Isso quebrava todo ciclo parar→iniciar. Algumas tentativas
+        espaçadas transformam a falha dura numa pequena espera.
+
+        Se o erro persistir, propaga — aí é câmera realmente ocupada por outro programa,
+        e a mensagem tem de chegar ao usuário.
+        """
         options = {
             'video_size': f'{self.width}x{self.height}',
             'framerate': str(self.fps),
             'vcodec': 'mjpeg',
         }
-        self._pyav_container = av.open(
-            f'video={self.camera_name}',
-            format='dshow',
-            options=options,
-        )
+
+        ultimo_erro = None
+        for tentativa in range(1, tentativas + 1):
+            try:
+                return av.open(
+                    f'video={self.camera_name}',
+                    format='dshow',
+                    options=options,
+                )
+            except Exception as exc:
+                ultimo_erro = exc
+                if tentativa < tentativas:
+                    logger.warning(
+                        "Câmera ainda ocupada (tentativa %d/%d): %s",
+                        tentativa, tentativas, exc,
+                    )
+                    time.sleep(espera)
+
+        raise ultimo_erro
+
+    def iniciar(self):
+        if self.enable_virtual_camera:
+            self.virtual_camera = self._iniciar_virtual_cam_com_timeout()
+
+        self._pyav_container = self._abrir_container()
 
         self._ultimo_frame = None
         self._frame_seq = 0
@@ -170,24 +198,58 @@ class CameraManager:
         self.virtual_camera.send(frame_rgb)
         self.virtual_camera.sleep_until_next_frame()
 
+    def _fechar_container(self):
+        """Fecha o container PyAV. Idempotente — pode ser chamado quantas vezes for."""
+        container, self._pyav_container = self._pyav_container, None
+        if container is None:
+            return
+        try:
+            container.close()
+        except Exception as exc:
+            logger.exception("Erro ao fechar container PyAV: %s", exc)
+
     def encerrar(self):
+        """Libera câmera e câmera virtual. Só retorna depois que a captura parou.
+
+        A ordem importa. A versão anterior fechava o container ANTES de esperar a thread,
+        ou seja, puxava o container por baixo de um `demux()` em andamento — o que podia
+        deixar o dispositivo preso e fazia o `iniciar()` seguinte falhar com
+        `[Errno 5] I/O error`.
+
+        Agora o caminho normal é: sinalizar, esperar a thread sair sozinha (ela checa a
+        flag a cada pacote, ~1 frame), e só então fechar o container, sem concorrência.
+        Fechar por baixo do `demux()` vira o plano B, para o caso de a thread estar
+        travada esperando um pacote que nunca vem (câmera desconectada).
+        """
         self._captura_ativa = False
 
         with self._frame_lock:
             self._frame_lock.notify_all()
 
-        # Fecha container primeiro para desbloquear demux() bloqueado na thread
-        try:
-            if self._pyav_container:
-                self._pyav_container.close()
-        except Exception as exc:
-            logger.exception("Erro ao fechar container PyAV: %s", exc)
+        thread = self._captura_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.5)
 
-        if self._captura_thread and self._captura_thread.is_alive():
-            self._captura_thread.join(timeout=2)
+            if thread.is_alive():
+                logger.warning(
+                    "Thread de captura não saiu sozinha; forçando o fechamento do container"
+                )
+                self._fechar_container()
+                thread.join(timeout=2)
+
+                if thread.is_alive():
+                    logger.error(
+                        "Thread de captura segue viva após o encerramento — "
+                        "o dispositivo pode continuar ocupado"
+                    )
+
+        self._fechar_container()
+        self._captura_thread = None
 
         try:
             if self.virtual_camera:
                 self.virtual_camera.close()
         except Exception as exc:
             logger.exception("Erro ao fechar câmera virtual: %s", exc)
+        finally:
+            self.virtual_camera = None

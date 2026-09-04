@@ -65,17 +65,23 @@ class EngineMixin:
             self.update_status("Engine já está parada")
             return
 
+        # Desconectar SÓ este slot. O `disconnect()` sem argumento derrubava todas as
+        # conexões — inclusive a que `restart_engine` acabou de fazer, deixando a engine
+        # parada e nunca religada ao trocar 1↔2 mãos.
         try:
-            self.engine.finished.disconnect()
-        except Exception:
+            self.engine.finished.disconnect(self.on_engine_finished)
+        except (RuntimeError, TypeError):
             pass
 
         self.engine.finished.connect(self.on_engine_finished)
-        self.engine.stop()
 
-        self.status_label.setText("Status: Parado")
-        self.start_button.setEnabled(True)
+        # Nenhum botão habilitado enquanto a limpeza roda. Antes o Start voltava na hora,
+        # e clicar nele antes da câmera ser liberada dava [Errno 5] I/O error.
+        self.status_label.setText("Status: Parando...")
+        self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
+
+        self.engine.stop()
         self._refresh_health_panels()
 
     def restart_engine(self):

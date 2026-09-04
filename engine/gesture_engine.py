@@ -652,6 +652,24 @@ class GestureEngine(QThread):
             self.actions.obs = obs_controller
 
     def stop(self):
+        """Sinaliza parada e espera a thread encerrar de fato.
+
+        O timeout precisa cobrir o pior caso do `CameraManager.encerrar()` (1.5s + 2s de
+        join, mais o fechamento da câmera virtual). Com os 2s anteriores o `wait` estourava
+        no meio da limpeza e `stop()` retornava com a câmera ainda presa — o `iniciar()`
+        seguinte então falhava com `[Errno 5] I/O error`.
+
+        O retorno do `wait` também era ignorado, então nada indicava que a parada tinha
+        falhado. Agora falha ruidosa: quem chama decide o que fazer, e o log diz o motivo.
+        """
         self.running = False
-        if self.isRunning():
-            self.wait(2000)
+        if not self.isRunning():
+            return True
+
+        parou = self.wait(8000)
+        if not parou:
+            logger.error(
+                "Engine não encerrou em 8s — a câmera pode continuar ocupada e a "
+                "próxima inicialização falhar"
+            )
+        return parou
