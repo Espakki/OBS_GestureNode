@@ -11,18 +11,10 @@ plano em `active/`.
 
 ## Fase A — Fazer o app subir em ambiente limpo
 
+_Fechada: B-01 em `9e044dd`, B-02 em `7a383e2`, B-03 em `2a4e119`._
+
 Objetivo: `git clone` + `pip install -r requirements.txt` + `python main.py` funciona numa
 máquina virgem. Hoje não funciona.
-
-### B-03 · Validar o `main.spec` contra as deps atuais · **M**
-
-O spec é de maio, quando não havia PyAV nem pygrabber. Tem `hiddenimports=[]` e só
-`collect_all('mediapipe')`. PyAV traz DLLs do FFmpeg; `pygrabber` usa `comtypes`, que gera
-módulos em runtime — os dois são historicamente problemáticos no PyInstaller.
-
-Não dá pra afirmar que quebra sem rodar. Validar cedo, não na véspera de distribuir.
-
-**Arquivos:** `main.spec`
 
 ---
 
@@ -74,3 +66,44 @@ Decidir: como o par interage com o cooldown compartilhado (D-05) e com o dispatc
 independente (D-04)? Um combinado deve suprimir os dois gestos individuais?
 
 **Arquivos:** `engine/gesture_engine.py`, `ui/tabs/gestos_tab.py`, `config.json`
+
+---
+
+## Fase E — Achados da validação do build (B-03)
+
+### B-08 · `config.json` vai parar dentro de `_internal/` no app empacotado · **M**
+
+`main.py` resolve `CONFIG_PATH = Path(__file__).parent / "config.json"`. Congelado,
+`__file__` aponta para o `_MEIPASS`, então o config é lido e escrito em
+`dist\main\_internal\config.json` — dentro das entranhas do bundle, não ao lado do `.exe`.
+
+Funciona numa pasta de usuário, que é gravável. Mas instalado em `C:\Program Files\`, o
+save falha — e falha **em silêncio**: `_do_save_config` captura `OSError` e apenas loga
+(`config_mixin.py`). O usuário ajusta os gestos, fecha o app e perde tudo sem nenhum aviso.
+
+Contraria o espírito do D-22, que existe justamente para o config nunca ser corrompido ou
+perdido. Corrigido lá o caso de `C:\Windows\system32`; este é a versão empacotada do mesmo
+problema.
+
+**Duas coisas a decidir:** onde o config deve morar num app instalado (ao lado do `.exe`?
+`%APPDATA%`?) e se um save que falha deve avisar o usuário em vez de só logar.
+
+**Arquivos:** `main.py`, `ui/mixins/config_mixin.py`
+
+### B-09 · `util/hotkey_listener.py` é código morto · **P**
+
+Nenhum arquivo do projeto o importa — confirmado por varredura. Corretamente ausente do
+bundle. O D-10 da fase 1 dizia que ele "será integrado na aba de gestos numa fase
+posterior"; a captura de atalho acabou sendo implementada direto em `ui/tabs/gestos_tab.py`.
+
+Decidir: apagar, ou manter e integrar? Se ninguém sente falta, apagar é mais honesto que
+deixar 230 linhas parecendo que fazem parte do sistema.
+
+### B-10 · `dist/main` tem 774 MB · **M**
+
+`collect_all('mediapipe')` arrasta `jax`, `jaxlib`, `scipy`, `matplotlib` e `PIL` junto —
+nenhum deles usado pelo projeto. Dá para cortar com `excludes` no spec.
+
+Mexida arriscada: cortar demais quebra o carregamento dos `.tflite` de um jeito que só
+aparece em runtime. Só encarar com o build sendo testado a cada passo, e depois que o
+`.exe` estiver validado funcionando (senão não dá para saber se a quebra veio do corte).
