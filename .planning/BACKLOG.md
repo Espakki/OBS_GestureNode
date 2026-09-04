@@ -38,29 +38,7 @@ _Fechada: B-07 em `9565642`._
 
 ## Fase E — Achados da validação do build (B-03)
 
-_B-08 fechado em `ebf2fc1`, B-09 em `2074859`._
-
-### B-10 · `dist/main` tem 774 MB · **M**
-
-`collect_all('mediapipe')` arrasta `jax`, `jaxlib`, `scipy`, `matplotlib` e `PIL` junto —
-nenhum deles usado pelo projeto. Dá para cortar com `excludes` no spec.
-
-Mexida arriscada: cortar demais quebra o carregamento dos `.tflite` de um jeito que só
-aparece em runtime. Só encarar com o build sendo testado a cada passo, e depois que o
-`.exe` estiver validado funcionando (senão não dá para saber se a quebra veio do corte).
-
----
-
-## Fase F — Câmera: saber antes de falhar
-
-_Fechada: B-13 em `c7715b0`, B-11 em `f7a92a9`, B-12 em `035a4c5`._
-
-
----
-
-## Fase H — Pontas soltas
-
-_B-20 fechado em `e28e0bf`._
+_Fechada: B-08 em `ebf2fc1`, B-09 em `2074859`, B-10 em `44c5ef6`._
 
 ### B-21 · Trocar o framework da UI · **G** · ideia, não decisão
 

@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-04
-**Branch:** `main` · **Último commit:** `0ab76f5`
+**Branch:** `main` · **Último commit:** `44c5ef6`
 
 ---
 
@@ -58,6 +58,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Câmera | `035a4c5` | Faixa de limitação na tela e preset por modo — B-12 |
 | UI | `5aea31f` | Aba Geral fala por forma, não por parágrafo (D-40) |
 | Docs | `c0a7a4a` | LICENSE (MIT) e README reescrito |
+| Release prep | `44c5ef6` | LICENSE GPL-3.0, README, CHANGELOG, build 774→480 MB |
 | Plataforma | `0ab76f5` | `plataforma/` isola o SO; testes de atalho migrados — B-22 |
 
 ---
@@ -66,12 +67,11 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **Abrir o `.exe`** — `distmainmain.exe`, agora com tudo desta semana. Destrava o B-10.
-   destrava o B-10.
-2. **B-10 — Cortar as 774 MB do `dist`.** Destrava assim que o `.exe` for validado.
+1. **Abrir o `.exe`** — `dist\main\main.exe`, com tudo desta semana e já enxugado para
+   480 MB. É a única validação que resta.
+2. **B-24 — Obrigações de LGPL/GPL no pacote.** Pequeno, mas precisa estar feito antes de
+   publicar o binário.
 3. **B-23 — Implementação Linux.** Precisa de máquina Linux; a interface já existe (D-42).
-
-A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 
 ---
 
