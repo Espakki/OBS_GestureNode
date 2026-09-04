@@ -205,6 +205,36 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-37 · Requisição recusada pelo OBS não derruba a conexão**
+*2026-09-04 · B-15*
+
+O usuário relatou que trocar o nome da cena de um gesto "não salvava" e só funcionava
+depois de reiniciar a engine. **Não era sobre salvar.** Reproduzido: a config é gravada na
+hora e a engine viva recebe o binding novo imediatamente. O problema estava depois.
+
+`trocar_cena` capturava **qualquer** exceção e zerava `connected` e `cliente`. Como
+`_connect_obs()` só roda na partida da engine, um único nome de cena inexistente matava o
+OBS até reiniciar:
+
+1. Nome de cena que o OBS não tem (digitando, ou erro de digitação)
+2. O gesto dispara, `set_current_program_scene` levanta, **a conexão morre**
+3. O usuário corrige o nome — e segue sem funcionar, porque já não há conexão
+4. Reinicia a engine, reconecta, funciona
+
+Daí a leitura de que "só salva reiniciando": o sintoma aparecia exatamente onde a config
+estava certa.
+
+**Solução:** `OBSSDKRequestError` significa que o OBS respondeu recusando — a conexão está
+viva, então não se mexe nela. Qualquer outra exceção continua tratada como conexão perdida.
+
+`trocar_cena` passa a devolver `(ok, mensagem)`, que sobe pelo `ActionManager` até o
+`status_changed` da engine. Antes a falha morria no log: o gesto era reconhecido, o status
+dizia que a cena mudou, e nada acontecia no OBS.
+
+**Não fiz** validação prévia contra a lista de cenas do OBS. Seria mais elegante, mas
+exige manter a lista sincronizada e trata como erro do usuário algo que pode ser só uma
+cena criada depois. A mensagem específica no momento da falha resolve o caso real.
+
 **D-36 · Tolerância do polegar baixada de 60° para 45°, calibrada com foto real**
 *2026-09-04 · ajuste do D-28*
 

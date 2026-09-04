@@ -59,9 +59,13 @@ class ActionManager:
 
         if tipo == "trocar_cena":
             if self.obs and self.obs.connected:
-                self.obs.trocar_cena(valor)
-            else:
-                logger.warning("OBS não conectado para trocar cena")
+                # Devolve a mensagem para quem chamou poder mostrar na UI. Cena
+                # inexistente falhava só no log, e o usuário ficava sem saber por quê.
+                ok, mensagem = self.obs.trocar_cena(valor)
+                return mensagem if not ok else ""
+
+            logger.warning("OBS não conectado para trocar cena")
+            return "OBS não conectado"
 
         elif tipo == "iniciar_live":
             if self.obs and self.obs.connected and self.obs.cliente:

@@ -623,7 +623,11 @@ class GestureEngine(QThread):
             return
 
         if use_scene and scene:
-            self.actions.executar("trocar_cena", scene)
+            falha = self.actions.executar("trocar_cena", scene)
+            if falha:
+                # Sem isto, uma cena com nome errado falhava em silêncio: o gesto era
+                # reconhecido, o status dizia que a cena mudou, e nada acontecia no OBS.
+                self.status_changed.emit(f"⚠️ {falha}")
 
         if use_sound and sound_file:
             self.actions.executar("tocar_som", sound_file)
