@@ -1,16 +1,18 @@
 import sys
 import json
-from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from ui.main_window import MainWindow
 from ui.styles import APP_STYLESHEET
+from util.caminhos import caminho_do_config, migrar_config_legado
 from util.logger import get_logger
 
 
 logger = get_logger(__name__)
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
+# Empacotado, isto resolve para %APPDATA% em vez de _internal/ dentro do bundle. Ver D-29.
+CONFIG_PATH = caminho_do_config()
+migrar_config_legado(CONFIG_PATH)
 
 
 def carregar_config(caminho=CONFIG_PATH):

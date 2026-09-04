@@ -228,6 +228,39 @@ boot via `_init_config_schema()`, então clone limpo funciona sem ele.
 **Nota:** já estava no `.gitignore` desde a fase 1, mas seguia rastreado por falta de
 `git rm --cached` — `.gitignore` não afeta o que já está no índice.
 
+**D-29 · Config vai para `%APPDATA%` quando empacotado, e save que falha avisa**
+*2026-09-03 · B-08*
+
+**O problema.** `main.py` resolvia `Path(__file__).parent / "config.json"`. Congelado,
+`__file__` aponta para o `_MEIPASS`, então o config era lido e gravado em
+`dist\main\_internal\config.json` — dentro das entranhas do bundle. Funciona numa pasta de
+usuário, mas instalado em `C:\Program Files\` o diretório não é gravável, o save falha, e
+`_do_save_config` capturava o `OSError` e **apenas logava**. O usuário ajustava os gestos,
+fechava o app e perdia tudo sem nenhum sinal.
+
+Mesma família do bug que o D-22 resolveu (config indo parar em `C:\Windows\system32` ao
+iniciar pelo atalho). Aquele foi corrigido só para o caso rodando do fonte; este é a versão
+empacotada, e escapou porque ninguém tinha executado o `.exe` instalado.
+
+**Onde o config mora agora** (`util/caminhos.py`):
+- Rodando do código-fonte: ao lado do `main.py`, como sempre foi. Conveniente para
+  desenvolver, e não muda nada para quem já usa assim.
+- Empacotado: `%APPDATA%\OBS GestureNode\config.json`. Padrão do Windows, sempre gravável,
+  e **sobrevive a reinstalar ou atualizar o app** — o que a pasta do bundle não faz.
+- Sem `APPDATA` (ambiente atípico): cai para a home do usuário em vez de derrubar o app.
+
+**Migração.** `migrar_config_legado()` copia do `_MEIPASS` para o novo destino no primeiro
+boot. Sem isso, quem já usava o `.exe` perderia as configurações ao atualizar — trocaríamos
+um jeito de perder dado por outro. Só copia se o destino ainda não existir: config atual
+nunca é sobrescrito.
+
+**Aviso de falha.** O save agora atualiza a status bar em toda falha e abre um diálogo
+**uma vez por sessão**.
+**Por quê uma vez só:** o autosave dispara a cada slider movido (debounce de 500ms do
+D-22). Um modal por falha seria pior que o silêncio original — o usuário fecharia no
+reflexo e ainda perderia o dado. A status bar continua avisando sempre, para quem dispensou
+o diálogo.
+
 **D-22 · Save do config é atômico e com debounce**
 *Origem: fase 1 (ENG-05, ENG-06) · 2026-06-23*
 `tempfile.mkstemp()` mais `os.replace()`, com path resolvido via `__file__`.

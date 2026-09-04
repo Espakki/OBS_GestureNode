@@ -3,6 +3,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from PySide6.QtWidgets import QMessageBox
+
 from core.gesture_aliases import GESTURE_ALIASES
 from core.modos import migrar_modo
 from ui.presets import RESOLUTION_PRESETS_REVERSED
@@ -179,3 +181,30 @@ class ConfigMixin:
                 raise
         except OSError as exc:
             logger.error("Falha ao salvar configuracao: %s", exc)
+            self._avisar_falha_de_save(exc)
+
+    def _avisar_falha_de_save(self, exc):
+        """Torna visível um save que falhou, em vez de apenas registrar no log.
+
+        Antes isto só ia para o arquivo de log: o usuário ajustava tudo, fechava o app e
+        perdia as configurações sem qualquer sinal. Ver D-29.
+
+        O diálogo aparece UMA vez por sessão. O autosave dispara a cada slider movido —
+        um modal por falha seria pior que o silêncio. A status bar continua avisando
+        sempre, para o caso de o usuário ter dispensado o diálogo.
+        """
+        if getattr(self, "status_label", None) is not None:
+            self.status_label.setText("⚠️ Não foi possível salvar as configurações")
+
+        if getattr(self, "_avisou_falha_de_save", False):
+            return
+        self._avisou_falha_de_save = True
+
+        QMessageBox.warning(
+            self,
+            "Configurações não estão sendo salvas",
+            f"Não foi possível gravar em:\n{self._config_path}\n\n"
+            f"Motivo: {exc}\n\n"
+            "Suas alterações valem enquanto o app estiver aberto, mas serão perdidas ao "
+            "fechar. Verifique se a pasta existe e se você tem permissão de escrita nela.",
+        )

@@ -12,6 +12,7 @@ from ui.mixins.obs_mixin import OBSMixin
 from ui.mixins.engine_mixin import EngineMixin
 from ui.mixins.health_mixin import HealthMixin
 from ui.mixins.setup_mixin import SetupMixin
+from util.caminhos import caminho_do_config
 from util.logger import get_logger
 
 
@@ -41,10 +42,10 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self.setMinimumSize(1200, 760)
 
         self.config = config or {}
+        # Sem config_path explícito, resolve pelo mesmo critério do main.py: ao lado do
+        # código em desenvolvimento, %APPDATA% quando empacotado. Ver D-29.
         self._config_path = (
-            Path(config_path)
-            if config_path is not None
-            else (Path(__file__).resolve().parent.parent / "config.json")
+            Path(config_path) if config_path is not None else caminho_do_config()
         )
         self.engine = None
         self._obs_connect_thread = None
