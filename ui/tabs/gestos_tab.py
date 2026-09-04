@@ -333,6 +333,26 @@ class GestosTab(QWidget):
         self.choose_gestures_button.setMinimumHeight(38)
         layout.addWidget(self.choose_gestures_button)
 
+        combinados_row = QHBoxLayout()
+        combinados_row.setSpacing(10)
+
+        self.add_combined_button = QPushButton("+ Gesto combinado (2 mãos)")
+        self.add_combined_button.setObjectName("ghost")
+        self.add_combined_button.setMinimumHeight(38)
+        self.add_combined_button.setToolTip(
+            "Cria um gesto que só dispara quando as duas mãos fazem a dupla escolhida.\n"
+            "Enquanto o par estiver formado, os gestos individuais não disparam."
+        )
+        combinados_row.addWidget(self.add_combined_button)
+
+        self.remove_combined_button = QPushButton("Remover combinado")
+        self.remove_combined_button.setObjectName("ghost")
+        self.remove_combined_button.setMinimumHeight(38)
+        self.remove_combined_button.setVisible(False)
+        combinados_row.addWidget(self.remove_combined_button)
+
+        layout.addLayout(combinados_row)
+
         self.gesture_editor = QFrame()
         self.gesture_editor.setObjectName("card")
         editor_layout = QVBoxLayout(self.gesture_editor)

@@ -31,6 +31,47 @@ disparou em qualquer mão, **ambas** ficam bloqueadas pelo cooldown — primeira
 `inicio_gesto`) **é** per-hand. A assimetria é intencional, não um descuido — já foi
 reportada como bug uma vez, por leitura do código sem esta decisão.
 
+**D-30 · Gestos combinados: par não ordenado que suprime os individuais**
+*2026-09-04 · B-07*
+
+Fecha a última feature que o planning antigo deixou aberta. O campo `combined_bindings`
+existia no config desde a fase 9, mas nenhum código o consumia.
+
+**Par não ordenado.** A chave canônica é `"Joinha + V"` — os dois nomes ordenados
+alfabeticamente, montada por `core/gestos_combinados.py`.
+**Por quê:** o D-03 já definiu que a identidade da mão não importa para bindings
+individuais (Joinha aciona a mesma ação vindo da esquerda ou da direita). Seria incoerente
+o combinado passar a distinguir mãos quando o individual não distingue.
+
+**O combinado suprime os individuais — e é a razão da feature funcionar.** Sem isso,
+segurar V numa mão e Joinha na outra dispararia **três** ações: a de V, a de Joinha e a do
+par, provavelmente trocando de cena três vezes.
+
+A supressão vale **desde que o par é reconhecido**, não só depois que o combinado completa
+o hold. Se esperasse, o individual (que tem hold próprio, normalmente menor) ganharia a
+corrida sempre e a supressão nunca teria efeito. Consequência aceita: formar um par e
+desfazer antes do hold não dispara nada. É previsível — "enquanto você está formando um
+combo, os individuais não disparam".
+
+**Hold contado a partir da formação do par**, não do início do gesto de cada mão. As mãos
+raramente fecham o gesto no mesmo frame; usar o início de uma delas daria vantagem
+arbitrária à que chegou primeiro. O par também precisa das **duas** mãos estáveis.
+
+**Reestruturação do loop.** `run()` despachava dentro do `for mao in maos`, o que tornava a
+supressão impossível — quando a segunda mão era avaliada, a primeira já tinha disparado.
+Agora são duas passadas: colher o gesto estável de cada mão, decidir se há combinado,
+depois despachar. O despacho virou `_tentar_disparar()`, compartilhado por individual e
+combinado.
+
+**UI: o par é só mais uma entrada no grid.** Um combinado aparece como botão `"Joinha + V"`
+ao lado dos gestos normais, e o editor existente (hold, cooldown, cena, som, atalho) serve
+sem alteração — os dois tipos de binding têm exatamente os mesmos campos. O que muda é só
+de qual dict vem: `combined_bindings` em vez de `gestures.bindings`. Isso evitou uma
+segunda tela de configuração inteira.
+
+**Cooldown.** Combinado e individual convivem no mesmo registro de disparo. Não colidem
+porque a chave do par contém `" + "`, que nenhum nome de gesto individual tem.
+
 **D-03 · Cada mão dispara sua própria binding, independentemente**
 *Origem: fase 9 (D-04) · 2026-06-27*
 As duas mãos usam o mesmo pool de bindings. "Joinha" na esquerda **ou** na direita aciona a

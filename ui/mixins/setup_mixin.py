@@ -58,6 +58,8 @@ class SetupMixin:
         self.health_gestos = self.geral_tab.health_gestos
         self.grid_layout = self.gestos_tab.grid_layout
         self.choose_gestures_button = self.gestos_tab.choose_gestures_button
+        self.add_combined_button = self.gestos_tab.add_combined_button
+        self.remove_combined_button = self.gestos_tab.remove_combined_button
         self.selected_gesture_label = self.gestos_tab.selected_gesture_label
         self.hold_slider = self.gestos_tab.hold_slider
         self.hold_value_spinbox = self.gestos_tab.hold_value_spinbox
@@ -96,6 +98,8 @@ class SetupMixin:
             button.toggled.connect(lambda checked, value=fps_value: self.on_fps_changed(value) if checked else None)
 
         self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
+        self.add_combined_button.clicked.connect(self.abrir_dialogo_de_combinado)
+        self.remove_combined_button.clicked.connect(self.remover_combinado_atual)
         self.hold_slider.valueChanged.connect(self.on_hold_slider_changed)
         self.hold_slider.valueChanged.connect(self.on_current_gesture_changed)
         self.hold_slider.valueChanged.connect(self.on_dynamic_setting_changed)

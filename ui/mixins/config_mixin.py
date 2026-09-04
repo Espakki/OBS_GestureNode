@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QMessageBox
 
 from core.gesture_aliases import GESTURE_ALIASES
+from core.gestos_combinados import e_chave_de_par
 from core.modos import migrar_modo
 from ui.presets import RESOLUTION_PRESETS_REVERSED
 from util.logger import get_logger
@@ -26,6 +27,7 @@ class ConfigMixin:
             camera_legado.pop("vcam_device", None)
 
         self.config.setdefault("max_maos", 1)
+        self.config.setdefault("combined_bindings", {})
 
         camera_cfg = self.config.setdefault("camera", {})
         camera_cfg.setdefault("index", 0)
@@ -131,8 +133,18 @@ class ConfigMixin:
         self._refresh_gesture_feature_visibility()
         self._refresh_health_panels()
 
+    def _combined_bindings(self):
+        return self.config.setdefault("combined_bindings", {})
+
     def _get_current_binding(self):
-        return self.config.setdefault("gestures", {}).setdefault("bindings", {}).setdefault(
+        # Combinados moram num dict separado, mas têm exatamente os mesmos campos — por
+        # isso o editor da aba Gestos serve para os dois sem saber a diferença (D-30).
+        if e_chave_de_par(self.current_gesture):
+            destino = self._combined_bindings()
+        else:
+            destino = self.config.setdefault("gestures", {}).setdefault("bindings", {})
+
+        return destino.setdefault(
             self.current_gesture,
             {
                 "enabled": True,

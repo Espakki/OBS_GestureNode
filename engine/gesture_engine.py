@@ -9,6 +9,7 @@ from core.hand_tracker import HandTracker
 from core.gesture_detector import GestureDetector
 from core.camera import CameraManager
 from core.gesture_aliases import GESTURE_ALIASES
+from core.gestos_combinados import chave_do_par
 from core.modos import migrar_modo
 from actions.action_manager import ActionManager
 from integrations.obs_controller import OBSController
@@ -209,6 +210,12 @@ class GestureEngine(QThread):
         self.mapa_cenas = gestures_cfg.get("scene_map", {})
         self._normalize_gesture_keys()
 
+        # Gestos combinados: par de mãos tratado como unidade (D-30). Só fazem sentido
+        # com 2 mãos; com max_maos=1 o dict fica vazio e o fluxo é o de sempre.
+        self.combined_bindings = self.config.get("combined_bindings", {}) or {}
+        self._combo_ativo = None
+        self._combo_inicio = None
+
         self.detection_window_size = int(gestures_cfg.get("detection_window_size", 7))
         self.detection_min_hits = int(gestures_cfg.get("detection_min_hits", 5))
 
@@ -396,9 +403,13 @@ class GestureEngine(QThread):
 
                     maos_detectadas = {mao["handedness"] for mao in maos}
 
+                    # Passo 1: atualizar o estado de cada mão e colher o gesto estável.
+                    # O despacho NÃO acontece aqui — precisa saber antes se as duas mãos
+                    # formam um combinado, senão o gesto individual dispara primeiro e o
+                    # combinado vira um terceiro disparo por cima. Ver D-30.
+                    gestos_por_mao = {}
                     for mao in maos:
                         hand_id = mao["handedness"]
-                        pontos = mao["landmarks"]
                         # O MediaPipe só devolve "Left"/"Right", mas indexar direto faria
                         # um label inesperado virar KeyError a cada frame, inundando o log
                         # do loop principal. Ignorar a mão é degradação preferível.
@@ -407,103 +418,39 @@ class GestureEngine(QThread):
                             logger.warning("Handedness inesperado, mão ignorada: %r", hand_id)
                             continue
 
-                        raw_gesture = self.detector.detectar(pontos)
-                        raw_gesture = self._normalize_gesture_name(raw_gesture)
-                        gesto = self._get_stable_gesture(hand_state["detection_window"], raw_gesture)
-
-                        if gesto:
-                            if hand_state["gesto_ativo"] != gesto:
-                                hand_state["inicio_gesto"] = tempo_atual
-                                hand_state["gesto_ativo"] = gesto
-                                hand_state["stability_monitor"].reset()
-
-                            is_stable = True
-                            if self.stability_enabled:
-                                is_stable = hand_state["stability_monitor"].update(pontos)
-
-                            gesture_cfg = self.gesture_bindings.get(gesto, {})
-                            if not gesture_cfg:
-                                nome_cena_legado = self.mapa_cenas.get(gesto, "")
-                                if nome_cena_legado:
-                                    gesture_cfg = {
-                                        "enabled": True,
-                                        "hold_time": self.tempo_minimo,
-                                        "cooldown": self.cooldown,
-                                        "scene": nome_cena_legado,
-                                        "play_sound": False,
-                                        "sound_file": "",
-                                        "hotkey": "",
-                                    }
-
-                            if not gesture_cfg.get("enabled", True):
-                                continue
-
-                            hold_time = float(gesture_cfg.get("hold_time", self.tempo_minimo))
-                            cooldown = float(gesture_cfg.get("cooldown", self.cooldown))
-                            ultimo_disparo = ultimo_disparo_por_gesto.get(gesto, 0.0)
-
-                            inicio = hand_state["inicio_gesto"]
-                            if inicio and (tempo_atual - inicio) >= hold_time and is_stable:
-                                if (tempo_atual - ultimo_disparo) > cooldown:
-                                    action_submitted = False
-
-                                    if self.actions and gesture_cfg and self.modo != "teste":
-                                        try:
-                                            scene = gesture_cfg.get("scene", "").strip()
-                                            use_scene = bool(gesture_cfg.get("use_scene", bool(scene)))
-                                            use_sound = bool(
-                                                gesture_cfg.get(
-                                                    "use_sound",
-                                                    bool(gesture_cfg.get("play_sound", False)),
-                                                )
-                                            )
-                                            hotkey = gesture_cfg.get("hotkey", "").strip()
-                                            use_hotkey = bool(gesture_cfg.get("use_hotkey", bool(hotkey)))
-
-                                            if self.action_future and not self.action_future.done():
-                                                self.status_changed.emit("Aguardando ação anterior")
-                                            else:
-                                                self.action_future = self.action_executor.submit(
-                                                    self._executar_acoes_gesto,
-                                                    use_scene,
-                                                    scene,
-                                                    use_sound,
-                                                    gesture_cfg.get("sound_file", "").strip(),
-                                                    use_hotkey,
-                                                    hotkey,
-                                                )
-                                                action_submitted = True
-
-                                            status_parts = [f"Gesto {gesto}"]
-                                            if use_scene and scene:
-                                                status_parts.append(f"cena {scene}")
-                                            if use_sound and gesture_cfg.get("sound_file", "").strip():
-                                                status_parts.append("som")
-                                            if use_hotkey and hotkey:
-                                                status_parts.append(f"atalho {hotkey}")
-
-                                            if len(status_parts) == 1:
-                                                self.status_changed.emit(f"{status_parts[0]} acionado")
-                                            else:
-                                                self.status_changed.emit(": ".join([status_parts[0], ", ".join(status_parts[1:])]))
-                                        except Exception as exc:
-                                            logger.exception("Erro ao executar ação: %s", exc)
-
-                                    elif self.modo == "teste" and gesture_cfg:
-                                        self.status_changed.emit(f"Gesto detectado: {gesto} (Modo Teste — ação bloqueada)")
-                                        action_submitted = True
-
-                                    if action_submitted:
-                                        ultimo_disparo_por_gesto[gesto] = tempo_atual
-                        else:
-                            hand_state["gesto_ativo"] = None
-                            hand_state["inicio_gesto"] = None
+                        resultado = self._atualizar_estado_da_mao(
+                            hand_state, mao["landmarks"], tempo_atual
+                        )
+                        if resultado is not None:
+                            gestos_por_mao[hand_id] = resultado
 
                     # Resetar estado de mãos não detectadas neste frame
                     for hand_id, hand_state in self._hand_states.items():
                         if hand_id not in maos_detectadas:
                             hand_state["gesto_ativo"] = None
                             hand_state["inicio_gesto"] = None
+
+                    # Passo 2: o par forma um combinado configurado e habilitado?
+                    combo = self._combinado_candidato(gestos_por_mao, tempo_atual)
+
+                    # Passo 3: despachar. Combinado SUPRIME os individuais — inclusive
+                    # enquanto ainda não completou o hold, senão o individual (que tem
+                    # hold próprio, geralmente menor) ganharia a corrida sempre.
+                    if combo is not None:
+                        chave, cfg_combo, inicio_combo, par_estavel = combo
+                        self._tentar_disparar(
+                            chave, cfg_combo, inicio_combo, par_estavel,
+                            tempo_atual, ultimo_disparo_por_gesto,
+                        )
+                    else:
+                        for gesto, is_stable, inicio in gestos_por_mao.values():
+                            cfg = self._resolver_binding(gesto)
+                            if not cfg.get("enabled", True):
+                                continue
+                            self._tentar_disparar(
+                                gesto, cfg, inicio, is_stable,
+                                tempo_atual, ultimo_disparo_por_gesto,
+                            )
 
                     if self.camera.enable_virtual_camera:
                         # Câmera virtual recebe a resolução nativa. Só copia quando vai
@@ -543,6 +490,146 @@ class GestureEngine(QThread):
 
             self.running = False
             self.status_changed.emit("Engine parada")
+
+    def _atualizar_estado_da_mao(self, hand_state, pontos, tempo_atual):
+        """Avança o estado de uma mão e devolve `(gesto, estavel, inicio)` ou `None`.
+
+        `None` quando não há gesto estável — o estado da mão é zerado nesse caso.
+        """
+        raw_gesture = self._normalize_gesture_name(self.detector.detectar(pontos))
+        gesto = self._get_stable_gesture(hand_state["detection_window"], raw_gesture)
+
+        if not gesto:
+            hand_state["gesto_ativo"] = None
+            hand_state["inicio_gesto"] = None
+            return None
+
+        if hand_state["gesto_ativo"] != gesto:
+            hand_state["inicio_gesto"] = tempo_atual
+            hand_state["gesto_ativo"] = gesto
+            hand_state["stability_monitor"].reset()
+
+        is_stable = True
+        if self.stability_enabled:
+            is_stable = hand_state["stability_monitor"].update(pontos)
+
+        return (gesto, is_stable, hand_state["inicio_gesto"])
+
+    def _resolver_binding(self, gesto):
+        """Config de um gesto individual, com fallback para o `scene_map` legado."""
+        cfg = self.gesture_bindings.get(gesto, {})
+        if cfg:
+            return cfg
+
+        nome_cena_legado = self.mapa_cenas.get(gesto, "")
+        if not nome_cena_legado:
+            return {}
+
+        return {
+            "enabled": True,
+            "hold_time": self.tempo_minimo,
+            "cooldown": self.cooldown,
+            "scene": nome_cena_legado,
+            "play_sound": False,
+            "sound_file": "",
+            "hotkey": "",
+        }
+
+    def _combinado_candidato(self, gestos_por_mao, tempo_atual):
+        """Devolve `(chave, cfg, inicio, par_estavel)` se as duas mãos formam um combinado.
+
+        `None` quando não há par, quando o par não tem binding, ou quando o binding está
+        desabilitado — nesses casos os gestos individuais seguem o fluxo normal.
+
+        O hold do combinado é contado a partir do instante em que o PAR se formou, não do
+        gesto de cada mão: o usuário raramente fecha as duas mãos no mesmo frame, e usar o
+        início de uma delas daria vantagem arbitrária à mão que chegou primeiro.
+        """
+        if len(gestos_por_mao) != 2 or not self.combined_bindings:
+            self._combo_ativo = None
+            self._combo_inicio = None
+            return None
+
+        gestos = [dados[0] for dados in gestos_por_mao.values()]
+        chave = chave_do_par(*gestos)
+
+        cfg = self.combined_bindings.get(chave)
+        if not cfg or not cfg.get("enabled", True):
+            self._combo_ativo = None
+            self._combo_inicio = None
+            return None
+
+        if self._combo_ativo != chave:
+            self._combo_ativo = chave
+            self._combo_inicio = tempo_atual
+
+        par_estavel = all(dados[1] for dados in gestos_por_mao.values())
+        return (chave, cfg, self._combo_inicio, par_estavel)
+
+    def _tentar_disparar(self, nome, cfg, inicio, estavel, tempo_atual, ultimo_disparo_por_gesto):
+        """Dispara a ação se o hold completou, a mão está estável e o cooldown passou."""
+        if not cfg or not inicio or not estavel:
+            return
+
+        hold_time = float(cfg.get("hold_time", self.tempo_minimo))
+        if (tempo_atual - inicio) < hold_time:
+            return
+
+        cooldown = float(cfg.get("cooldown", self.cooldown))
+        if (tempo_atual - ultimo_disparo_por_gesto.get(nome, 0.0)) <= cooldown:
+            return
+
+        action_submitted = False
+
+        if self.actions and self.modo != "teste":
+            try:
+                scene = cfg.get("scene", "").strip()
+                use_scene = bool(cfg.get("use_scene", bool(scene)))
+                use_sound = bool(
+                    cfg.get("use_sound", bool(cfg.get("play_sound", False)))
+                )
+                hotkey = cfg.get("hotkey", "").strip()
+                use_hotkey = bool(cfg.get("use_hotkey", bool(hotkey)))
+
+                if self.action_future and not self.action_future.done():
+                    self.status_changed.emit("Aguardando ação anterior")
+                else:
+                    self.action_future = self.action_executor.submit(
+                        self._executar_acoes_gesto,
+                        use_scene,
+                        scene,
+                        use_sound,
+                        cfg.get("sound_file", "").strip(),
+                        use_hotkey,
+                        hotkey,
+                    )
+                    action_submitted = True
+
+                status_parts = [f"Gesto {nome}"]
+                if use_scene and scene:
+                    status_parts.append(f"cena {scene}")
+                if use_sound and cfg.get("sound_file", "").strip():
+                    status_parts.append("som")
+                if use_hotkey and hotkey:
+                    status_parts.append(f"atalho {hotkey}")
+
+                if len(status_parts) == 1:
+                    self.status_changed.emit(f"{status_parts[0]} acionado")
+                else:
+                    self.status_changed.emit(
+                        ": ".join([status_parts[0], ", ".join(status_parts[1:])])
+                    )
+            except Exception as exc:
+                logger.exception("Erro ao executar ação: %s", exc)
+
+        elif self.modo == "teste":
+            self.status_changed.emit(
+                f"Gesto detectado: {nome} (Modo Teste — ação bloqueada)"
+            )
+            action_submitted = True
+
+        if action_submitted:
+            ultimo_disparo_por_gesto[nome] = tempo_atual
 
     def _executar_acoes_gesto(self, use_scene, scene, use_sound, sound_file, use_hotkey, hotkey):
         if not self.actions:
