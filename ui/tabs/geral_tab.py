@@ -127,6 +127,29 @@ class GeralTab(QWidget):
         self.camera_device_combo.setToolTip("Selecione a câmera física usada para detecção dos gestos.")
         camera_form.addRow("Dispositivo:", self.camera_device_combo)
 
+        # Aviso de incompatibilidade. Fica FORA do painel avançado de propósito: os botões
+        # de resolução e FPS moram lá dentro, e o painel nasce recolhido — um aviso ali
+        # dentro só apareceria para quem já foi procurar. Ver D-39.
+        self.camera_aviso = QLabel("")
+        self.camera_aviso.setObjectName("cameraAviso")
+        self.camera_aviso.setWordWrap(True)
+        self.camera_aviso.setVisible(False)
+        self.camera_aviso.setStyleSheet(
+            "QLabel#cameraAviso {"
+            " background-color: #3a2e12;"
+            " border: 1px solid #8a6d1f;"
+            " border-radius: 6px;"
+            " padding: 10px;"
+            " color: #ffd479; }"
+        )
+        layout.addWidget(self.camera_aviso)
+
+        self.usar_recomendado_button = QPushButton("Usar configuração recomendada")
+        self.usar_recomendado_button.setObjectName("ghost")
+        self.usar_recomendado_button.setMinimumHeight(38)
+        self.usar_recomendado_button.setVisible(False)
+        layout.addWidget(self.usar_recomendado_button)
+
         # Painel colapsível de configurações avançadas
         self.advanced_toggle = QPushButton("Configurações Avançadas ▼")
         self.advanced_toggle.setObjectName("ghost")

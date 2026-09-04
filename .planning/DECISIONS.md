@@ -205,6 +205,48 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-39 · Limitação da câmera vira faixa na tela, e o preset recomendado depende do modo**
+*2026-09-04 · B-12 + pedido de UI do dono*
+
+**A limitação sai do log e vira faixa visível.** O D-38 já desabilitava o que a câmera não
+tem, mas a explicação vivia no log e no tooltip — some no scroll, e o tooltip exige
+adivinhar que é preciso passar o mouse. O usuário via um botão cinza sem saber por quê.
+
+Agora há uma faixa na aba Geral, visível enquanto existir incompatibilidade:
+*"Limitação da sua câmera: ela não faz 60 fps em 1920x1080 (máximo 30). As opções
+indisponíveis ficam desabilitadas — não é erro do app."*
+
+**Fica fora do painel Configurações Avançadas de propósito.** Os botões de resolução e FPS
+moram lá dentro, e o painel nasce recolhido — um aviso ali só apareceria para quem já foi
+procurar, que é exatamente quem não precisa dele.
+
+**O aviso do log foi removido**, não somado. Manter os dois diria a mesma coisa em dois
+lugares, e o pedido era justamente tirar do log.
+
+**Botões continuam desabilitados**, em vez de clicáveis-que-recusam. Um botão que existe e
+não funciona é pior que um botão apagado com explicação ao lado — e desabilitado torna
+impossível salvar uma config quebrada.
+
+---
+
+**Preset recomendado (B-12): "melhor" depende do destino da imagem.**
+
+- `teste` e `manual`: alvo **720p**. A captura só alimenta a inferência, que trabalha a
+  `PROCESS_W = 640`. Acima de 720p custa CPU e não melhora detecção em nada.
+- `automatico`: **maior resolução suportada**. A imagem vai para o OBS, então é o que o
+  público vê.
+
+O palpite óbvio — "pega sempre a maior suportada" — **estaria errado em dois dos três
+modos**. Foi por isso que este item ficou separado do B-11: filtrar o que não existe é
+objetivo, recomendar exige saber para onde a imagem vai.
+
+O FPS escolhido é o maior que a resolução escolhida aceita, limitado ao que a UI oferece —
+não adianta recomendar um modo que a câmera tem mas o app não expõe.
+
+**Aplicado por botão, não automaticamente.** "Usar configuração recomendada" só aparece
+quando há uma recomendação possível. Trocar a escolha do usuário sozinho, sem nada ter
+falhado, seria mexer na config dele por antecipação — mesma razão do D-38.
+
 **D-38 · Capacidades da câmera consultadas sob demanda, sem cache, com fail-open**
 *2026-09-04 · B-11*
 

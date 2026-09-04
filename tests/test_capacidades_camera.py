@@ -133,3 +133,49 @@ def _instalar_pygrabber_falso(monkeypatch, formatos):
     modulo = type(sys)("pygrabber.dshow_graph")
     modulo.FilterGraph = GrafoFalso
     monkeypatch.setitem(sys.modules, "pygrabber.dshow_graph", modulo)
+
+
+class TestPresetRecomendado:
+    """O "melhor" modo depende de para onde a imagem vai, não só da câmera. Ver D-39."""
+
+    RESOLUCOES = [(640, 480), (1280, 720), (1920, 1080)]
+    FPS = [30, 60]
+    MODOS = {(640, 480): 60, (1280, 720): 60, (1920, 1080): 30}
+
+    def test_automatico_pega_a_maior_resolucao(self):
+        """A imagem vai para o OBS: é o que o público vê, então vale a maior."""
+        preset = cap.preset_recomendado(self.MODOS, "automatico", self.RESOLUCOES, self.FPS)
+        assert preset == (1920, 1080, 30)
+
+    @pytest.mark.parametrize("modo", ["teste", "manual"])
+    def test_sem_vcam_para_em_720p(self, modo):
+        """Acima de 720p a detecção não melhora: a inferência trabalha a 640px.
+
+        Este é o caso em que o palpite óbvio — "pega a maior suportada" — estaria errado.
+        """
+        preset = cap.preset_recomendado(self.MODOS, modo, self.RESOLUCOES, self.FPS)
+        assert preset == (1280, 720, 60)
+
+    def test_o_fps_escolhido_respeita_o_teto_da_resolucao(self):
+        """1080p só faz 30 nesta câmera, mesmo com a UI oferecendo 60."""
+        preset = cap.preset_recomendado(self.MODOS, "automatico", self.RESOLUCOES, self.FPS)
+        assert preset[2] == 30
+
+    def test_ignora_resolucao_que_a_camera_nao_tem(self):
+        modos = {(640, 480): 30}
+        preset = cap.preset_recomendado(modos, "automatico", self.RESOLUCOES, self.FPS)
+        assert preset == (640, 480, 30)
+
+    def test_sem_opcao_ate_720p_cai_na_menor_suportada(self):
+        """Câmera que só faz 1080p: em modo teste, a menor é o mais perto da intenção."""
+        modos = {(1920, 1080): 30}
+        preset = cap.preset_recomendado(modos, "teste", self.RESOLUCOES, self.FPS)
+        assert preset == (1920, 1080, 30)
+
+    def test_sem_dados_nao_recomenda(self):
+        assert cap.preset_recomendado({}, "automatico", self.RESOLUCOES, self.FPS) is None
+
+    def test_nenhuma_resolucao_da_ui_suportada_nao_recomenda(self):
+        """Não adianta recomendar um modo que a câmera tem mas o app não expõe."""
+        modos = {(3840, 2160): 30}
+        assert cap.preset_recomendado(modos, "automatico", self.RESOLUCOES, self.FPS) is None

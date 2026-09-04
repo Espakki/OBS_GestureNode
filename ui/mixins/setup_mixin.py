@@ -57,6 +57,7 @@ class SetupMixin:
         self.health_obs = self.geral_tab.health_obs
         self.health_gestos = self.geral_tab.health_gestos
         self.grid_layout = self.gestos_tab.grid_layout
+        self.usar_recomendado_button = self.geral_tab.usar_recomendado_button
         self.choose_gestures_button = self.gestos_tab.choose_gestures_button
         self.selected_gesture_label = self.gestos_tab.selected_gesture_label
         self.hold_slider = self.gestos_tab.hold_slider
@@ -95,6 +96,7 @@ class SetupMixin:
         for fps_value, button in self.fps_buttons.items():
             button.toggled.connect(lambda checked, value=fps_value: self.on_fps_changed(value) if checked else None)
 
+        self.usar_recomendado_button.clicked.connect(self.aplicar_preset_recomendado)
         self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
         self.hold_slider.valueChanged.connect(self.on_hold_slider_changed)
         self.hold_slider.valueChanged.connect(self.on_current_gesture_changed)

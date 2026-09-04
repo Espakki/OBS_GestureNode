@@ -11,9 +11,10 @@ except Exception:
 from core.capacidades_camera import (
     capacidades,
     fps_suportado,
+    preset_recomendado,
     resolucao_suportada,
 )
-from ui.presets import RESOLUTION_PRESETS
+from ui.presets import RESOLUTION_PRESETS, RESOLUTION_PRESETS_REVERSED
 from util.logger import get_logger
 
 logger = get_logger(__name__)
@@ -168,41 +169,103 @@ class CameraMixin:
                 else f"Esta câmera não faz {fps} fps em {largura_atual}x{altura_atual}"
             )
 
-        self._avisar_selecao_nao_suportada(modos, largura_atual, altura_atual)
+        self._atualizar_aviso_de_camera(modos, largura_atual, altura_atual)
 
-    def _avisar_selecao_nao_suportada(self, modos, largura, altura):
-        """Diz no log quando o que está configurado não existe na câmera.
+    def _atualizar_aviso_de_camera(self, modos, largura, altura):
+        """Mostra a incompatibilidade numa faixa visível, não só no log. Ver D-39.
 
-        Não corrige sozinho: o FPS já tem o fallback do D-32, que ajusta na hora de abrir
-        e devolve o valor real para a UI. Trocar a escolha do usuário aqui, antes mesmo de
-        ele tentar iniciar, seria mexer na config dele sem que nada tivesse falhado.
+        O log serve para histórico; para uma limitação permanente da câmera ele é o lugar
+        errado — some no scroll e o usuário fica tentando o mesmo valor sem entender por
+        que o botão está cinza.
         """
+        aviso = self.geral_tab.camera_aviso
+        botao = self.geral_tab.usar_recomendado_button
+
         if not modos:
-            self._ultimo_aviso_de_capacidade = ""
+            aviso.setVisible(False)
+            botao.setVisible(False)
             return
 
-        aviso = ""
-        if not resolucao_suportada(modos, largura, altura):
-            aviso = (
-                f"⚠️ A câmera selecionada não oferece {largura}x{altura}. "
-                "Escolha uma resolução habilitada antes de iniciar."
+        problemas = []
+
+        indisponiveis = [
+            rotulo
+            for rotulo, (w, h) in RESOLUTION_PRESETS.items()
+            if not resolucao_suportada(modos, w, h)
+        ]
+        if indisponiveis:
+            problemas.append(
+                "não oferece " + ", ".join(sorted(indisponiveis))
             )
-        else:
-            fps_atual = int(self.config.get("camera", {}).get("fps", 30))
-            if not fps_suportado(modos, largura, altura, fps_atual):
-                teto = modos.get((largura, altura))
-                aviso = (
-                    f"⚠️ A câmera não faz {fps_atual} fps em {largura}x{altura} "
-                    f"(máximo {int(teto)}). Ela será iniciada no FPS suportado."
+
+        if resolucao_suportada(modos, largura, altura):
+            teto = modos.get((largura, altura))
+            sem_fps = [
+                f for f in self.fps_buttons if not fps_suportado(modos, largura, altura, f)
+            ]
+            if sem_fps and teto:
+                lista = ", ".join(f"{f} fps" for f in sorted(sem_fps))
+                problemas.append(
+                    f"não faz {lista} em {largura}x{altura} (máximo {int(teto)})"
                 )
 
-        # Este método roda a cada troca de câmera, resolução ou recarga da UI. Sem o
-        # guarda, o mesmo aviso aparecia repetido no log — inclusive duas vezes só na
-        # inicialização — e log que se repete sem motivo deixa de ser lido.
-        if aviso and aviso != getattr(self, "_ultimo_aviso_de_capacidade", ""):
-            self._append_log(aviso)
+        if not problemas:
+            aviso.setVisible(False)
+        else:
+            aviso.setText(
+                "⚠️ Limitação da sua câmera: ela " + "; e ".join(problemas) + ". "
+                "As opções indisponíveis ficam desabilitadas — não é erro do app."
+            )
+            aviso.setVisible(True)
 
-        self._ultimo_aviso_de_capacidade = aviso
+        botao.setVisible(self._preset_recomendado(modos) is not None)
+
+    def _preset_recomendado(self, modos=None):
+        """`modos` já em mãos evita um segundo probe de ~170ms no mesmo ciclo."""
+        if modos is None:
+            modos = capacidades(self.config.get("camera", {}).get("index", 0))
+        return preset_recomendado(
+            modos,
+            self.config.get("modo", "automatico"),
+            list(RESOLUTION_PRESETS.values()),
+            sorted(self.fps_buttons),
+        )
+
+    def aplicar_preset_recomendado(self):
+        """Aplica o melhor modo para o modo de operação atual. Ver D-39."""
+        preset = self._preset_recomendado()
+        if preset is None:
+            self._append_log("Não foi possível recomendar uma configuração para esta câmera.")
+            return
+
+        largura, altura, fps = preset
+        camera_cfg = self.config.setdefault("camera", {})
+        camera_cfg["width"] = int(largura)
+        camera_cfg["height"] = int(altura)
+        camera_cfg["fps"] = int(fps)
+
+        rotulo = RESOLUTION_PRESETS_REVERSED.get((largura, altura))
+        for botoes, alvo in (
+            (self.resolution_buttons, rotulo),
+            (self.fps_buttons, int(fps)),
+        ):
+            for chave, botao in botoes.items():
+                botao.blockSignals(True)
+                botao.setChecked(chave == alvo)
+                botao.blockSignals(False)
+
+        motivo = (
+            "a imagem vai para o OBS, então vale a maior resolução"
+            if self.config.get("modo") == "automatico"
+            else "sem câmera virtual, acima de 720p não melhora a detecção e só custa CPU"
+        )
+        self._append_log(f"Configuração recomendada: {largura}x{altura} a {fps} fps — {motivo}.")
+
+        self.aplicar_capacidades_da_camera()
+        self.salvar_config_automatico()
+
+        if self.engine and self.engine.isRunning():
+            self._append_log("Reinicie a captura para a nova resolução valer.")
 
     def on_fps_changed(self, value):
         self.config.setdefault("camera", {})["fps"] = int(value)

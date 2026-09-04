@@ -107,3 +107,55 @@ def fps_maximo_do_dispositivo(modos):
     if not modos:
         return None
     return max(modos.values())
+
+
+# Acima disto, resolução não melhora detecção: o `HandTracker` reduz tudo para
+# `PROCESS_W = 640` antes da inferência. Só vale subir quando a imagem também é entregue
+# ao público, que é o caso do modo automático. Ver D-39.
+RESOLUCAO_SEM_VCAM = (1280, 720)
+
+
+def preset_recomendado(modos, modo, resolucoes, fps_possiveis):
+    """Melhor `(largura, altura, fps)` para o modo de operação. `None` sem dados.
+
+    "Melhor" **não é propriedade da câmera sozinha** — depende de para onde a imagem vai:
+
+    - `teste` e `manual`: a captura só alimenta a inferência, que trabalha a 640px. Passar
+      de 720p custa CPU e não melhora detecção em nada, então o alvo é 720p.
+    - `automatico`: a imagem também vai para o OBS, ou seja, é o que o público vê. Aí a
+      maior resolução suportada é a escolha certa.
+
+    Pegar sempre a maior suportada — o palpite óbvio — estaria errado em dois dos três modos.
+
+    `resolucoes` e `fps_possiveis` são o que a interface oferece: não adianta recomendar um
+    modo que a câmera tem mas o app não expõe.
+    """
+    if not modos:
+        return None
+
+    suportadas = [
+        (largura, altura)
+        for largura, altura in resolucoes
+        if resolucao_suportada(modos, largura, altura)
+    ]
+    if not suportadas:
+        return None
+
+    if modo == "automatico":
+        escolhida = max(suportadas, key=lambda r: r[0] * r[1])
+    else:
+        limite = RESOLUCAO_SEM_VCAM[0] * RESOLUCAO_SEM_VCAM[1]
+        ate_o_alvo = [r for r in suportadas if r[0] * r[1] <= limite]
+        # Sem nenhuma opção até 720p, a menor suportada é a mais próxima da intenção.
+        escolhida = (
+            max(ate_o_alvo, key=lambda r: r[0] * r[1])
+            if ate_o_alvo
+            else min(suportadas, key=lambda r: r[0] * r[1])
+        )
+
+    largura, altura = escolhida
+    validos = [f for f in fps_possiveis if fps_suportado(modos, largura, altura, f)]
+    if not validos:
+        return None
+
+    return (largura, altura, max(validos))
