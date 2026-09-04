@@ -52,6 +52,47 @@ Lido com `.get("max_maos", 1)`. Sem migração: configs antigas carregam em modo
 *Origem: fase 9 (D-10, D-11) · 2026-06-27*
 Engine parada: persiste no config e aplica no próximo Start. Sem restart desnecessário.
 
+**D-28 · Joinha/deslike por ângulo com zona morta, não por coordenada Y**
+*2026-09-03 · B-06*
+
+**Medição primeiro.** Rotacionando os landmarks sintéticos de −180° a +180°, os gestos de
+dedo (FIST, V, POINT, Arminha, OPEN_HAND, CALL_ME, THREE, FOUR, ROCK, Dedo do Meio)
+sobrevivem à volta **completa**. Só o polegar quebrava.
+
+**A hipótese do backlog estava errada.** Dizia que `_finger_extended` falha sob rotação por
+medir distância até o pulso. Não falha: distância do pulso à ponta é medida **radial**,
+invariante a rotação em torno do pulso. Ninguém tinha medido — a suposição sobreviveu por
+parecer plausível.
+
+**O problema real era pior e mais estreito.** Com a regra antiga
+(`y4 < y3 and y4 < y5`), um joinha inclinado ~70° era classificado como **DESLIKE** — o
+gesto oposto, com confiança, sem sinal de ambiguidade. Com os dois ligados a cenas
+diferentes, inclinar a mão trocava para a cena errada no meio da live. A fronteira também
+era assimétrica de nascença (UP sobrevivia −25°/+115°, DOWN −115°/+45°), porque era efeito
+colateral da posição dos pontos 3 e 5, não uma decisão.
+
+**Não dá para tornar invariante a rotação.** Joinha e deslike são a mesma forma de mão
+girada 180°: no referencial da própria mão são idênticos. A orientação absoluta é
+informação essencial aqui, não defeito. Tentar eliminá-la tornaria os dois indistinguíveis.
+
+**Solução.** `_angulo_do_polegar()` mede o ângulo do vetor ponto 2 → ponto 4 contra a
+vertical da imagem. UP quando ≤ `TOLERANCIA_POLEGAR_GRAUS`, DOWN quando ≥ 180 − tolerância,
+`None` no meio. Com 60°, a zona morta é 60°.
+**A garantia que isso compra:** inverter joinha em deslike passa a ser **estruturalmente
+impossível** sem atravessar a zona morta inteira. Não é medição empírica, é consequência da
+forma da regra — e está fixada em
+`tests/test_gesture_detector.py::TestRotacao::test_inverter_joinha_exige_atravessar_a_zona_morta`.
+
+**Pendente de validação com câmera real:** o valor 60°. Maior = dispara com a mão mais
+torta, mas encolhe a zona morta; menor = mais seguro, mas exige mão mais alinhada. Qual
+inclinação as pessoas realmente usam ao fazer joinha é pergunta empírica, e chutar aqui
+seria o mesmo erro do pin do `av` (D-24). A constante está isolada no topo de
+`core/gesture_detector.py` para facilitar o ajuste.
+
+**Efeito colateral:** poses de polegar muito horizontais que a regra antiga aceitava agora
+caem na zona morta. É o comportamento desejado — ambíguo não deve disparar —, mas é
+mudança observável.
+
 **D-27 · `core/modos.py` é fonte única do modo; o check de velocidade foi renomeado**
 *2026-09-03 · commit do B-04*
 

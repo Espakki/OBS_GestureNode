@@ -13,6 +13,8 @@ limiares do detector fáceis de raciocinar:
 13-16 anelar · 17-20 mínimo. Em cada dedo a ordem é base → ponta.
 """
 
+import math
+
 PULSO = (100, 400)
 
 # Base (MCP) de cada dedo, indexada pelo índice do landmark
@@ -27,15 +29,18 @@ _PONTAS = {
     20: {"estendido": (196, 272), "dobrado": (130, 350)},
 }
 
-# Polegar: (ponta_4, articulacao_3) por estado.
-# "aberto_cima"  -> thumb_open e y4 < y3 e y4 < y5  => THUMBS_UP
-# "aberto_baixo" -> thumb_open e y4 > y3 e y4 > y5  => THUMBS_DOWN
-# "aberto_lado"  -> thumb_open mas nem up nem down  => só "aberto"
-# "fechado"      -> encostado na base do indicador  => not thumb_open
+# Polegar: (ponta_4, articulacao_3) por estado. O detector mede o ÂNGULO do vetor
+# ponto 2 -> ponto 4 contra a vertical da imagem (ver TOLERANCIA_POLEGAR_GRAUS e D-28),
+# então o que importa aqui é a direção do polegar, não a altura absoluta da ponta.
+# Com a base do polegar (ponto 2) em (55, 350):
+#   "aberto_cima"  -> ~33° da vertical para cima  => THUMBS_UP
+#   "aberto_baixo" -> ~33° da vertical para baixo => THUMBS_DOWN (espelho do de cima)
+#   "aberto_lado"  -> 90°, na horizontal          => zona morta, nem up nem down
+#   "fechado"      -> encostado na base do indicador => not thumb_open
 _POLEGAR = {
     "aberto_cima": ((10, 280), (30, 320)),
-    "aberto_baixo": ((10, 380), (30, 340)),
-    "aberto_lado": ((5, 320), (35, 340)),
+    "aberto_baixo": ((10, 420), (30, 390)),
+    "aberto_lado": ((5, 350), (30, 350)),
     "fechado": ((60, 320), (65, 340)),
 }
 
@@ -92,3 +97,23 @@ def mao_com(pontos, substituicoes):
     for idx, valor in substituicoes.items():
         novos[idx] = valor
     return novos
+
+
+def rotacionar(pontos, graus, centro=None):
+    """Gira a mão inteira em torno do pulso (ou de `centro`), em graus.
+
+    Positivo gira no sentido horário na tela, já que y cresce para baixo.
+
+    Serve para medir a tolerância do detector a inclinação: os gestos de dedo são
+    invariantes (distância ao pulso não muda com rotação), mas joinha e deslike dependem
+    da orientação absoluta — ver D-28.
+    """
+    cx, cy = centro if centro is not None else pontos[0]
+    radianos = math.radians(graus)
+    cos_a, sin_a = math.cos(radianos), math.sin(radianos)
+
+    girados = []
+    for x, y in pontos:
+        dx, dy = x - cx, y - cy
+        girados.append((cx + dx * cos_a - dy * sin_a, cy + dx * sin_a + dy * cos_a))
+    return girados

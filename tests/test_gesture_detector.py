@@ -3,7 +3,7 @@
 import pytest
 
 from core.gesture_detector import GestureDetector
-from tests.maos_sinteticas import mao, mao_com
+from tests.maos_sinteticas import mao, mao_com, rotacionar
 
 
 @pytest.fixture
@@ -81,7 +81,8 @@ class TestFronteirasFrageis:
         assert detector.detectar(mao(**quatro_dedos, polegar="fechado")) == "FOUR"
         assert detector.detectar(mao(**quatro_dedos, polegar="aberto_lado")) == "OPEN_HAND"
 
-    def test_thumbs_up_e_down_diferem_so_pela_altura_da_ponta(self, detector):
+    def test_thumbs_up_e_down_diferem_so_pela_direcao_do_polegar(self, detector):
+        """Mesma forma de mão; o que separa é para onde o polegar aponta (D-28)."""
         assert detector.detectar(mao(polegar="aberto_cima")) == "THUMBS_UP"
         assert detector.detectar(mao(polegar="aberto_baixo")) == "THUMBS_DOWN"
 
@@ -100,6 +101,72 @@ class TestFronteirasFrageis:
 
     def test_punho_exige_polegar_recolhido(self, detector):
         assert detector.detectar(mao(polegar="fechado")) == "FIST"
+
+
+class TestRotacao:
+    """Tolerância do detector a inclinação da mão. Ver D-28 e .planning/active/B-06.md.
+
+    Medição que motivou isto: com a regra antiga (comparação de coordenada Y crua), um
+    joinha inclinado ~70° era detectado como DESLIKE — o gesto oposto, sem sinal de
+    ambiguidade nenhum.
+    """
+
+    GESTOS_DE_DEDO = [
+        ("FIST", dict(polegar="fechado")),
+        ("V", dict(indicador=True, medio=True, polegar="fechado")),
+        ("POINT", dict(indicador=True, polegar="fechado")),
+        ("CALL_ME", dict(minimo=True, polegar="aberto_lado")),
+        ("OPEN_HAND", dict(indicador=True, medio=True, anelar=True, minimo=True, polegar="aberto_lado")),
+    ]
+
+    @pytest.mark.parametrize(
+        "esperado,forma", GESTOS_DE_DEDO, ids=[n for n, _ in GESTOS_DE_DEDO]
+    )
+    @pytest.mark.parametrize("graus", [-180, -90, -45, 45, 90, 180])
+    def test_gestos_de_dedo_sao_invariantes_a_rotacao(self, detector, esperado, forma, graus):
+        """`_finger_extended` mede distância ao pulso, que é radial — não muda com rotação.
+
+        Isto corrige uma suposição errada do backlog original, que dizia que estes gestos
+        eram frágeis a rotação. Não são.
+        """
+        girada = rotacionar(mao(**forma), graus)
+        assert detector.detectar(girada) == esperado
+
+    @pytest.mark.parametrize("graus", [-20, -10, 0, 15, 45, 80])
+    def test_joinha_aguenta_inclinacao_moderada(self, detector, graus):
+        girada = rotacionar(mao(polegar="aberto_cima"), graus)
+        assert detector.detectar(girada) == "THUMBS_UP"
+
+    def test_inverter_joinha_exige_atravessar_a_zona_morta(self, detector):
+        """A garantia central do D-28: não existe salto direto de joinha para deslike.
+
+        Varre a rotação de 1 em 1 grau. Entre o último THUMBS_UP e o primeiro
+        THUMBS_DOWN tem de haver pelo menos um ângulo devolvendo None — caso contrário
+        um tremor de mão poderia trocar para a cena oposta.
+        """
+        base = mao(polegar="aberto_cima")
+        leitura = [detector.detectar(rotacionar(base, g)) for g in range(-180, 181)]
+
+        for anterior, atual in zip(leitura, leitura[1:]):
+            assert not (anterior == "THUMBS_UP" and atual == "THUMBS_DOWN")
+            assert not (anterior == "THUMBS_DOWN" and atual == "THUMBS_UP")
+
+    def test_polegar_na_horizontal_fica_na_zona_morta(self, detector):
+        """90° da vertical não é nem joinha nem deslike — é ambíguo, e ambíguo não dispara."""
+        assert detector.detectar(mao(polegar="aberto_lado")) is None
+
+    def test_zona_morta_e_simetrica(self, detector):
+        """Girar +X e -X a partir da horizontal tem de dar o mesmo veredito.
+
+        A regra antiga era assimétrica de nascença (THUMBS_UP sobrevivia -25/+115 e
+        THUMBS_DOWN -115/+45), porque a fronteira era efeito colateral da posição dos
+        pontos 3 e 5, não uma decisão.
+        """
+        horizontal = mao(polegar="aberto_lado")
+        for delta in (10, 20, 25):
+            assert detector.detectar(rotacionar(horizontal, delta)) == detector.detectar(
+                rotacionar(horizontal, -delta)
+            )
 
 
 class TestLimiarDeDedoEstendido:

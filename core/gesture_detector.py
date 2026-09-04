@@ -1,7 +1,34 @@
 import math
 
 
+# Quanto o polegar pode desviar da vertical da imagem e ainda contar como joinha/deslike.
+# A zona morta entre os dois é 180 - 2*TOLERANCIA (60° com o valor atual): para um joinha
+# virar deslike seria preciso atravessar essa faixa inteira, e no meio dela o detector não
+# devolve gesto nenhum. Ver D-28.
+#
+# Joinha e deslike são a MESMA forma de mão girada 180°, então a orientação absoluta é
+# informação essencial aqui — não dá para tornar isso invariante a rotação sem tornar os
+# dois indistinguíveis. O que dá é fazer a fronteira ser explícita e simétrica.
+TOLERANCIA_POLEGAR_GRAUS = 60
+
+
 class GestureDetector:
+
+    def _angulo_do_polegar(self, pontos):
+        """Ângulo entre o polegar e a vertical da imagem, em graus [0, 180].
+
+        0 = apontando para cima na tela, 180 = para baixo, 90 = na horizontal.
+        Usa o vetor da base do polegar (ponto 2) até a ponta (ponto 4), que é mais
+        estável que a última falange sozinha.
+        """
+        (bx, by), (tx, ty) = pontos[2], pontos[4]
+        dx, dy = tx - bx, ty - by
+
+        if dx == 0 and dy == 0:
+            return 90.0  # degenerado: trata como horizontal, não classifica
+
+        # -dy porque y cresce para baixo na imagem
+        return abs(math.degrees(math.atan2(dx, -dy)))
 
     def distancia(self, p1, p2):
         x1, y1 = p1
@@ -32,8 +59,12 @@ class GestureDetector:
         dist_thumb_index_base = self.distancia(pontos[4], pontos[5])
         thumb_open = dist_thumb_index_base > (palm_size * 0.6)
 
-        thumb_up = thumb_open and (pontos[4][1] < pontos[3][1]) and (pontos[4][1] < pontos[5][1])
-        thumb_down = thumb_open and (pontos[4][1] > pontos[3][1]) and (pontos[4][1] > pontos[5][1])
+        # Ângulo explícito em vez de comparar coordenadas Y cruas: a regra antiga tinha
+        # fronteira assimétrica e fazia joinha virar deslike a ~70° de inclinação, sem
+        # passar por zona morta. Ver D-28.
+        angulo_polegar = self._angulo_do_polegar(pontos)
+        thumb_up = thumb_open and angulo_polegar <= TOLERANCIA_POLEGAR_GRAUS
+        thumb_down = thumb_open and angulo_polegar >= (180 - TOLERANCIA_POLEGAR_GRAUS)
 
         thumb_index_close = self.distancia(pontos[4], pontos[8]) < (palm_size * 0.3)
         if thumb_index_close and not index_up:
