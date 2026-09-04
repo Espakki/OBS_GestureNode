@@ -1,102 +1,151 @@
 # OBS GestureNode
 
-Controle o OBS Studio com gestos de mão pela webcam. Detecta gestos via MediaPipe e dispara
-ações configuráveis: troca de cena no OBS, atalho de teclado global ou som.
+Controle o OBS Studio com gestos de mão pela webcam — sem tirar as mãos do controle, do
+teclado ou do mouse.
 
-Interface PySide6 com tema escuro, preview ao vivo com esqueleto da mão, onboarding no
-primeiro uso e configuração por gesto (tempo de espera, cooldown e ação).
+Você configura qual gesto dispara qual ação, e o app faz o resto: reconhece o gesto pela
+câmera e troca a cena no OBS, dispara um atalho de teclado ou toca um som.
+
+> **Estado:** funcional e em uso. Windows por enquanto; o suporte a Linux está mapeado mas
+> ainda não implementado.
+
+---
+
+## O que ele faz
+
+- **14 gestos** reconhecidos pela webcam: joinha, deslike, V, punho, mão aberta, OK,
+  arminha, escoteiro, rock, três, quatro, apontando, me liga e dedo do meio
+- **Três ações por gesto**, combináveis: trocar cena no OBS, disparar atalho de teclado,
+  tocar um `.wav`
+- **Duas mãos ao mesmo tempo** — você não precisa se preocupar com qual é a "mão certa";
+  vale a primeira que fizer o gesto
+- **Proteção contra disparo acidental**: o gesto só conta depois de ficar parado por um
+  tempo que você define
+- **Câmera virtual** para o OBS, em resolução nativa
 
 ## Requisitos
 
-- **Windows** — o disparo de atalhos usa `SendInput` (`user32.dll`), sons usam `winsound` e
-  a enumeração de câmeras usa `pygrabber` (DirectShow)
-- **Python 3.10.11** — versão contra a qual as dependências estão pinadas
-- OBS Studio com o **WebSocket server** habilitado (Ferramentas → Configurações do WebSocket),
-  necessário nos modos `manual` e `automatico`
+- **Windows** — a injeção de atalhos e a captura usam APIs do sistema
+- **OBS Studio** com o WebSocket server ligado (Ferramentas → Configurações do WebSocket),
+  se for usar troca de cena
+- Uma **webcam**
 
-## Setup
+## Como usar
+
+Baixe o executável, abra e siga o onboarding. Na primeira execução o app cria a
+configuração sozinho — não é preciso mexer em arquivo nenhum.
+
+### Os três modos
+
+| Modo | O que faz | Quando usar |
+|---|---|---|
+| **Teste** | Reconhece gestos mas não executa nada | Calibrar seus gestos sem risco |
+| **Manual** | Conecta ao OBS e executa as ações | Se a câmera virtual der conflito |
+| **Automático** | Igual ao manual, mais a câmera virtual | O padrão, e o que a maioria quer |
+
+### Configurando um gesto
+
+Na aba **Gestos**, escolha o gesto, marque a ação (cena, atalho ou som) e preencha. Dois
+ajustes importam:
+
+- **Tempo de resposta** — quanto você precisa segurar o gesto. Mais alto = menos disparo
+  acidental durante uma conversa.
+- **Cooldown** — quanto tempo até o mesmo gesto poder disparar de novo.
+
+### Se algo não funcionar
+
+O app avisa na tela, não só no log:
+
+- **Botão de FPS ou resolução cinza** — sua câmera não oferece aquele modo. A faixa amarela
+  na aba Geral diz qual é o limite dela, e o botão *Usar configuração recomendada* escolhe
+  o melhor modo para o seu caso.
+- **"OBS não tem a cena X"** — o nome da cena no gesto não existe no OBS. Corrija e tente
+  de novo; não precisa reiniciar.
+- **Câmera não abre** — feche outros programas que possam estar usando a webcam. Se estiver
+  no modo automático, feche o OBS antes de iniciar o app e abra depois.
+
+---
+
+## Desenvolvimento
+
+### Setup
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## Rodando
-
-```bash
+pip install -r requirements.txt -r requirements-dev.txt
 python main.py
 ```
 
-Na primeira execução o app cria um `config.json` completo com os padrões e abre o
-onboarding. Não é preciso copiar nada.
+**Python 3.10.11** — é contra ela que as dependências estão pinadas.
 
-## Modos de operação
+### Testes
 
-Definidos em `config.json` na chave `modo`, trocáveis pela aba Geral:
+```bash
+.venv\Scripts\python.exe -m pytest tests/ -q
+```
 
-| Modo | O que faz |
-|---|---|
-| `teste` | Só reconhecimento de gestos, sem tocar no OBS. Bom pra calibrar. |
-| `manual` | Conecta no OBS e dispara as ações. Câmera virtual desligada. |
-| `automatico` | Padrão. Igual ao manual, mas também liga a câmera virtual. |
+184 testes, ~2s, **sem precisar de webcam nem OBS**. `tests/maos_sinteticas.py` monta os 21
+landmarks de uma mão a partir de uma descrição legível, então o detector é testável sem
+câmera.
 
-Valores antigos são migrados automaticamente no boot: `test` → `teste`, `obs` → `automatico`
-(veja `ui/mixins/config_mixin.py`). Qualquer valor desconhecido vira `automatico`.
+Atenção: `tests/` são os testes automatizados; `teste/` (singular) são scripts manuais
+antigos, que exigem hardware ligado e não são coletados pelo pytest.
 
-## Configuração
-
-O `config.json` é **estado local do usuário** e não é versionado — contém a senha do
-WebSocket do OBS e paths da sua máquina. O app o reescreve a cada mudança na interface,
-então ajuste tudo pela UI, não na mão.
-
-### Anti-disparo acidental
-
-Além do `hold_time` por gesto, a engine tem um `GestureStabilityMonitor` que só libera a
-ação quando a mão está de fato parada:
-
-- **Motion check** — os landmarks precisam se mover menos que `motion_pixel_threshold`
-  pixels por `stability_min_frames` frames consecutivos
-- **Velocity check** (`check_velocity_trend`) — o movimento precisa estar *diminuindo*,
-  sinalizando intenção de parar em vez de um gesto de passagem
-
-Isso evita que gesticular durante uma conversa troque sua cena no meio da live.
-
-## Build
+### Build
 
 ```bash
 pyinstaller main.spec
 ```
 
-Gera `dist/main/`. O spec empacota a pasta `assets/` e faz `collect_all('mediapipe')`, que é
-necessário porque o MediaPipe carrega os modelos `.tflite` como data files.
+Gera `dist/main/`. O PyInstaller **não faz cross-compile**: o build do Windows sai numa
+máquina Windows, e o do Linux numa Linux.
 
-## Estrutura
+### Estrutura
 
 ```
-main.py                    entrypoint: carrega config, aplica tema e abre a janela
+main.py                    entrypoint: carrega config, aplica tema, abre a janela
+plataforma/                tudo que depende do sistema operacional
+  _windows.py              winsound + SendInput (só importado no Windows)
+  _generico.py             fallback de teclado; base da futura implementação Linux
 core/
-  camera.py                captura da webcam, backend DirectShow e câmera virtual
-  hand_tracker.py          wrapper do MediaPipe Hands, resolução de processamento fixa
+  camera.py                captura via PyAV, câmera virtual, retry e fallback de FPS
+  capacidades_camera.py    o que a câmera aceita de verdade, perguntado ao sistema
+  hand_tracker.py          wrapper do MediaPipe Hands
   gesture_detector.py      classifica os gestos por geometria dos landmarks
-  gesture_aliases.py       fonte única de verdade: código interno -> nome de exibição
+  gesture_aliases.py       fonte única: código interno -> nome de exibição
+  modos.py                 fonte única do modo de operação
 engine/
-  gesture_engine.py        QThread com o loop principal, estabilidade e cooldown
+  gesture_engine.py        QThread com o loop principal, estabilidade e despacho
 actions/
-  action_manager.py        executa cena / som / atalho (SendInput + fallback keyboard)
+  action_manager.py        executa cena / som / atalho — sem saber o sistema
 integrations/
   obs_controller.py        cliente obsws-python
-  obs_connect_thread.py    conexão assíncrona, pra não travar a UI
+  obs_connect_thread.py    conexão assíncrona, para não travar a UI
 ui/
-  main_window.py           janela principal, composta pelos mixins
-  mixins/                  responsabilidades por domínio: camera, config, engine,
-                           gesture, health, obs, setup
+  main_window.py           janela principal, composta por mixins
+  mixins/                  camera, config, engine, gesture, health, obs, setup
   tabs/                    abas Geral, Gestos e OBS
   onboarding.py            assistente de primeiro uso
-  presets.py               presets de configuração
   styles.py                stylesheet do tema escuro
 util/
-  hotkey_listener.py       captura de combinações de tecla na UI
+  caminhos.py              onde o config mora em cada sistema
   logger.py                logging centralizado
-teste/                     scripts de teste manual (não são testes automatizados)
+tests/                     testes automatizados (pytest)
+teste/                     scripts manuais antigos — exigem webcam e OBS
+.planning/                 estado do projeto, decisões e armadilhas
 ```
+
+### Antes de mexer
+
+Leia [`.planning/DECISIONS.md`](.planning/DECISIONS.md). Várias escolhas parecem
+inconsistência até você ver o motivo registrado — e mais de uma já foi "corrigida" por
+engano por falta dessa leitura. [`.planning/STATE.md`](.planning/STATE.md) diz onde o
+projeto está, e [`CLAUDE.md`](CLAUDE.md) resume as convenções e os invariantes.
+
+---
+
+## Licença
+
+[MIT](LICENSE) — use, modifique e distribua à vontade, inclusive comercialmente, mantendo
+o aviso de copyright.
