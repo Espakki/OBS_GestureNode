@@ -48,8 +48,8 @@ class SetupMixin:
         self.mode_auto_button = self.geral_tab.mode_auto_button
         self.maos_1_button = self.geral_tab.maos_1_button
         self.maos_2_button = self.geral_tab.maos_2_button
-        self.show_skeleton_checkbox = self.geral_tab.show_skeleton_checkbox
-        self.skeleton_vcam_checkbox = self.geral_tab.skeleton_vcam_checkbox
+        self.esqueleto_preview_button = self.geral_tab.esqueleto_preview_button
+        self.esqueleto_obs_button = self.geral_tab.esqueleto_obs_button
         self.camera_device_combo = self.geral_tab.camera_device_combo
         self.resolution_buttons = self.geral_tab.resolution_buttons
         self.fps_buttons = self.geral_tab.fps_buttons
@@ -86,10 +86,10 @@ class SetupMixin:
         self.mode_auto_button.toggled.connect(lambda checked: self.on_modo_changed("automatico") if checked else None)
         self.maos_1_button.toggled.connect(lambda checked: self.on_max_maos_changed(1) if checked else None)
         self.maos_2_button.toggled.connect(lambda checked: self.on_max_maos_changed(2) if checked else None)
-        self.show_skeleton_checkbox.toggled.connect(self.on_show_skeleton_changed)
-        self.show_skeleton_checkbox.toggled.connect(self.on_dynamic_setting_changed)
-        self.skeleton_vcam_checkbox.toggled.connect(self.on_skeleton_vcam_changed)
-        self.skeleton_vcam_checkbox.toggled.connect(self.on_dynamic_setting_changed)
+        self.esqueleto_preview_button.toggled.connect(self.on_show_skeleton_changed)
+        self.esqueleto_preview_button.toggled.connect(self.on_dynamic_setting_changed)
+        self.esqueleto_obs_button.toggled.connect(self.on_skeleton_vcam_changed)
+        self.esqueleto_obs_button.toggled.connect(self.on_dynamic_setting_changed)
         self.camera_device_combo.currentIndexChanged.connect(self.on_camera_changed)
         for label, button in self.resolution_buttons.items():
             button.toggled.connect(lambda checked, value=label: self.on_resolution_changed(value) if checked else None)

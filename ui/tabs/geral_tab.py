@@ -1,7 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
-    QCheckBox,
     QComboBox,
     QFormLayout,
     QHBoxLayout,
@@ -30,10 +29,8 @@ class GeralTab(QWidget):
         layout = QVBoxLayout(content)
         layout.setSpacing(12)
 
-        title = QLabel("Configurações Gerais")
-        title.setObjectName("title")
-        layout.addWidget(title)
-
+        # Sem título "Configurações Gerais": a aba já se chama Geral. Repetir o nome
+        # rouba uma linha para dizer o que o usuário acabou de clicar. Ver D-40.
         form = QFormLayout()
         form.setVerticalSpacing(14)
         form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -90,29 +87,39 @@ class GeralTab(QWidget):
             "Modo Automático: gerencia conexão ao OBS e câmera virtual automaticamente ao iniciar."
         )
 
-        self.mode_help_label = QLabel(
-            "Teste: calibre gestos sem enviar comandos — nenhuma ação executada.\n"
-            "Manual: conecta ao OBS automaticamente e executa ações, sem câmera virtual.\n"
-            "Automático: câmera virtual e OBS gerenciados automaticamente."
-        )
+        # Uma linha, sobre o modo SELECIONADO — não as três de uma vez. Os outros dois já
+        # se explicam pelo tooltip, e ninguém precisa ler sobre um modo que não escolheu.
+        self.mode_help_label = QLabel("")
         self.mode_help_label.setObjectName("muted")
         self.mode_help_label.setWordWrap(True)
         layout.addWidget(self.mode_help_label)
 
-        self.show_skeleton_checkbox = QCheckBox("Mostrar esqueleto da mão no preview")
-        self.show_skeleton_checkbox.setToolTip(
-            "Exibe o esqueleto da mão no preview para facilitar o ajuste de posição e iluminação.\n"
-            "Afeta apenas esta janela — não altera o que sai para o OBS."
-        )
-        layout.addWidget(self.show_skeleton_checkbox)
+        # Esqueleto vira par de toggles, no mesmo padrão visual de Modo e Mãos. Antes eram
+        # dois checkboxes com rótulos de 30 e 40 caracteres; a forma já diz que são duas
+        # saídas independentes, e "Preview"/"Saída OBS" bastam como palavra. Ver D-40.
+        esqueleto_row = QWidget()
+        esqueleto_layout = QHBoxLayout(esqueleto_row)
+        esqueleto_layout.setContentsMargins(0, 0, 0, 0)
+        esqueleto_layout.setSpacing(8)
 
-        self.skeleton_vcam_checkbox = QCheckBox("Mostrar esqueleto também na saída para o OBS")
-        self.skeleton_vcam_checkbox.setToolTip(
-            "Desenha o esqueleto na imagem enviada para a câmera virtual — ou seja, o público "
-            "da live passa a ver as linhas da mão.\n"
-            "Desligado por padrão: normalmente o esqueleto serve só para você calibrar."
+        self.esqueleto_preview_button = QPushButton("Preview")
+        self.esqueleto_preview_button.setToolTip(
+            "Desenha o esqueleto da mão no preview desta janela, para ajustar posição e "
+            "iluminação.\nNão altera o que sai para o OBS."
         )
-        layout.addWidget(self.skeleton_vcam_checkbox)
+        self.esqueleto_obs_button = QPushButton("Saída OBS")
+        self.esqueleto_obs_button.setToolTip(
+            "Desenha o esqueleto também na imagem enviada à câmera virtual — o público da "
+            "live passa a ver as linhas da mão.\nNormalmente o esqueleto serve só para você."
+        )
+        for button in (self.esqueleto_preview_button, self.esqueleto_obs_button):
+            button.setObjectName("optionToggle")
+            button.setCheckable(True)
+            button.setMinimumWidth(92)
+            button.setMinimumHeight(38)
+            esqueleto_layout.addWidget(button)
+
+        form.addRow("Esqueleto:", esqueleto_row)
 
         camera_title = QLabel("Configuração da câmera")
         camera_title.setObjectName("sectionTitle")
@@ -243,6 +250,12 @@ class GeralTab(QWidget):
         else:
             self.maos_1_button.setChecked(True)
 
+    AJUDA_POR_MODO = {
+        "teste": "Detecta gestos sem executar nada — para calibrar.",
+        "manual": "Conecta ao OBS e executa as ações. Sem câmera virtual.",
+        "automatico": "Conecta ao OBS, executa as ações e liga a câmera virtual.",
+    }
+
     def set_mode(self, modo):
         modo_norm = str(modo).lower()
         if modo_norm == "automatico":
@@ -250,7 +263,19 @@ class GeralTab(QWidget):
         elif modo_norm == "manual":
             self.mode_manual_button.setChecked(True)
         else:
+            modo_norm = "teste"
             self.mode_test_button.setChecked(True)
+
+        self.mode_help_label.setText(self.AJUDA_POR_MODO[modo_norm])
+
+    def set_esqueleto(self, no_preview, na_saida_obs):
+        for botao, valor in (
+            (self.esqueleto_preview_button, no_preview),
+            (self.esqueleto_obs_button, na_saida_obs),
+        ):
+            botao.blockSignals(True)
+            botao.setChecked(bool(valor))
+            botao.blockSignals(False)
 
     def set_resolution(self, resolution_label):
         target = self.resolution_buttons.get(resolution_label)

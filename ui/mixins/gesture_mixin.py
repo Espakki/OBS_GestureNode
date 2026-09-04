@@ -260,8 +260,8 @@ class GestureMixin:
 
     def on_dynamic_setting_changed(self, *_):
         self.config.setdefault("camera", {})
-        self.config["camera"]["show_skeleton"] = self.show_skeleton_checkbox.isChecked()
-        self.config["camera"]["skeleton_na_vcam"] = self.skeleton_vcam_checkbox.isChecked()
+        self.config["camera"]["show_skeleton"] = self.esqueleto_preview_button.isChecked()
+        self.config["camera"]["skeleton_na_vcam"] = self.esqueleto_obs_button.isChecked()
 
         binding = self._get_current_binding()
         binding["hold_time"] = self.hold_slider.value() / 10

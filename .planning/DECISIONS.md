@@ -205,6 +205,34 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-40 · A aba Geral fala por forma, não por parágrafo**
+*2026-09-04*
+
+Feedback do dono depois de ver a tela pronta: informação demais, texto demais — e isso com
+o painel Configurações Avançadas ainda fechado. O princípio que ele deu vale como regra
+para o resto da UI: **um bom UX conversa pelas formas, não pelas palavras.**
+
+Redução medida nos trechos alterados: **440 → 126 caracteres (71%)**. O painel inteiro
+ficou com 284 caracteres em 12 linhas.
+
+| Trecho | Antes | Depois | O que mudou |
+|---|---|---|---|
+| Título "Configurações Gerais" | 20 | 0 | A aba já se chama Geral |
+| Ajuda dos modos | 205 | 54 | Só o modo **selecionado**, uma linha |
+| Checkbox do preview | 35 | 7 | Virou toggle "Preview" |
+| Checkbox do OBS | 44 | 9 | Virou toggle "Saída OBS" |
+| Faixa de limite | 136 | 56 | Só o fato; o resto foi para o tooltip |
+
+**O esqueleto virou par de toggles**, no mesmo padrão visual de Modo e Mãos. É o ponto
+central: a linha `Esqueleto: [Preview] [Saída OBS]` diz pela **forma** que são duas saídas
+independentes — a mesma gramática visual que o usuário já aprendeu duas linhas acima. Dois
+checkboxes com frases de 35 e 44 caracteres diziam o mesmo em prosa.
+
+**Nada foi perdido, só movido.** Os tooltips já continham a explicação completa e
+continuam lá — o texto visível estava **repetindo** o tooltip. A ajuda dos outros dois
+modos não sumiu: ninguém precisa ler sobre um modo que não escolheu, e passar o mouse
+mostra.
+
 **D-39 · Limitação da câmera vira faixa na tela, e o preset recomendado depende do modo**
 *2026-09-04 · B-12 + pedido de UI do dono*
 

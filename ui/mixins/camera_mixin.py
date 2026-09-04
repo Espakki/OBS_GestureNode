@@ -194,9 +194,7 @@ class CameraMixin:
             if not resolucao_suportada(modos, w, h)
         ]
         if indisponiveis:
-            problemas.append(
-                "não oferece " + ", ".join(sorted(indisponiveis))
-            )
+            problemas.append("sem " + ", ".join(sorted(indisponiveis)))
 
         if resolucao_suportada(modos, largura, altura):
             teto = modos.get((largura, altura))
@@ -204,17 +202,18 @@ class CameraMixin:
                 f for f in self.fps_buttons if not fps_suportado(modos, largura, altura, f)
             ]
             if sem_fps and teto:
-                lista = ", ".join(f"{f} fps" for f in sorted(sem_fps))
-                problemas.append(
-                    f"não faz {lista} em {largura}x{altura} (máximo {int(teto)})"
-                )
+                lista = "/".join(str(f) for f in sorted(sem_fps))
+                problemas.append(f"máx. {int(teto)} fps em {largura}x{altura}, não {lista}")
 
         if not problemas:
             aviso.setVisible(False)
         else:
-            aviso.setText(
-                "⚠️ Limitação da sua câmera: ela " + "; e ".join(problemas) + ". "
-                "As opções indisponíveis ficam desabilitadas — não é erro do app."
+            # Uma linha, só o fato. O botão apagado e o tooltip já dizem o resto — repetir
+            # aqui era o excesso de texto que poluía o painel. Ver D-40.
+            aviso.setText("⚠️ Limite da sua câmera: " + " · ".join(problemas))
+            aviso.setToolTip(
+                "As opções fora do alcance da câmera ficam desabilitadas. "
+                "Não é erro do app."
             )
             aviso.setVisible(True)
 
