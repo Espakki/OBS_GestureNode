@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from core.gesture_aliases import GESTURE_ALIASES
+from core.modos import migrar_modo
 from ui.presets import RESOLUTION_PRESETS_REVERSED
 from util.logger import get_logger
 
@@ -13,15 +14,14 @@ logger = get_logger(__name__)
 class ConfigMixin:
 
     def _init_config_schema(self):
-        _legado_map = {"test": "teste", "obs": "automatico"}
-        _validos = {"teste", "manual", "automatico"}
-        _raw = self.config.get("modo")
-        if _raw in _legado_map:
-            self.config["modo"] = _legado_map[_raw]
-        elif _raw in _validos:
-            pass
-        else:
-            self.config["modo"] = "automatico"
+        self.config["modo"] = migrar_modo(self.config.get("modo"))
+
+        # virtual_cam_mode e vcam_device saíram na fase 15 junto com os controles de VCam
+        # da aba Geral (D-11). Nenhum código os lê; ficavam sendo reescritos a cada save.
+        camera_legado = self.config.get("camera")
+        if isinstance(camera_legado, dict):
+            camera_legado.pop("virtual_cam_mode", None)
+            camera_legado.pop("vcam_device", None)
 
         self.config.setdefault("max_maos", 1)
 

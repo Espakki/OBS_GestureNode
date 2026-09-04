@@ -9,6 +9,7 @@ from core.hand_tracker import HandTracker
 from core.gesture_detector import GestureDetector
 from core.camera import CameraManager
 from core.gesture_aliases import GESTURE_ALIASES
+from core.modos import migrar_modo
 from actions.action_manager import ActionManager
 from integrations.obs_controller import OBSController
 from integrations.obs_connect_thread import _classificar_erro
@@ -84,37 +85,45 @@ class GestureStabilityMonitor:
         # Verificações finais
         meets_frame_requirement = self.stable_frame_count >= self.stability_min_frames
         
-        # Check 2: Velocity check (movimento diminuindo)
-        is_decelerating = True
+        # Check 2: rejeita aceleração brusca (ver _sem_aceleracao_brusca)
+        sem_arranco = True
         if self.check_velocity and len(self.movement_history) >= 3:
-            is_decelerating = self._is_movement_decreasing()
+            sem_arranco = self._sem_aceleracao_brusca()
 
-        return meets_frame_requirement and is_decelerating
+        return meets_frame_requirement and sem_arranco
 
-    def _is_movement_decreasing(self):
+    def _sem_aceleracao_brusca(self):
         """
-        Verifica se movimento está diminuindo (intenção de parada).
-        
-        Analisa os últimos 3-5 frames para detectar tendência.
-        Se velocidade está caindo, indica que usuário QUER parar a mão.
-        
+        Rejeita apenas quem está acelerando de forma brusca nos últimos 3 frames.
+
+        ATENÇÃO — o nome antigo (`_is_movement_decreasing`) prometia mais do que este
+        método entrega, e por isso foi trocado. Ele NÃO exige desaceleração: aceita
+        movimento que *aumentou*, desde que o aumento seja menor que metade do
+        `motion_threshold` (com o default de 4px, tolera crescer até 2px). Na prática é
+        um filtro de arranco, e o trabalho pesado de exigir mão parada é do
+        `stable_frame_count`.
+
+        Endurecer isso para exigir desaceleração de verdade mudaria quando os gestos
+        disparam e precisa de validação com câmera real — é decisão de comportamento,
+        não limpeza. Ver B-06 no backlog.
+
         Returns:
-            bool: True se movimento está diminuindo ou estável (não oscilando)
+            bool: True se não houve aceleração brusca no intervalo observado
         """
         if len(self.movement_history) < 3:
             return True
 
         # Pegar últimos 3 valores
         recent = list(self.movement_history)[-3:]
-        
-        # Calcular tendência
+
+        # Calcular tendência: positivo = movimento aumentando
         velocity_trend = recent[-1] - recent[0]
         
-        # Se está diminuindo (negativo) ou MUITO estável (próximo de 0), é bom
-        # Rejeita se estava alto e subiu de novo (oscilação)
-        threshold = self.motion_threshold * 0.5
-        
-        return velocity_trend <= threshold
+        # Passa se diminuiu (negativo), ficou estável (~0), ou cresceu pouco.
+        # Só reprova o arranco: crescimento acima de metade do motion_threshold.
+        tolerancia_de_crescimento = self.motion_threshold * 0.5
+
+        return velocity_trend <= tolerancia_de_crescimento
 
     def _calculate_average_movement(self, prev_landmarks, curr_landmarks):
         """
@@ -179,12 +188,7 @@ class GestureEngine(QThread):
         self._setup()
 
     def _setup(self):
-        # Normalização do modo canônico: migração silenciosa de valores legados v1.1
-        _legado_map = {"test": "teste", "obs": "automatico"}
-        _modos_validos = {"teste", "manual", "automatico"}
-        _raw_modo = str(self.config.get("modo", "automatico") or "automatico").lower()
-        _raw_modo = _legado_map.get(_raw_modo, _raw_modo)
-        self.modo = _raw_modo if _raw_modo in _modos_validos else "automatico"
+        self.modo = migrar_modo(self.config.get("modo"))
 
         camera_cfg = self.config.get("camera", {})
         gestures_cfg = self.config.get("gestures", {})
@@ -395,7 +399,13 @@ class GestureEngine(QThread):
                     for mao in maos:
                         hand_id = mao["handedness"]
                         pontos = mao["landmarks"]
-                        hand_state = self._hand_states[hand_id]
+                        # O MediaPipe só devolve "Left"/"Right", mas indexar direto faria
+                        # um label inesperado virar KeyError a cada frame, inundando o log
+                        # do loop principal. Ignorar a mão é degradação preferível.
+                        hand_state = self._hand_states.get(hand_id)
+                        if hand_state is None:
+                            logger.warning("Handedness inesperado, mão ignorada: %r", hand_id)
+                            continue
 
                         raw_gesture = self.detector.detectar(pontos)
                         raw_gesture = self._normalize_gesture_name(raw_gesture)

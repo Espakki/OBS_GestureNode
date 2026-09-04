@@ -1,24 +1,16 @@
 """Migração de modo legado e classificação de erros do OBS.
 
-A migração está duplicada em dois lugares (ui/mixins/config_mixin.py e
-engine/gesture_engine.py::_setup) — ver B-04 no backlog. Enquanto a duplicação existir,
-estes testes garantem que as duas cópias concordam. Quando ela for removida, os testes
-continuam válidos sobre a cópia que sobrar.
+A migração vivia duplicada em `ui/mixins/config_mixin.py` e `engine/gesture_engine.py`,
+e as duas cópias haviam divergido de verdade — a da UI não fazia `.lower()`. Agora existe
+só `core.modos.migrar_modo`, e estes testes exercitam a função real. Ver D-27.
 """
 
 import pytest
 
+from core.modos import MODOS_VALIDOS, migrar_modo
 from integrations.obs_connect_thread import _classificar_erro
 
-MODOS_VALIDOS = {"teste", "manual", "automatico"}
 LEGADO = {"test": "teste", "obs": "automatico"}
-
-
-def migrar_modo(bruto):
-    """Réplica da regra que as duas cópias implementam (D-18)."""
-    bruto = str(bruto or "automatico").lower()
-    bruto = LEGADO.get(bruto, bruto)
-    return bruto if bruto in MODOS_VALIDOS else "automatico"
 
 
 class TestMigracaoDeModo:
@@ -34,27 +26,33 @@ class TestMigracaoDeModo:
     def test_valor_desconhecido_vira_automatico(self, lixo):
         assert migrar_modo(lixo) == "automatico"
 
-    def test_maiusculas_sao_aceitas(self):
-        assert migrar_modo("TESTE") == "teste"
-        assert migrar_modo("OBS") == "automatico"
+    @pytest.mark.parametrize(
+        "entrada,esperado",
+        [("TESTE", "teste"), ("Manual", "manual"), ("OBS", "automatico"), ("Test", "teste")],
+    )
+    def test_maiusculas_sao_aceitas(self, entrada, esperado):
+        """Regressão da divergência que motivou o D-27.
 
-    def test_engine_concorda_com_a_regra(self):
-        """A cópia da engine tem de produzir o mesmo resultado que a regra acima.
-
-        Reproduz o trecho de GestureEngine._setup sem instanciar a engine (que abriria
-        câmera e carregaria o MediaPipe).
+        A cópia da UI não fazia `.lower()`, então `"TESTE"` virava `"automatico"` nela e
+        `"teste"` na engine. O usuário via "Automático" na interface enquanto o motor
+        rodava com as ações bloqueadas.
         """
-        legado_map = {"test": "teste", "obs": "automatico"}
-        modos_validos = {"teste", "manual", "automatico"}
+        assert migrar_modo(entrada) == esperado
 
-        for entrada in ["test", "obs", "teste", "manual", "automatico", "xyz", ""]:
-            raw = str({"modo": entrada}.get("modo", "automatico") or "automatico").lower()
-            raw = legado_map.get(raw, raw)
-            resultado_engine = raw if raw in modos_validos else "automatico"
+    def test_espaco_em_volta_e_tolerado(self):
+        assert migrar_modo("  manual  ") == "manual"
 
-            assert resultado_engine == migrar_modo(entrada), (
-                f"engine e config divergem para {entrada!r}"
-            )
+    def test_uma_unica_implementacao(self):
+        """UI e engine têm de usar a mesma função — não uma cópia local.
+
+        Se alguém reintroduzir a regra inline em um dos dois, este teste não pega, mas a
+        divergência volta. Aqui garantimos ao menos que ambos importam a fonte única.
+        """
+        import engine.gesture_engine as eng
+        import ui.mixins.config_mixin as cfg
+
+        assert eng.migrar_modo is migrar_modo
+        assert cfg.migrar_modo is migrar_modo
 
 
 class TestClassificacaoDeErroOBS:

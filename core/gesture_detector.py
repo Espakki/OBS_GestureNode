@@ -1,7 +1,5 @@
 import math
 
-from core.gesture_aliases import GESTURE_ALIASES
-
 
 class GestureDetector:
 

@@ -77,6 +77,45 @@ def test_movimento_abaixo_do_threshold_conta_como_parado(monitor):
     assert monitor.update(deslocada(1)) is True
 
 
+class TestSemAceleracaoBrusca:
+    """Fixa o que o segundo check REALMENTE faz.
+
+    Ele se chamava `_is_movement_decreasing` e o nome prometia exigir desaceleração —
+    mas o método aceita movimento crescente, desde que o crescimento nos últimos 3
+    frames fique abaixo de `motion_threshold * 0.5`. Renomeado para
+    `_sem_aceleracao_brusca` no B-04. Ver D-27.
+
+    Se alguém endurecer isso para exigir desaceleração de verdade, estes testes quebram
+    — e é para quebrarem: seria mudança de comportamento, não limpeza.
+    """
+
+    @staticmethod
+    def _pontos(x):
+        return [(100.0 + x, 100.0)] * 21
+
+    def test_aceita_movimento_que_cresce_pouco(self, monitor):
+        """Movimentos de 0.5, 1.0 e 1.5px: acelerando, mas dentro da tolerância de 2px."""
+        for x in (0.0, 0.5, 1.5, 3.0):
+            resultado = monitor.update(self._pontos(x))
+        assert resultado is True
+
+    def test_rejeita_arranco(self, monitor):
+        """Movimentos de 0.5, 2.0 e 3.5px: todos abaixo do threshold, mas o crescimento
+        de 3px estoura a tolerância — é o arranco que o check existe para pegar."""
+        for x in (0.0, 0.5, 2.5, 6.0):
+            resultado = monitor.update(self._pontos(x))
+        assert resultado is False
+
+    def test_check_desligado_ignora_a_tendencia(self):
+        """Com check_velocity=False, só a contagem de frames parados decide."""
+        sem_check = GestureStabilityMonitor(
+            motion_threshold=4, stability_min_frames=3, check_velocity=False
+        )
+        for x in (0.0, 0.5, 2.5, 6.0):
+            resultado = sem_check.update(self._pontos(x))
+        assert resultado is True
+
+
 class TestListasIncompativeis:
     def test_contagem_diferente_de_pontos_e_tratada_como_movimento_infinito(self, monitor):
         monitor.update(PARADA)

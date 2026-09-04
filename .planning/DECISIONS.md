@@ -52,6 +52,34 @@ Lido com `.get("max_maos", 1)`. Sem migração: configs antigas carregam em modo
 *Origem: fase 9 (D-10, D-11) · 2026-06-27*
 Engine parada: persiste no config e aplica no próximo Start. Sem restart desnecessário.
 
+**D-27 · `core/modos.py` é fonte única do modo; o check de velocidade foi renomeado**
+*2026-09-03 · commit do B-04*
+
+**Modo.** A migração de valor legado vivia duplicada em `ui/mixins/config_mixin.py` e
+`engine/gesture_engine.py::_setup`. As duas cópias **já tinham divergido**: a da UI não
+fazia `.lower()`, então `"TESTE"` virava `"automatico"` nela e `"teste"` na engine — a
+interface mostrava Automático enquanto o motor rodava com todas as ações bloqueadas.
+Mesma classe de bug do D-07 (três cópias de `GESTURE_ALIASES`), mesma solução: um módulo
+pequeno, sem dependências, importado por quem precisar. A versão da engine venceu por ser
+a mais tolerante. Agora aceita maiúsculas e espaço em volta.
+
+**`_is_movement_decreasing` virou `_sem_aceleracao_brusca`.** O nome antigo prometia
+exigir desaceleração, mas o método aceita movimento *crescente* desde que o crescimento
+nos últimos 3 frames fique abaixo de `motion_threshold * 0.5` — com o default de 4px,
+tolera crescer até 2px. É um filtro de arranco; quem faz o trabalho pesado de exigir mão
+parada é o `stable_frame_count`.
+**Por quê só renomear:** endurecer para exigir desaceleração de verdade mudaria *quando*
+os gestos disparam, e isso precisa de validação com câmera real. É decisão de
+comportamento, não limpeza — fica para o B-06. A semântica atual está fixada em
+`tests/test_stability_monitor.py::TestSemAceleracaoBrusca`, então endurecer vai quebrar
+teste de propósito.
+
+**Também no mesmo passo:** `_hand_states` passa a ser acessado com `.get()` e ignora
+handedness inesperado com log, em vez de estourar `KeyError` a cada frame dentro do loop
+principal; `virtual_cam_mode` e `vcam_device` são removidos do config na carga, fechando
+a pendência que o D-11 deixou aberta; e o import morto de `GESTURE_ALIASES` saiu do
+`gesture_detector.py`.
+
 **D-07 · `gesture_aliases.py` é fonte única de verdade dos nomes de gesto**
 *Origem: fase 1 (D-07, D-09) · 2026-06-23*
 Só o dict, sem helpers. Nasceu da união de 3 cópias divergidas que tinham valores
