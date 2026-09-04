@@ -12,12 +12,12 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue, com 131 testes automatizados cobrindo detector, estabilidade,
+operação) está entregue, com 141 testes automatizados cobrindo detector, estabilidade,
 despacho por mão e caminhos de config.
 
-**Estado real:** o app já foi executado pelo dono e o ciclo parar/reiniciar da câmera foi
-reproduzido e corrigido contra a C920 real. O que segue sem verificação de runtime é o
-`.exe` empacotado, a câmera virtual no OBS e a conexão OBS — ver a lista no fim.
+**Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
+2026-09-04 — conexão OBS, VCam em resolução nativa, esqueleto na saída, joinha, duas mãos
+e o ciclo parar/iniciar. **O `.exe` empacotado nunca foi aberto por ninguém.**
 
 ---
 
@@ -59,7 +59,11 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-10 — Cortar as 774 MB do `dist`.** Em andamento.
+1. **Abrir o `.exe`** (itens 6–8 abaixo). É o único bloco de validação que resta, e
+   destrava o B-10.
+2. **B-15 — Config do OBS não aplica na engine viva.** Precisa de decisão: reconectar
+   sozinho ou avisar que o campo exige restart?
+3. **B-11 — Detectar capacidades da câmera.**
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 
@@ -71,8 +75,9 @@ A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`.
   `C:\Users\wini\AppData\Local\Programs\Python\Python310`, `.venv/` recriado do zero e
   validado. O `venv/` antigo, que apontava para `C:\Users\Computer\...` (outro PC), foi
   apagado — junto com ele se perderam os pins que funcionavam na máquina anterior.
-- **Câmera real já foi exercitada** (ciclo parar/iniciar, 3x seguidas, na C920). Seguem sem
-  verificação: o `.exe` empacotado, a câmera virtual dentro do OBS e a conexão OBS.
+- **Rodando do código-fonte está validado.** O que segue sem verificação é só o `.exe`
+  empacotado — e é ele que bloqueia o B-10, porque sem um baseline de "funciona" não dá
+  para saber se um corte de dependência quebrou algo ou se já estava quebrado.
 
 ---
 
@@ -92,37 +97,26 @@ Atualize a tabela **Entregue** com o SHA, tire o item do **Próximo**, e registr
 
 ---
 
-## Pendente: validação com o app rodando
+## Validação
 
-Nada abaixo foi exercitado — tudo que veio depois de `9e044dd` foi verificado por teste
-automatizado e análise estática, sem câmera, sem OBS e sem abrir o `.exe`.
+**Feito em 2026-09-04, rodando do código-fonte** — conexão OBS em automático; VCam nítida
+em resolução nativa; esqueleto na saída do OBS; joinha sem falso positivo; duas mãos com
+uma ação só; ciclo parar/iniciar/reiniciar; e a parada sem travar a UI.
 
-**Câmera virtual (B-02)**
-1. Modo automático + OBS: imagem da VCam nítida em 1080p, não borrada
-2. Checkbox "esqueleto na saída do OBS" desligado → esqueleto só no preview; ligado → nos dois
+Achados viraram B-14 a B-19, todos fechados. A queixa de resolução era da cena do OBS, não
+do app.
 
-**Polegar (B-06) — o mais importante**
-3. Joinha com a mão bem inclinada deve virar "nenhum gesto", **nunca** deslike
-4. Joinha e deslike normais ainda disparam confortavelmente
-5. Se 60° estiver apertado demais (joinha natural não dispara), ajustar
-   `TOLERANCIA_POLEGAR_GRAUS` no topo de `core/gesture_detector.py`
+### Ainda falta: o executável empacotado
 
-**Executável (B-03)**
-6. `dist\main\main.exe` abre sem message box de erro
-7. Preview da câmera funciona (valida PyAV/dshow empacotado)
-8. Dropdown lista as câmeras (valida comtypes congelado)
+1. `dist\main\main.exe` abre sem message box de erro
+2. Preview da câmera funciona (valida PyAV/dshow empacotado)
+3. Dropdown lista as câmeras (valida comtypes congelado)
+4. Copiar `dist\main\` para `C:\Program Files\`, rodar de lá e mexer num slider: deve
+   **avisar** que não está salvando, não falhar em silêncio (B-08)
 
-**Config (B-08)**
-9. Copiar `dist\main\` para `C:\Program Files\`, rodar de lá e mexer num slider:
-   deve **avisar** que não está salvando, não falhar em silêncio
-10. Rodando da pasta normal, a config persiste entre aberturas
+### Números que só mão real valida
 
-**Duas mãos (D-31)**
-11. Com as duas mãos em quadro fazendo gestos diferentes, disparar **só uma** ação
-12. A ação disparada deve ser a da mão que começou o gesto primeiro
-13. Uma mão só continua funcionando normalmente
-
-**Parar e reiniciar (novo)**
-14. Iniciar, parar, iniciar de novo: deve voltar a funcionar sem erro de câmera
-15. Ao parar, a UI mostra "Parando..." por ~2,5s antes de liberar o Start — é esperado
-16. Trocar entre 1 e 2 mãos com a engine rodando: ela deve parar E religar sozinha
+- **`TOLERANCIA_POLEGAR_GRAUS = 60`** (D-28): se joinha natural não disparar, está apertado.
+- **`COMPRIMENTO_MINIMO_POLEGAR = 0.55`** (D-35): se joinhas legítimos passarem a ser
+  recusados, é o primeiro a baixar.
+- **Espessura do esqueleto** (D-33): conferir no OBS se ficou boa em 1080p.
