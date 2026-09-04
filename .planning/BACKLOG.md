@@ -50,24 +50,7 @@ independente (D-04)? Um combinado deve suprimir os dois gestos individuais?
 
 ## Fase E — Achados da validação do build (B-03)
 
-### B-08 · `config.json` vai parar dentro de `_internal/` no app empacotado · **M**
-
-`main.py` resolve `CONFIG_PATH = Path(__file__).parent / "config.json"`. Congelado,
-`__file__` aponta para o `_MEIPASS`, então o config é lido e escrito em
-`dist\main\_internal\config.json` — dentro das entranhas do bundle, não ao lado do `.exe`.
-
-Funciona numa pasta de usuário, que é gravável. Mas instalado em `C:\Program Files\`, o
-save falha — e falha **em silêncio**: `_do_save_config` captura `OSError` e apenas loga
-(`config_mixin.py`). O usuário ajusta os gestos, fecha o app e perde tudo sem nenhum aviso.
-
-Contraria o espírito do D-22, que existe justamente para o config nunca ser corrompido ou
-perdido. Corrigido lá o caso de `C:\Windows\system32`; este é a versão empacotada do mesmo
-problema.
-
-**Duas coisas a decidir:** onde o config deve morar num app instalado (ao lado do `.exe`?
-`%APPDATA%`?) e se um save que falha deve avisar o usuário em vez de só logar.
-
-**Arquivos:** `main.py`, `ui/mixins/config_mixin.py`
+_B-08 fechado em `ebf2fc1`._
 
 ### B-09 · `util/hotkey_listener.py` é código morto · **P**
 

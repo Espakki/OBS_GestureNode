@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `2a4e119`
+**Branch:** `main` · **Último commit:** `ebf2fc1`
 
 ---
 
@@ -43,6 +43,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Limpeza | `70fe7cf` | `core/modos.py` unifica migração de modo divergente — B-04 fechado |
 | Detector | `6080496` | Joinha/deslike por ângulo com zona morta — B-06 fechado |
 | Build | `2a4e119` | Wrappers comtypes congelados, UPX desligado — B-03 fechado |
+| Config | `ebf2fc1` | Config em `%APPDATA%` no app empacotado, com aviso de falha — B-08 fechado |
 
 ---
 
@@ -50,9 +51,9 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-08 — `config.json` dentro do `_internal`.** Perda silenciosa de config em instalação protegida.
-2. **B-07 — Gestos combinados.** Última feature do planning antigo ainda aberta.
-3. **B-09 — Apagar ou integrar o `hotkey_listener` morto.**
+1. **B-07 — Gestos combinados.** Última feature do planning antigo ainda aberta.
+2. **B-09 — Apagar ou integrar o `hotkey_listener` morto.**
+3. **B-10 — Cortar as 774 MB do `dist`.** Só depois do `.exe` validado rodando.
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 
