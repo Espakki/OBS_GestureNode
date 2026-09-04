@@ -3,12 +3,10 @@ import os
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QGridLayout,
-    QHBoxLayout,
     QLabel,
     QMessageBox,
     QScrollArea,
@@ -17,7 +15,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core.gestos_combinados import chave_do_par, e_chave_de_par, par_da_chave
 from util.logger import get_logger
 
 logger = get_logger(__name__)
@@ -34,94 +31,6 @@ class GestureMixin:
         self.config["gestures"]["active_gestures"] = valid
         return valid
 
-    def abrir_dialogo_de_combinado(self):
-        """Cria um gesto combinado escolhendo os dois gestos do par."""
-        ativos = self._active_gestures()
-        if len(ativos) < 1:
-            QMessageBox.warning(
-                self, "Sem gestos", "Ative pelo menos um gesto antes de criar um combinado."
-            )
-            return
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Novo gesto combinado")
-        layout = QVBoxLayout(dialog)
-
-        layout.addWidget(
-            QLabel(
-                "O combinado dispara quando as duas mãos fazem estes gestos ao mesmo tempo.\n"
-                "Enquanto ele estiver formado, os gestos individuais não disparam."
-            )
-        )
-
-        linha = QHBoxLayout()
-        combo_a = QComboBox()
-        combo_b = QComboBox()
-        for combo in (combo_a, combo_b):
-            combo.addItems(ativos)
-        combo_b.setCurrentIndex(min(1, len(ativos) - 1))
-        linha.addWidget(combo_a)
-        linha.addWidget(QLabel("+"))
-        linha.addWidget(combo_b)
-        layout.addLayout(linha)
-
-        aviso = QLabel("")
-        aviso.setObjectName("muted")
-        aviso.setWordWrap(True)
-        layout.addWidget(aviso)
-
-        botoes = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        layout.addWidget(botoes)
-        botoes.rejected.connect(dialog.reject)
-
-        def confirmar():
-            chave = chave_do_par(combo_a.currentText(), combo_b.currentText())
-            if chave in self._combined_bindings():
-                aviso.setText(f"O combinado “{chave}” já existe.")
-                return
-            dialog.accept()
-
-        botoes.accepted.connect(confirmar)
-
-        if dialog.exec() != QDialog.Accepted:
-            return
-
-        chave = chave_do_par(combo_a.currentText(), combo_b.currentText())
-        self.current_gesture = chave
-        self._get_current_binding()  # cria a entrada com os defaults
-        self._rebuild_gesture_grid()
-        self.salvar_config_automatico()
-        self._append_log(f"Gesto combinado criado: {chave}")
-
-    def remover_combinado_atual(self):
-        """Apaga o combinado selecionado. Sem efeito se o selecionado for individual."""
-        chave = self.current_gesture
-        if not e_chave_de_par(chave):
-            return
-
-        resposta = QMessageBox.question(
-            self,
-            "Remover combinado",
-            f"Remover o gesto combinado “{chave}”?\n\n"
-            "Os gestos individuais que o formam continuam funcionando normalmente.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
-        )
-        if resposta != QMessageBox.Yes:
-            return
-
-        self._combined_bindings().pop(chave, None)
-        self.current_gesture = self._active_gestures()[0]
-        self._rebuild_gesture_grid()
-        self.salvar_config_automatico()
-        self._append_log(f"Gesto combinado removido: {chave}")
-
-    def _atualizar_botoes_de_combinado(self):
-        """Mostra o botão de remover só quando um combinado está selecionado."""
-        botao = getattr(self.gestos_tab, "remove_combined_button", None)
-        if botao is not None:
-            botao.setVisible(e_chave_de_par(self.current_gesture))
-
     def _rebuild_gesture_grid(self):
         self.gestos_tab.clear_gesture_grid()
 
@@ -129,13 +38,7 @@ class GestureMixin:
         active = set(self._active_gestures())
         visible_gestures = [item for item in self.ALL_GESTURES if item[0] in active]
 
-        # Combinados entram no mesmo grid, como qualquer outro gesto: assim todo o editor
-        # (hold, cooldown, cena, som, atalho) funciona sem alteração. Ver D-30.
-        itens = list(visible_gestures) + [
-            (chave, "") for chave in sorted(self._combined_bindings())
-        ]
-
-        for idx, (gesture, icon_path) in enumerate(itens):
+        for idx, (gesture, icon_path) in enumerate(visible_gestures):
             row = idx // 4
             col = idx % 4
             callback = lambda _=None, g=gesture: self.select_gesture(g)
@@ -261,13 +164,7 @@ class GestureMixin:
         for name, btn in self.gesture_buttons.items():
             btn.setChecked(name == gesture)
 
-        self._atualizar_botoes_de_combinado()
-
-        # Combinados vivem em outro dict; o resto do editor é idêntico (D-30).
-        if e_chave_de_par(gesture):
-            cfg = self._combined_bindings().get(gesture, {})
-        else:
-            cfg = self.config.get("gestures", {}).get("bindings", {}).get(gesture, {})
+        cfg = self.config.get("gestures", {}).get("bindings", {}).get(gesture, {})
 
         self._updating_gesture_form = True
         self.selected_gesture_label.setText(f"Gesto selecionado: {gesture}")
@@ -333,10 +230,7 @@ class GestureMixin:
             return
 
         binding = self._get_current_binding()
-        # `active_gestures` só lista gestos individuais. Um combinado existe enquanto o
-        # usuário não o remover, então não pode ser desabilitado por não estar nessa lista.
-        if not e_chave_de_par(self.current_gesture):
-            binding["enabled"] = self.current_gesture in set(self._active_gestures())
+        binding["enabled"] = self.current_gesture in set(self._active_gestures())
         binding["hold_time"] = float(self.hold_value_spinbox.value())
         binding["cooldown"] = float(self.cooldown_value_spinbox.value())
         binding["use_scene"] = self.scene_action_checkbox.isChecked()

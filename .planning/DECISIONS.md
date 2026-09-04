@@ -31,8 +31,41 @@ disparou em qualquer mão, **ambas** ficam bloqueadas pelo cooldown — primeira
 `inicio_gesto`) **é** per-hand. A assimetria é intencional, não um descuido — já foi
 reportada como bug uma vez, por leitura do código sem esta decisão.
 
-**D-30 · Gestos combinados: par não ordenado que suprime os individuais**
-*2026-09-04 · B-07*
+**D-31 · Gestos combinados descartados; duas mãos servem para "a primeira vence"**
+*2026-09-04* · **substitui D-30**
+
+Gestos combinados foram **removidos**. A ideia vinha do planning antigo, chegou a ser
+implementada (D-30) e foi descartada pelo dono do projeto na revisão.
+
+**Por quê:** o usuário-alvo é streamer com as mãos ocupadas — controle, teclado, mouse.
+Exigir que ele solte tudo e posicione as **duas** mãos na câmera para trocar de cena
+contraria o motivo do app existir. Uma mão é o necessário.
+
+**O que as duas mãos passam a resolver.** `max_maos=2` continua, mas com outro propósito:
+tolerância. Antes, ter a segunda mão em quadro criava o problema de "qual mão é a certa".
+Agora as duas são rastreadas, e **a primeira a fazer o gesto vence** — o usuário não
+precisa esconder uma mão nem lembrar qual é a válida.
+
+**Regra de despacho:** no máximo uma ação por vez, da mão com o menor `inicio` de gesto (a
+que está segurando há mais tempo). Determinístico e independente da ordem em que o
+MediaPipe devolveu as mãos.
+**Substitui o D-03**, que mandava cada mão disparar sua própria binding
+independentemente: duas mãos com gestos diferentes trocariam duas cenas de uma vez.
+
+**Detalhe deliberado:** se a mão que chegou primeiro ainda não está estável, **nada
+dispara** — ela não passa a vez. Sem isso, tremer a mão da frente faria a ação da *outra*
+mão disparar, o que é surpreendente. Fixado em
+`tests/test_despacho_por_mao.py::test_vencedora_instavel_nao_passa_a_vez`.
+
+**O que sobreviveu do B-07:** a reestruturação do `run()` em duas passadas (colher o estado
+de cada mão, depois despachar) e o `_tentar_disparar()` extraído. Foram feitos para o
+combinado, mas são exatamente o que a regra "primeira vence" precisa — sem eles não há como
+comparar as mãos antes de agir.
+
+`combined_bindings` é removido do config na carga, como o `virtual_cam_mode` do D-11.
+
+**D-30 · ~~Gestos combinados: par não ordenado que suprime os individuais~~ REVERTIDO**
+*2026-09-04 · B-07* · **substituída por D-31**
 
 Fecha a última feature que o planning antigo deixou aberta. O campo `combined_bindings`
 existia no config desde a fase 9, mas nenhum código o consumia.

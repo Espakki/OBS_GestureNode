@@ -9,7 +9,6 @@ from core.hand_tracker import HandTracker
 from core.gesture_detector import GestureDetector
 from core.camera import CameraManager
 from core.gesture_aliases import GESTURE_ALIASES
-from core.gestos_combinados import chave_do_par
 from core.modos import migrar_modo
 from actions.action_manager import ActionManager
 from integrations.obs_controller import OBSController
@@ -210,11 +209,6 @@ class GestureEngine(QThread):
         self.mapa_cenas = gestures_cfg.get("scene_map", {})
         self._normalize_gesture_keys()
 
-        # Gestos combinados: par de mãos tratado como unidade (D-30). Só fazem sentido
-        # com 2 mãos; com max_maos=1 o dict fica vazio e o fluxo é o de sempre.
-        self.combined_bindings = self.config.get("combined_bindings", {}) or {}
-        self._combo_ativo = None
-        self._combo_inicio = None
 
         self.detection_window_size = int(gestures_cfg.get("detection_window_size", 7))
         self.detection_min_hits = int(gestures_cfg.get("detection_min_hits", 5))
@@ -404,9 +398,8 @@ class GestureEngine(QThread):
                     maos_detectadas = {mao["handedness"] for mao in maos}
 
                     # Passo 1: atualizar o estado de cada mão e colher o gesto estável.
-                    # O despacho NÃO acontece aqui — precisa saber antes se as duas mãos
-                    # formam um combinado, senão o gesto individual dispara primeiro e o
-                    # combinado vira um terceiro disparo por cima. Ver D-30.
+                    # O despacho NÃO acontece aqui — precisa ver as duas mãos antes para
+                    # saber qual delas começou o gesto primeiro. Ver D-31.
                     gestos_por_mao = {}
                     for mao in maos:
                         hand_id = mao["handedness"]
@@ -430,27 +423,12 @@ class GestureEngine(QThread):
                             hand_state["gesto_ativo"] = None
                             hand_state["inicio_gesto"] = None
 
-                    # Passo 2: o par forma um combinado configurado e habilitado?
-                    combo = self._combinado_candidato(gestos_por_mao, tempo_atual)
-
-                    # Passo 3: despachar. Combinado SUPRIME os individuais — inclusive
-                    # enquanto ainda não completou o hold, senão o individual (que tem
-                    # hold próprio, geralmente menor) ganharia a corrida sempre.
-                    if combo is not None:
-                        chave, cfg_combo, inicio_combo, par_estavel = combo
-                        self._tentar_disparar(
-                            chave, cfg_combo, inicio_combo, par_estavel,
-                            tempo_atual, ultimo_disparo_por_gesto,
-                        )
-                    else:
-                        for gesto, is_stable, inicio in gestos_por_mao.values():
-                            cfg = self._resolver_binding(gesto)
-                            if not cfg.get("enabled", True):
-                                continue
-                            self._tentar_disparar(
-                                gesto, cfg, inicio, is_stable,
-                                tempo_atual, ultimo_disparo_por_gesto,
-                            )
+                    # Passo 2: uma ação por vez — a primeira mão a fazer o gesto vence.
+                    # Ver D-31. Com as duas mãos em quadro fazendo gestos diferentes,
+                    # disparar as duas ações quase nunca é o que o usuário quer.
+                    self._despachar_primeira_mao(
+                        gestos_por_mao, tempo_atual, ultimo_disparo_por_gesto
+                    )
 
                     if self.camera.enable_virtual_camera:
                         # Câmera virtual recebe a resolução nativa. Só copia quando vai
@@ -535,36 +513,37 @@ class GestureEngine(QThread):
             "hotkey": "",
         }
 
-    def _combinado_candidato(self, gestos_por_mao, tempo_atual):
-        """Devolve `(chave, cfg, inicio, par_estavel)` se as duas mãos formam um combinado.
+    def _despachar_primeira_mao(self, gestos_por_mao, tempo_atual, ultimo_disparo_por_gesto):
+        """Dispara no máximo UMA ação: a da mão que começou o gesto primeiro. Ver D-31.
 
-        `None` quando não há par, quando o par não tem binding, ou quando o binding está
-        desabilitado — nesses casos os gestos individuais seguem o fluxo normal.
+        Duas mãos são rastreadas para que ter as duas em quadro não atrapalhe — o usuário
+        não precisa esconder uma nem se preocupar com qual é a "mão certa". Mas a ação
+        continua sendo de uma mão só: disparar duas cenas porque as duas mãos fizeram
+        gestos diferentes quase nunca é o que se quer numa live.
 
-        O hold do combinado é contado a partir do instante em que o PAR se formou, não do
-        gesto de cada mão: o usuário raramente fecha as duas mãos no mesmo frame, e usar o
-        início de uma delas daria vantagem arbitrária à mão que chegou primeiro.
+        Critério de desempate: o menor `inicio` de gesto, ou seja, quem está segurando o
+        gesto há mais tempo. Determinístico e não depende da ordem em que o MediaPipe
+        devolveu as mãos.
         """
-        if len(gestos_por_mao) != 2 or not self.combined_bindings:
-            self._combo_ativo = None
-            self._combo_inicio = None
-            return None
+        if not gestos_por_mao:
+            return
 
-        gestos = [dados[0] for dados in gestos_por_mao.values()]
-        chave = chave_do_par(*gestos)
+        candidatos = []
+        for gesto, is_stable, inicio in gestos_por_mao.values():
+            cfg = self._resolver_binding(gesto)
+            if not cfg or not cfg.get("enabled", True):
+                continue
+            candidatos.append((inicio or tempo_atual, gesto, cfg, is_stable))
 
-        cfg = self.combined_bindings.get(chave)
-        if not cfg or not cfg.get("enabled", True):
-            self._combo_ativo = None
-            self._combo_inicio = None
-            return None
+        if not candidatos:
+            return
 
-        if self._combo_ativo != chave:
-            self._combo_ativo = chave
-            self._combo_inicio = tempo_atual
+        candidatos.sort(key=lambda item: item[0])
+        inicio, gesto, cfg, is_stable = candidatos[0]
 
-        par_estavel = all(dados[1] for dados in gestos_por_mao.values())
-        return (chave, cfg, self._combo_inicio, par_estavel)
+        self._tentar_disparar(
+            gesto, cfg, inicio, is_stable, tempo_atual, ultimo_disparo_por_gesto
+        )
 
     def _tentar_disparar(self, nome, cfg, inicio, estavel, tempo_atual, ultimo_disparo_por_gesto):
         """Dispara a ação se o hold completou, a mão está estável e o cooldown passou."""
