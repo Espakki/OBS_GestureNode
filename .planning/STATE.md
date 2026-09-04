@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `fix/deps-wheel-cp310` (a mesclar em `main`) · **Último commit:** `9e044dd`
+**Branch:** `main` · **Último commit:** `9e044dd`
 
 ---
 
