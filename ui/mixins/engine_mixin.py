@@ -11,10 +11,43 @@ logger = get_logger(__name__)
 class EngineMixin:
 
     def on_max_maos_changed(self, max_maos):
-        self.config["max_maos"] = int(max_maos)
+        max_maos = int(max_maos)
+        anterior = int(self.config.get("max_maos", 1))
+
+        if max_maos == anterior:
+            return
+
+        # Com a engine rodando isto derruba e religa a câmera. Antes acontecia sem aviso:
+        # a imagem sumia e voltava sozinha, o que assusta no meio de uma live. Ver D-33.
+        if self.engine and self.engine.isRunning():
+            resposta = QMessageBox.question(
+                self,
+                "Reiniciar a captura?",
+                f"Mudar para {max_maos} mão{'s' if max_maos > 1 else ''} exige reiniciar "
+                "a captura.\n\nA câmera vai desligar e religar por alguns segundos. "
+                "Continuar?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if resposta != QMessageBox.Yes:
+                self._reverter_selecao_de_maos(anterior)
+                return
+
+        self.config["max_maos"] = max_maos
         self.salvar_config_automatico()
+
         if self.engine and self.engine.isRunning():
             self.restart_engine()
+
+    def _reverter_selecao_de_maos(self, valor):
+        """Devolve os botões ao estado anterior sem disparar o handler de novo."""
+        for botao in (self.maos_1_button, self.maos_2_button):
+            botao.blockSignals(True)
+        try:
+            self.geral_tab.set_max_maos(valor)
+        finally:
+            for botao in (self.maos_1_button, self.maos_2_button):
+                botao.blockSignals(False)
 
     def start_engine(self):
         erros, avisos = self._validar_config_execucao()

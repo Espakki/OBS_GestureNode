@@ -205,6 +205,46 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-33 · Traço do esqueleto proporcional; VCam em BGR; confirmação antes de reiniciar**
+*2026-09-04 · B-14, B-16, B-18 — achados da primeira validação manual*
+
+**Traço proporcional (B-14).** `draw_landmarks` usa `DrawingSpec(thickness=2)`, fixo em
+pixels. Uma linha de 2px ocupa 0.31% da largura em 640px e 0.10% em 1920px. Na saída do
+OBS isso foi percebido como "upscale da fonte" — **não era**: o frame nativo estava
+correto desde o B-02, só o traço não acompanhava a escala. Agora a espessura deriva de
+`PROCESS_W`, que é onde o valor 2 foi calibrado.
+
+**VCam em `PixelFormat.BGR` (B-16).** O OpenCV já trabalha em BGR; a VCam era criada em RGB
+e todo frame pagava um `cvtColor` de 2ms em 1080p só para desfazer isso.
+
+**Cópia redundante removida (B-16).** O `frame_nativo.copy()` que o B-02 introduziu não
+protegia nada: `ler_frame()` já devolve uma cópia privada e `processar()` não muta o frame
+recebido. Custava 2.2ms por frame.
+
+Somados, 3.8ms — 11% do orçamento de 33.3ms a 30 fps.
+
+**O que NÃO era o problema, e por que fica registrado.** Com a VCam ligada o FPS caía de
+28.7 para 20.5, e a hipótese natural era batimento entre pacers: `ler_frame` bloqueia
+esperando frame novo, o loop tem cap de `process_fps`, e o `sleep_until_next_frame` da VCam
+era um terceiro relógio. Removi o `sleep` — e o FPS **não melhorou** (19.2). Medindo os
+componentes, o custo é do próprio `send()`: **9.3ms** para empurrar 6.2 MB de 1080p para a
+memória compartilhada do OBS. A remoção foi revertida: não entregava nada e tirava a
+proteção contra enviar mais rápido que o fps declarado.
+
+**Teto realista deste caminho:** `processar` 23.2ms + `send` 9.3ms = 32.5ms contra um
+intervalo de 33.3ms. Razor thin — qualquer jitter derruba um frame, daí os ~20 fps
+observados em 1080p com VCam. Os dois custos dominantes (inferência do MediaPipe e o
+`send` do OBS) são praticamente irredutíveis nesta arquitetura. Quem precisa de mais
+fluidez e não depende de 1080p na saída ganha muito baixando a resolução de captura.
+
+**`INTER_AREA` mantido.** Trocar por `INTER_LINEAR` economizaria 1.6ms, mas é a entrada da
+inferência e `INTER_AREA` tem qualidade melhor em redução. Não troquei porque não dá para
+medir o impacto na detecção sem mão real na frente da câmera — seria otimizar às cegas.
+
+**Confirmação antes de reiniciar (B-18).** Trocar 1↔2 mãos com a engine rodando derruba e
+religa a câmera. Acontecia sem aviso: a imagem sumia e voltava sozinha. Agora pergunta, e
+reverte a seleção dos botões se o usuário recusar.
+
 **D-32 · `[Errno 5]` do DirectShow é ambíguo: retry curto e depois fallback de FPS**
 *2026-09-04*
 

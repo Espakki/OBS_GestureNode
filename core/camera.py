@@ -65,6 +65,10 @@ class CameraManager:
                     width=self.width,
                     height=self.height,
                     fps=self.fps,
+                    # BGR é o formato nativo do OpenCV, que é o que a engine já tem em
+                    # mãos. Com o RGB padrão, todo frame pagava um cvtColor de 2ms em
+                    # 1080p só para desfazer isso. Ver D-33.
+                    fmt=pyvirtualcam.PixelFormat.BGR,
                     device=self.virtual_camera_device,
                 )
             except Exception as exc:
@@ -231,16 +235,27 @@ class CameraManager:
             return True, self._ultimo_frame.copy()
 
     def enviar_para_virtual(self, frame_bgr):
+        """Envia o frame para a câmera virtual, sem conversão de cor.
+
+        A VCam é criada com `PixelFormat.BGR`, então o frame do OpenCV vai direto. O
+        `resize` só acontece se a resolução divergir — o que, desde o B-02, não ocorre no
+        caminho normal, porque a engine manda o frame nativo.
+        """
         if not self.virtual_camera:
             return
 
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        h, w = frame_rgb.shape[:2]
+        h, w = frame_bgr.shape[:2]
         if h != self.height or w != self.width:
-            frame_rgb = cv2.resize(
-                frame_rgb, (self.width, self.height), interpolation=cv2.INTER_LINEAR
+            frame_bgr = cv2.resize(
+                frame_bgr, (self.width, self.height), interpolation=cv2.INTER_LINEAR
             )
-        self.virtual_camera.send(frame_rgb)
+        self.virtual_camera.send(frame_bgr)
+
+        # O `sleep_until_next_frame` FICA. Cheguei a removê-lo achando que o batimento
+        # entre pacers explicava a perda de 28.7 para 20.5 fps com a VCam ligada — mas
+        # medindo, o custo é do próprio `send()` (9.3ms para empurrar 6.2 MB de 1080p para
+        # a memória compartilhada do OBS). Sem o pacer o FPS não melhorou, e ele protege
+        # contra enviar mais rápido que o fps declarado. Ver D-33.
         self.virtual_camera.sleep_until_next_frame()
 
     def _fechar_container(self):

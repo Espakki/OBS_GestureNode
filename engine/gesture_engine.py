@@ -438,14 +438,13 @@ class GestureEngine(QThread):
                     )
 
                     if self.camera.enable_virtual_camera:
-                        # Câmera virtual recebe a resolução nativa. Só copia quando vai
-                        # anotar — desenhar direto mutaria o frame compartilhado.
-                        if self.skeleton_na_vcam and maos:
-                            frame_vcam = frame_nativo.copy()
-                            self.tracker.desenhar_esqueleto(frame_vcam, maos)
-                        else:
-                            frame_vcam = frame_nativo
-                        self.camera.enviar_para_virtual(frame_vcam)
+                        # Desenha direto no frame nativo, sem copiar: `ler_frame()` já
+                        # devolve uma cópia privada e `processar()` não muta o que recebe
+                        # (ele cria o reduzido à parte). A cópia extra que existia aqui
+                        # custava 2.2ms por frame sem proteger nada. Ver D-33.
+                        if self.skeleton_na_vcam:
+                            self.tracker.desenhar_esqueleto(frame_nativo, maos)
+                        self.camera.enviar_para_virtual(frame_nativo)
                     if not self._preview_suprimido:
                         self.frame_ready.emit(frame_preview)
 

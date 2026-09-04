@@ -26,15 +26,38 @@ class HandTracker:
             min_tracking_confidence=0.5
         )
 
+    def _estilo_para(self, largura):
+        """Espessura de traço proporcional à largura do frame.
+
+        O padrão do MediaPipe é `DrawingSpec(thickness=2, circle_radius=2)` — **fixo em
+        pixels**. Uma linha de 2px ocupa 0.31% da largura num frame de 640, mas só 0.10%
+        num de 1920: três vezes mais fina. Na saída para o OBS isso aparecia como se a
+        imagem estivesse esticada, quando na verdade o frame nativo estava correto e só o
+        traço não acompanhava a escala. Ver D-33.
+
+        `PROCESS_W` é a referência porque é nela que a espessura 2 foi calibrada.
+        """
+        escala = max(1, round(largura / PROCESS_W))
+        return self.mp_desenho.DrawingSpec(
+            thickness=2 * escala,
+            circle_radius=2 * escala,
+        )
+
     def desenhar_esqueleto(self, frame, maos):
         """Desenha o esqueleto das mãos em um frame de QUALQUER resolução, in-place.
 
         Os landmarks do MediaPipe são normalizados (0..1), então o desenho independe do
         tamanho do frame — o mesmo resultado de `processar()` serve tanto para o preview
-        reduzido quanto para o frame nativo que vai para a câmera virtual.
+        reduzido quanto para o frame nativo que vai para a câmera virtual. O que NÃO é
+        normalizado é a espessura do traço, daí o `_estilo_para`.
 
         Só funciona com dicts vindos de `processar()`, que carregam `_mp_landmarks`.
         """
+        if not maos:
+            return
+
+        estilo = self._estilo_para(frame.shape[1])
+
         for mao in maos:
             mp_landmarks = mao.get("_mp_landmarks")
             if mp_landmarks is None:
@@ -43,6 +66,8 @@ class HandTracker:
                 frame,
                 mp_landmarks,
                 self.mp_maos.HAND_CONNECTIONS,
+                estilo,
+                estilo,
             )
 
     def processar(self, frame, draw_skeleton=True):
