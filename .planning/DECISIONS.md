@@ -205,6 +205,40 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-32 · `[Errno 5]` do DirectShow é ambíguo: retry curto e depois fallback de FPS**
+*2026-09-04*
+
+O DirectShow devolve **o mesmo** `[Errno 5] I/O error` para dois problemas de naturezas
+opostas, e o erro não distingue:
+
+1. **Dispositivo ainda ocupado** — passa sozinho em ~1s. Insistir resolve.
+2. **Modo não suportado** — não passa nunca. Insistir só gasta tempo.
+
+Descoberto na prática: a C920 **não aceita 60 fps em resolução nenhuma** (testado em
+1080p, 720p e 480p), e o `config.json` do usuário estava com `fps: 60`. O app falhava
+sempre, com a mensagem "câmera ainda ocupada" — que mandava caçar o programa errado.
+Nenhum programa estava segurando a câmera.
+
+Pior: o retry introduzido para o caso 1 **agravou** o caso 2, insistindo 8 vezes numa
+condição que jamais passaria, gastando ~5s antes de desistir.
+
+**Solução:** retry curto (3 tentativas) para o caso 1, e então **uma tentativa com
+`FPS_SEGURO = 30`** antes de desistir. Se essa abrir, o problema era o modo — o usuário
+recebe "a câmera não aceita 60 fps nesta resolução, usando 30" em vez de uma pista falsa.
+Se nem ela abrir, o erro original propaga: aí é ocupação de verdade.
+
+**Ordem de abertura invertida:** o container passa a ser aberto **antes** da câmera
+virtual. O fallback pode mudar o FPS efetivo, e criar a VCam antes a deixaria presa num
+FPS que a captura não entrega. Como efeito colateral, reduz a superfície do vazamento de
+VCam que o commit anterior corrigiu.
+
+**Por que não remover 60 fps da UI:** câmeras melhores aceitam. Bloquear na interface
+puniria quem tem hardware bom por causa de uma limitação da C920. O fallback com aviso
+funciona para os dois casos.
+
+**Pendência:** a UI não atualiza o botão de FPS quando o fallback acontece. O usuário vê o
+aviso, mas o botão continua marcando 60 até ele trocar na mão.
+
 **D-08 · Captura via PyAV/FFmpeg DirectShow, não OpenCV**
 *Origem: fase 2 · commit `76607d8`*
 Thread própria drenando o container, com `Condition` notificando por número de sequência.

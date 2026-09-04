@@ -9,6 +9,10 @@ from util.logger import get_logger
 
 logger = get_logger(__name__)
 
+# FPS que toda webcam DirectShow aceita. Serve de rede quando o modo pedido não existe —
+# a C920, por exemplo, não faz 60 fps em resolução nenhuma. Ver D-32.
+FPS_SEGURO = 30
+
 
 class CameraManager:
     def __init__(
@@ -28,6 +32,9 @@ class CameraManager:
         self.fps = fps
         self.enable_virtual_camera = enable_virtual_camera
         self.virtual_camera_device = virtual_camera_device
+
+        # Mensagem para a UI quando algo foi ajustado sozinho (ex.: fallback de FPS).
+        self.aviso = ""
 
         self.capture = None  # não usado — mantido para compatibilidade com código externo
         self.virtual_camera = None
@@ -84,42 +91,61 @@ class CameraManager:
         logger.info("Câmera virtual ativa: %s", cam_result[0].device)
         return cam_result[0]
 
-    def _abrir_container(self, tentativas=8, espera=0.7):
-        """Abre o dispositivo DirectShow, tolerando que ele ainda esteja sendo liberado.
+    def _tentar_abrir(self, fps):
+        return av.open(
+            f'video={self.camera_name}',
+            format='dshow',
+            options={
+                'video_size': f'{self.width}x{self.height}',
+                'framerate': str(int(fps)),
+                'vcodec': 'mjpeg',
+            },
+        )
 
-        O DirectShow não devolve a câmera instantaneamente quando o container anterior é
-        fechado: por um instante o dispositivo segue exclusivo e `av.open` falha com
-        `[Errno 5] I/O error`. Isso quebrava todo ciclo parar→iniciar.
+    def _abrir_container(self, tentativas=3, espera=0.8):
+        """Abre o dispositivo DirectShow, com retry e fallback de FPS.
 
-        O orçamento de espera precisa cobrir um `container.close()` inteiro, que foi medido
-        em **2.2s** nesta máquina. A primeira versão tentava 4x a cada 0.4s — 1.2s no total,
-        ou seja, desistia antes mesmo de um único close terminar. Agora são ~4.9s.
+        **O DirectShow devolve `[Errno 5] I/O error` para dois problemas diferentes**, e
+        não dá para distinguir pelo erro:
 
-        Se o erro persistir, propaga — aí é câmera realmente ocupada por outro programa,
-        e a mensagem tem de chegar ao usuário.
+        1. Dispositivo ainda ocupado — some sozinho em ~1s. O `container.close()` anterior
+           foi medido em 2.2s, e por um instante depois dele o device segue exclusivo.
+        2. **Modo não suportado** — não some nunca. A C920, por exemplo, não aceita 60 fps
+           em resolução nenhuma; pedir 60 falha exatamente como se estivesse ocupada.
+
+        Insistir só resolve o caso 1. Por isso, esgotadas as tentativas, tenta uma vez com
+        `FPS_SEGURO` antes de desistir: se abrir, o problema era o modo, e o usuário recebe
+        um aviso dizendo isso em vez de "câmera ocupada", que mandaria ele caçar o programa
+        errado.
         """
-        options = {
-            'video_size': f'{self.width}x{self.height}',
-            'framerate': str(self.fps),
-            'vcodec': 'mjpeg',
-        }
-
         ultimo_erro = None
+
         for tentativa in range(1, tentativas + 1):
             try:
-                return av.open(
-                    f'video={self.camera_name}',
-                    format='dshow',
-                    options=options,
-                )
+                return self._tentar_abrir(self.fps)
             except Exception as exc:
                 ultimo_erro = exc
                 if tentativa < tentativas:
                     logger.warning(
-                        "Câmera ainda ocupada (tentativa %d/%d): %s",
-                        tentativa, tentativas, exc,
+                        "Câmera não abriu (tentativa %d/%d): %s", tentativa, tentativas, exc
                     )
                     time.sleep(espera)
+
+        if int(self.fps) != FPS_SEGURO:
+            logger.warning(
+                "Câmera não aceitou %s fps; tentando %s fps", self.fps, FPS_SEGURO
+            )
+            try:
+                container = self._tentar_abrir(FPS_SEGURO)
+                self.aviso = (
+                    f"A câmera não aceita {self.fps} fps nesta resolução. "
+                    f"Usando {FPS_SEGURO} fps."
+                )
+                logger.warning(self.aviso)
+                self.fps = FPS_SEGURO
+                return container
+            except Exception:
+                pass  # o erro que importa é o original
 
         raise ultimo_erro
 
@@ -131,11 +157,16 @@ class CameraManager:
         tentativa frustrada vazava um produtor de VCam, e como só existe um, a tentativa
         seguinte passava a esbarrar no timeout de 3s da própria sobra.
         """
+        self.aviso = ""
+
         try:
+            # Container PRIMEIRO. Ele é o que pode falhar por formato e o que pode cair no
+            # fallback de FPS — só depois dele o `self.fps` efetivo é conhecido. Criar a
+            # câmera virtual antes deixaria ela travada num FPS que a captura não entrega.
+            self._pyav_container = self._abrir_container()
+
             if self.enable_virtual_camera:
                 self.virtual_camera = self._iniciar_virtual_cam_com_timeout()
-
-            self._pyav_container = self._abrir_container()
 
             self._ultimo_frame = None
             self._frame_seq = 0

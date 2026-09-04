@@ -369,7 +369,13 @@ class GestureEngine(QThread):
                 self.status_changed.emit("Falha ao iniciar câmera")
                 return
 
-            self.status_changed.emit("Câmera iniciada")
+            # A câmera pode ter ajustado o modo sozinha (ex.: FPS não suportado). Sem
+            # avisar, o usuário veria "Câmera iniciada" e um FPS diferente do que pediu,
+            # sem explicação. Ver D-32.
+            if getattr(self.camera, "aviso", ""):
+                self.status_changed.emit(f"⚠️ {self.camera.aviso}")
+            else:
+                self.status_changed.emit("Câmera iniciada")
 
             if self.modo == "teste":
                 self.status_changed.emit("Modo Teste — ações desativadas")
