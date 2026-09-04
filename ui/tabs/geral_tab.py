@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -244,11 +246,30 @@ class GeralTab(QWidget):
             "Configurações Avançadas ▲" if checked else "Configurações Avançadas ▼"
         )
 
+    @staticmethod
+    @contextmanager
+    def _sem_sinais(*botoes):
+        """Marca botões sem que isso pareça um clique do usuário. Ver D-41.
+
+        Todos os `set_*` desta aba existem para **refletir a config na interface**. Sem
+        este guarda, o `setChecked` emite `toggled`, o handler roda como se o usuário
+        tivesse clicado, e a carga da config vira uma sequência de ações: reescreve a
+        config, agenda um save e refaz o probe da câmera.
+        """
+        for botao in botoes:
+            botao.blockSignals(True)
+        try:
+            yield
+        finally:
+            for botao in botoes:
+                botao.blockSignals(False)
+
     def set_max_maos(self, max_maos):
-        if int(max_maos) == 2:
-            self.maos_2_button.setChecked(True)
-        else:
-            self.maos_1_button.setChecked(True)
+        with self._sem_sinais(self.maos_1_button, self.maos_2_button):
+            if int(max_maos) == 2:
+                self.maos_2_button.setChecked(True)
+            else:
+                self.maos_1_button.setChecked(True)
 
     AJUDA_POR_MODO = {
         "teste": "Detecta gestos sem executar nada — para calibrar.",
@@ -258,37 +279,33 @@ class GeralTab(QWidget):
 
     def set_mode(self, modo):
         modo_norm = str(modo).lower()
-        if modo_norm == "automatico":
-            self.mode_auto_button.setChecked(True)
-        elif modo_norm == "manual":
-            self.mode_manual_button.setChecked(True)
-        else:
-            modo_norm = "teste"
-            self.mode_test_button.setChecked(True)
+        botoes = (self.mode_test_button, self.mode_manual_button, self.mode_auto_button)
+        with self._sem_sinais(*botoes):
+            if modo_norm == "automatico":
+                self.mode_auto_button.setChecked(True)
+            elif modo_norm == "manual":
+                self.mode_manual_button.setChecked(True)
+            else:
+                modo_norm = "teste"
+                self.mode_test_button.setChecked(True)
 
         self.mode_help_label.setText(self.AJUDA_POR_MODO[modo_norm])
 
     def set_esqueleto(self, no_preview, na_saida_obs):
-        for botao, valor in (
-            (self.esqueleto_preview_button, no_preview),
-            (self.esqueleto_obs_button, na_saida_obs),
-        ):
-            botao.blockSignals(True)
-            botao.setChecked(bool(valor))
-            botao.blockSignals(False)
+        botoes = (self.esqueleto_preview_button, self.esqueleto_obs_button)
+        with self._sem_sinais(*botoes):
+            self.esqueleto_preview_button.setChecked(bool(no_preview))
+            self.esqueleto_obs_button.setChecked(bool(na_saida_obs))
 
     def set_resolution(self, resolution_label):
-        target = self.resolution_buttons.get(resolution_label)
-        if target:
-            target.setChecked(True)
-            return
-        self.resolution_buttons["720p"].setChecked(True)
+        with self._sem_sinais(*self.resolution_buttons.values()):
+            alvo = self.resolution_buttons.get(resolution_label)
+            (alvo or self.resolution_buttons["720p"]).setChecked(True)
 
     def set_fps(self, fps_value):
-        if fps_value in self.fps_buttons:
-            self.fps_buttons[fps_value].setChecked(True)
-            return
-        self.fps_buttons[30].setChecked(True)
+        with self._sem_sinais(*self.fps_buttons.values()):
+            alvo = self.fps_buttons.get(fps_value)
+            (alvo or self.fps_buttons[30]).setChecked(True)
 
     def update_latency_badge(self, ms):
         if ms <= 33:

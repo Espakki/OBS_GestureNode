@@ -205,6 +205,30 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-41 · Os `set_*` da aba Geral bloqueiam sinais: refletir config não é clicar**
+*2026-09-04 · B-20*
+
+O probe da câmera rodava duas vezes ao abrir o app. Rastreando a pilha, a causa era mais
+larga que o desperdício de ~170ms:
+
+```
+_load_ui_from_config → set_resolution → toggled → on_resolution_changed → capacidades()
+_load_ui_from_config → aplicar_capacidades_da_camera → capacidades()
+```
+
+`setChecked` emite `toggled`, e o handler não distingue "o usuário clicou" de "a config
+está sendo carregada". Então **carregar a config disparava uma sequência de ações de
+usuário**: reescrevia a config com os mesmos valores, agendava save e refazia o probe.
+
+Os métodos `set_*` da aba existem para **refletir a config na interface** — o caminho
+contrário. Agora todos passam por um `_sem_sinais()`, que bloqueia os botões durante a
+marcação. Mesma ideia do `_updating_gesture_form` que a aba Gestos já usava.
+
+**Corrigi a causa, não o sintoma.** Quando isso apareceu pela primeira vez — o aviso de
+limitação saindo duplicado no log (D-38) — eu pus um guarda para não repetir a mensagem.
+Isso escondeu o sinal sem tocar no que o produzia, e a duplicação continuou acontecendo
+onde ninguém olhava.
+
 **D-40 · A aba Geral fala por forma, não por parágrafo**
 *2026-09-04*
 
