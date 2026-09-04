@@ -147,5 +147,7 @@ projeto está, e [`CLAUDE.md`](CLAUDE.md) resume as convenções e os invariante
 
 ## Licença
 
+As mudanças de cada versão estão em [CHANGELOG.md](CHANGELOG.md).
+
 [MIT](LICENSE) — use, modifique e distribua à vontade, inclusive comercialmente, mantendo
 o aviso de copyright.

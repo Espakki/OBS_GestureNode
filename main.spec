@@ -38,6 +38,18 @@ except Exception as exc:  # pragma: no cover - build-time
     print("[main.spec] O app vai gerar em %TEMP% no primeiro boot (mais fragil).")
 hiddenimports += collect_submodules('comtypes.gen')
 
+# --- O que o collect_all('mediapipe') traz de carona e o app não usa -----------
+# Medido cortando um por vez, com um bundle console executado a cada passo (B-10):
+#   baseline .................. 774 MB
+#   sem jax + jaxlib .......... 568 MB
+#   sem scipy ................. 480 MB
+#
+# matplotlib e PIL ficam, apesar de o app não os importar: o mediapipe os carrega
+# internamente (drawing_utils), e cortá-los quebra o `Hands()` com ModuleNotFoundError
+# — descoberto justamente por cortar em passos e rodar o bundle a cada um. Cortar os
+# cinco de uma vez teria publicado um build quebrado.
+EXCLUDES = ['jax', 'jaxlib', 'scipy']
+
 
 a = Analysis(
     ['main.py'],
@@ -48,7 +60,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=EXCLUDES,
     noarchive=False,
     optimize=0,
 )
