@@ -53,38 +53,7 @@ aparece em runtime. Só encarar com o build sendo testado a cada passo, e depois
 
 ## Fase F — Câmera: saber antes de falhar
 
-### B-11 · Detectar capacidades da câmera e filtrar a UI · **M**
-
-Hoje o app descobre o que a câmera não suporta **falhando** — o D-32 transformou isso num
-fallback com aviso, mas a UI segue oferecendo modos inexistentes. A aba Geral mostra
-30 e 60 fps para qualquer câmera; a C920 não faz 60 em resolução nenhuma.
-
-`pygrabber` (já é dependência, usado no dropdown de câmeras) enumera os formatos
-**instantaneamente, sem abrir o dispositivo pelo FFmpeg**:
-
-```
-FilterGraph().get_input_device().get_formats()  ->  35 formatos, 17 deles MJPEG
-```
-
-Na C920 todos os 17 MJPEG têm teto de 30 fps. O probe teria pego o bug antes da primeira
-falha.
-
-**Por que não fazer por força bruta:** tentar abrir cada combinação custa ~3,5s (1,3s
-abrindo + 2,2s no `close`, medidos). Seis combinações = 20s de tela parada no primeiro
-boot. O `pygrabber` elimina esse custo.
-
-**Armadilha:** os campos vêm com nome invertido — `min_framerate=30, max_framerate=5`
-significa range de 5 a 30. Confiar no rótulo inverte a lógica e filtra ao contrário. Isso
-merece um teste que trave a interpretação, não só um comentário.
-
-**Cache velho é pior que cache nenhum:** precisa ser chaveado por nome de dispositivo e
-refeito quando o dispositivo muda. Trocar de webcam com cache velho passaria a esconder
-modos que funcionam, com a confiança de quem "já analisou".
-
-**O fallback do D-32 continua existindo** — deixa de ser o mecanismo principal e vira a
-rede de segurança, que é o papel certo dele.
-
-**Onde mora:** `ui/onboarding.py` já roda no primeiro boot. É ali, não num fluxo novo.
+_B-13 fechado em `c7715b0`, B-11 em `f7a92a9`._
 
 ### B-12 · Recomendar preset de câmera · **M** · depende de B-11
 
