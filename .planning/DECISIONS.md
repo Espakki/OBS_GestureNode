@@ -205,6 +205,41 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-38 · Capacidades da câmera consultadas sob demanda, sem cache, com fail-open**
+*2026-09-04 · B-11*
+
+O app descobria o que a câmera não suporta **falhando** — e como o `[Errno 5]` do
+DirectShow é o mesmo para "ocupado" e "modo inexistente" (D-32), a mensagem apontava para
+o problema errado. Agora a UI pergunta antes.
+
+**`pygrabber`, que já era dependência**, enumera os formatos sem abrir o dispositivo pelo
+FFmpeg. Medido: ~130ms para listar dispositivos, ~44ms para enumerar formatos.
+
+**Sem cache — e isso é o desenho, não preguiça.** O backlog previa guardar as capacidades
+e invalidar por nome de dispositivo. Medido o custo, a consulta é barata o bastante para
+rodar a cada troca de câmera ou resolução, o que **elimina a classe inteira de bug do cache
+velho**: dado desatualizado esconderia modos que funcionam, e com a confiança de quem "já
+analisou". Não guardar é mais simples e mais correto.
+
+**Fail-open por princípio.** Se a consulta falhar, vier vazia, ou a câmera não reportar
+modos MJPEG, `capacidades()` devolve `{}` e a UI **reabilita tudo**. Um probe quebrado não
+pode trancar o usuário fora de opções que a câmera tem. O fallback de FPS do D-32 continua
+sendo a rede embaixo — deixou de ser o mecanismo principal e virou a garantia final.
+
+**A armadilha dos campos invertidos.** O pygrabber reporta `min_framerate=30,
+max_framerate=5` para um modo cujo range real é 5–30 — provavelmente porque o DirectShow
+expõe *intervalos entre frames*, e o menor intervalo é o maior FPS. Ler pelo nome do campo
+inverteria toda a lógica e filtraria ao contrário. `_fps_maximo` pega o maior dos dois, o
+que funciona nas duas convenções, e há teste fixando isso.
+
+**Só modos MJPEG contam**, porque é o que `core/camera.py` pede. Um modo YUY2 a 60 fps não
+ajuda em nada e daria uma falsa sensação de suporte.
+
+**Não corrige a seleção do usuário sozinho.** A UI desabilita o que não existe e avisa no
+log, mas não troca a escolha antes de nada ter falhado. Para o FPS, o D-32 ajusta na hora
+de abrir e o D-34 devolve o valor real para a interface — o ciclo se fecha sem ninguém
+mexer na config por antecipação.
+
 **D-37 · Requisição recusada pelo OBS não derruba a conexão**
 *2026-09-04 · B-15*
 

@@ -131,6 +131,9 @@ class ConfigMixin:
         self.obs_port.setValue(int(obs_cfg.get("port", 4455)))
         self.obs_password.setText(obs_cfg.get("password", ""))
 
+        # Depois de os botões refletirem a config, filtra o que a câmera não oferece.
+        self.aplicar_capacidades_da_camera()
+
         self._rebuild_gesture_grid()
         self._refresh_gesture_feature_visibility()
         self._refresh_health_panels()
