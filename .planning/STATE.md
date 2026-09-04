@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `9e044dd`
+**Branch:** `main` · **Último commit:** `7a383e2`
 
 ---
 
@@ -12,8 +12,8 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue. O que falta é robustez: qualidade da câmera virtual e
-ausência de testes.
+operação) está entregue. O que falta é robustez: ausência de testes automatizados e a
+fragilidade do detector a rotação.
 
 **Estado real:** a instalação limpa foi validada nesta máquina — Python 3.10.11, `.venv`
 recriado, os 10 imports do projeto passam. O app em si ainda não foi executado aqui:
@@ -38,6 +38,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Planning | `a7b0dd6` | Modelo GSD substituído por 4 arquivos; `CLAUDE.md` na raiz |
 | Deps | `28dcb61` | `av` e `websocket-client` declarados — B-01 fechado |
 | Deps | `9e044dd` | `av` pinado em 14.2.0, `opencv-contrib` travado; instalação limpa validada |
+| Câmera | `7a383e2` | VCam com resolução nativa e toggle próprio de esqueleto — B-02 fechado |
 
 ---
 
@@ -45,10 +46,9 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-02 — Câmera virtual recebendo upscale de 640px.** Regressão de qualidade visível.
-   Bloqueado pela decisão em aberto D-09: o que a VCam deve entregar?
-2. **B-05 — Suíte de testes do núcleo.** Pré-requisito pra encostar no detector.
-3. **B-03 — Validar o `main.spec`.** Desbloqueado — já há Python e `.venv` funcional.
+1. **B-05 — Suíte de testes do núcleo.** Pré-requisito pra encostar no detector.
+2. **B-03 — Validar o `main.spec`.** Desbloqueado — já há Python e `.venv` funcional.
+3. **B-04 — Limpezas pequenas.** Import morto, migração de modo duplicada, `virtual_cam_mode` órfão.
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 

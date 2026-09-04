@@ -14,25 +14,6 @@ plano em `active/`.
 Objetivo: `git clone` + `pip install -r requirements.txt` + `python main.py` funciona numa
 máquina virgem. Hoje não funciona.
 
-### B-02 · Câmera virtual recebe upscale de 640px · **M**
-
-No modo `automatico` o frame percorre: captura 1920×1080 → `HandTracker.processar()` reduz
-pra `PROCESS_W=640` e **retorna o frame pequeno** → `gesture_engine` reatribui `frame` (o
-1080p original é descartado) → `enviar_para_virtual()` vê que não bate com a resolução alvo
-e **faz upscale de volta pra 1080p**.
-
-O OBS recebe 640p esticado, não a captura nativa — com o esqueleto desenhado por cima se
-`show_skeleton` estiver ligado. Paga-se o custo de capturar em 1080p pra entregar 640p.
-
-O downscale pra inferência está certo (normaliza custo do MediaPipe). O problema é o frame
-de inferência ter virado também o frame de saída: são dois consumidores com necessidades
-opostas — a inferência quer pequeno, a câmera virtual quer nativo.
-
-**Decidir antes de codar:** o que a VCam deve entregar? Frame nativo limpo, ou nativo com
-esqueleto (exige escalar os landmarks de volta)? Ver [DECISIONS.md](DECISIONS.md) D-09.
-
-**Arquivos:** `core/hand_tracker.py`, `engine/gesture_engine.py`, `core/camera.py`
-
 ### B-03 · Validar o `main.spec` contra as deps atuais · **M**
 
 O spec é de maio, quando não havia PyAV nem pygrabber. Tem `hiddenimports=[]` e só
