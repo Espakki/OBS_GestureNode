@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `9565642`
+**Branch:** `main` · **Último commit:** `a7a1088`
 
 ---
 
@@ -45,7 +45,9 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Build | `2a4e119` | Wrappers comtypes congelados, UPX desligado — B-03 fechado |
 | Config | `ebf2fc1` | Config em `%APPDATA%` no app empacotado, com aviso de falha — B-08 fechado |
 | Limpeza | `2074859` | `hotkey_listener` morto removido — B-09 fechado |
-| Feature | `9565642` | Gestos combinados de duas mãos — B-07 fechado |
+| Feature | `9565642` | Gestos combinados — **revertido** em `a7a1088`, ver D-31 |
+| Câmera | `9a0aad9` | Corrige falha ao parar e reiniciar a captura |
+| Engine | `a7a1088` | Duas mãos rastreadas, uma ação só: a primeira vence (D-31) |
 
 ---
 
@@ -111,9 +113,12 @@ automatizado e análise estática, sem câmera, sem OBS e sem abrir o `.exe`.
    deve **avisar** que não está salvando, não falhar em silêncio
 10. Rodando da pasta normal, a config persiste entre aberturas
 
-**Gestos combinados (B-07)**
-11. Criar um combinado pelo botão "+ Gesto combinado (2 mãos)"
-12. Com o par formado, disparar **só** a ação do combinado — se as individuais também
-    dispararem, a supressão furou
-13. Desfazer o par antes do hold não dispara nada
-14. Um gesto do par sozinho dispara a ação individual normalmente
+**Duas mãos (D-31)**
+11. Com as duas mãos em quadro fazendo gestos diferentes, disparar **só uma** ação
+12. A ação disparada deve ser a da mão que começou o gesto primeiro
+13. Uma mão só continua funcionando normalmente
+
+**Parar e reiniciar (novo)**
+14. Iniciar, parar, iniciar de novo: deve voltar a funcionar sem erro de câmera
+15. Ao parar, a UI mostra "Parando..." por ~2,5s antes de liberar o Start — é esperado
+16. Trocar entre 1 e 2 mãos com a engine rodando: ela deve parar E religar sozinha
