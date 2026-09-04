@@ -9,7 +9,12 @@ import math
 # Joinha e deslike são a MESMA forma de mão girada 180°, então a orientação absoluta é
 # informação essencial aqui — não dá para tornar isso invariante a rotação sem tornar os
 # dois indistinguíveis. O que dá é fazer a fronteira ser explícita e simétrica.
-TOLERANCIA_POLEGAR_GRAUS = 60
+#
+# Calibrado com foto real (2026-09-04): um polegar apontando para cima-e-para-o-lado, a
+# ~50° da vertical, ainda era aceito como joinha com a tolerância antiga de 60°, e o
+# usuário não considera aquilo um joinha. Baixado para 45°, o que também alarga a zona
+# morta de 60° para 90°. Ver D-36.
+TOLERANCIA_POLEGAR_GRAUS = 45
 
 # Comprimento mínimo do polegar projetado, como fração do `palm_size`.
 #
@@ -27,7 +32,7 @@ COMPRIMENTO_MINIMO_POLEGAR = 0.55
 
 class GestureDetector:
 
-    def _angulo_do_polegar(self, pontos):
+    def angulo_do_polegar(self, pontos):
         """Ângulo entre o polegar e a vertical da imagem, em graus [0, 180].
 
         0 = apontando para cima na tela, 180 = para baixo, 90 = na horizontal.
@@ -75,7 +80,7 @@ class GestureDetector:
         # Ângulo explícito em vez de comparar coordenadas Y cruas: a regra antiga tinha
         # fronteira assimétrica e fazia joinha virar deslike a ~70° de inclinação, sem
         # passar por zona morta. Ver D-28.
-        angulo_polegar = self._angulo_do_polegar(pontos)
+        angulo_polegar = self.angulo_do_polegar(pontos)
 
         # O ângulo só é confiável se o polegar estiver razoavelmente de frente. Muito
         # encurtado na projeção significa apontando na profundidade, e aí a direção X/Y

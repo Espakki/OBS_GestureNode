@@ -205,6 +205,29 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-36 · Tolerância do polegar baixada de 60° para 45°, calibrada com foto real**
+*2026-09-04 · ajuste do D-28*
+
+O D-28 escolheu 60° sem dado, e deixou registrado que o número precisava de validação com
+mão real. Veio: foto de uma mão fechada com o polegar saindo na diagonal, a **~50° da
+vertical**, sendo aceita como joinha. O usuário não considera aquilo um joinha — e é uma
+pose fácil de fazer sem querer, com a mão relaxada ao lado do rosto.
+
+**45°** rejeita aquela pose e alarga a zona morta de 60° para **90°**, o que também torna a
+inversão joinha↔deslike ainda mais difícil.
+
+**Por que o gate do D-35 não resolvia este caso, apesar de parecer o mesmo problema:** ali
+o polegar aponta na *profundidade* e a projeção fica curta; aqui ele está no *plano da
+imagem*, projeção longa, só que na diagonal. São dois eixos diferentes de erro e cada um
+tem seu gate. O D-35 continua necessário — só não era esta a queixa.
+
+**Trade-off aceito:** um joinha genuinamente inclinado além de 45° passa a não disparar. É
+o lado seguro do erro para um app de live, onde um falso positivo troca de cena na frente
+do público e um falso negativo só pede que o usuário repita o gesto.
+
+`angulo_do_polegar()` virou público para permitir diagnóstico — dá para medir a pose real
+antes de mexer no número de novo, em vez de calibrar no escuro.
+
 **D-35 · O ângulo do polegar só vale se ele estiver de frente para a câmera**
 *2026-09-04 · B-19 — polimento do D-28*
 

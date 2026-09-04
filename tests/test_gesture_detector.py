@@ -132,10 +132,29 @@ class TestRotacao:
         girada = rotacionar(mao(**forma), graus)
         assert detector.detectar(girada) == esperado
 
-    @pytest.mark.parametrize("graus", [-20, -10, 0, 15, 45, 80])
+    @pytest.mark.parametrize("graus", [-10, 0, 15, 45, 70])
     def test_joinha_aguenta_inclinacao_moderada(self, detector, graus):
         girada = rotacionar(mao(polegar="aberto_cima"), graus)
         assert detector.detectar(girada) == "THUMBS_UP"
+
+    def test_polegar_apontando_para_cima_e_para_o_lado_nao_e_joinha(self, detector):
+        """Caso real reportado com foto (2026-09-04). Ver D-36.
+
+        Mão fechada com o polegar saindo na diagonal, a ~50° da vertical. Com a
+        tolerância antiga de 60° isso passava como joinha; o usuário não considera aquilo
+        um joinha, e é uma pose fácil de fazer sem querer com a mão relaxada ao lado do
+        rosto.
+
+        O polegar está no PLANO da imagem (projeção longa), então o gate de comprimento
+        do D-35 não pega este caso — quem resolve é a tolerância angular.
+        """
+        base = mao(polegar="aberto_cima")
+        # a fixture já sai a ~33° da vertical; girar -20 afasta mais, chegando a ~53°
+        diagonal = rotacionar(base, -20)
+
+        angulo = detector.angulo_do_polegar(diagonal)
+        assert 45 < angulo < 60, f"a pose de teste precisa cair na faixa disputada: {angulo:.0f}°"
+        assert detector.detectar(diagonal) is None
 
     def test_inverter_joinha_exige_atravessar_a_zona_morta(self, detector):
         """A garantia central do D-28: não existe salto direto de joinha para deslike.
@@ -172,7 +191,7 @@ class TestRotacao:
 class TestPolegarEmProfundidade:
     """O ângulo do polegar só vale se ele estiver de frente para a câmera. Ver D-35.
 
-    `_angulo_do_polegar` mede apenas X/Y. Um polegar apontando para a câmera ou para longe
+    `angulo_do_polegar` mede apenas X/Y. Um polegar apontando para a câmera ou para longe
     dela projeta um vetor curto, cuja direção é quase ruído — mas caía dentro da tolerância
     angular e virava joinha. Relatado como "joinha de lado, com o dedão apontando para
     trás".
@@ -197,7 +216,7 @@ class TestPolegarEmProfundidade:
         Garante que o gate do D-35 não reintroduz a fragilidade que o D-28 removeu: um
         joinha inclinado continua sendo joinha dentro da tolerância angular.
         """
-        for graus in (-20, 0, 20, 45):
+        for graus in (-10, 0, 20, 45):
             girada = rotacionar(mao(polegar="aberto_cima"), graus)
             assert detector.detectar(girada) == "THUMBS_UP"
 
