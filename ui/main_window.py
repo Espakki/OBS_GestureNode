@@ -84,7 +84,10 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
             self._obs_connect_thread = None
 
         if self.engine and self.engine.isRunning():
-            self.engine.stop()
+            # Único lugar onde bloquear é correto: destruir uma QThread ainda em execução
+            # derruba o processo. Em todo o resto do app o `stop()` é assíncrono e quem
+            # dirige a UI é o sinal `finished`. Ver D-34.
+            self.engine.stop(esperar_ms=8000)
 
         super().closeEvent(event)
 

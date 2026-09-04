@@ -205,6 +205,32 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-34 · `stop()` é assíncrono; quem dirige a UI é o sinal `finished`**
+*2026-09-04 · B-17, B-13*
+
+**A parada não bloqueia mais (B-17).** `stop()` chamava `wait(8000)` a partir da thread da
+UI, congelando a janela por ~2.5s (o `container.close()` do DirectShow, D-32) e fazendo o
+app piscar. Agora `stop()` só sinaliza — medido, retorna em **0.1ms** contra ~2500ms.
+
+Esperar era desnecessário: o Qt emite `finished` depois do `run()` retornar, ou seja depois
+do `finally` já ter liberado câmera, OBS e executor. Quem precisa saber que a limpeza
+acabou ouve o sinal. `esperar_ms` continua existindo para o `closeEvent`, único lugar onde
+bloquear é correto — destruir uma QThread em execução derruba o processo.
+
+**O bug que isso revelou.** `finished` era conectado **dentro do `stop_engine`**, ou seja,
+só quando o usuário apertava Stop. Mas a engine também termina sozinha — falha ao abrir a
+câmera é o caso comum — e aí o sinal disparava sem ninguém ouvindo: a UI ficava presa em
+"rodando", com Start desabilitado. Pior depois que o `stop_engine` passou a desabilitar os
+dois botões: apertar Stop nesse estado deixava **ambos travados para sempre**, porque o
+`finished` que os reabilitaria já tinha passado. Agora a conexão é feita no `start_engine`,
+uma vez por engine.
+
+**FPS da UI acompanha o fallback (B-13).** Novo sinal `fps_ajustado`, emitido quando a
+câmera recusa o FPS pedido (D-32). A UI corrige o botão e o config. Antes o usuário via o
+aviso no status mas a interface seguia marcando 60 — discordando do que estava rodando.
+`blockSignals` na correção evita disparar `on_fps_changed`, que gravaria de novo e poderia
+pedir restart.
+
 **D-33 · Traço do esqueleto proporcional; VCam em BGR; confirmação antes de reiniciar**
 *2026-09-04 · B-14, B-16, B-18 — achados da primeira validação manual*
 

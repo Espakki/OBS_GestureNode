@@ -166,6 +166,7 @@ class GestureEngine(QThread):
     frame_ready = Signal(object)
     status_changed = Signal(str)
     latency_updated = Signal(float)  # ms médio a cada 30 frames
+    fps_ajustado = Signal(int)  # a câmera recusou o FPS pedido e caiu para outro
 
     def __init__(self, config):
         super().__init__()
@@ -374,6 +375,7 @@ class GestureEngine(QThread):
             # sem explicação. Ver D-32.
             if getattr(self.camera, "aviso", ""):
                 self.status_changed.emit(f"⚠️ {self.camera.aviso}")
+                self.fps_ajustado.emit(int(self.camera.fps))
             else:
                 self.status_changed.emit("Câmera iniciada")
 
@@ -636,25 +638,26 @@ class GestureEngine(QThread):
         if self.actions:
             self.actions.obs = obs_controller
 
-    def stop(self):
-        """Sinaliza parada e espera a thread encerrar de fato.
+    def stop(self, esperar_ms=0):
+        """Sinaliza a parada. Por padrão **não bloqueia**.
 
-        O timeout precisa cobrir o pior caso do `CameraManager.encerrar()` (1.5s + 2s de
-        join, mais o fechamento da câmera virtual). Com os 2s anteriores o `wait` estourava
-        no meio da limpeza e `stop()` retornava com a câmera ainda presa — o `iniciar()`
-        seguinte então falhava com `[Errno 5] I/O error`.
+        Quem precisa saber que a limpeza terminou deve ouvir o sinal `finished`, que o Qt
+        emite depois do `run()` retornar — ou seja, depois do `finally` já ter liberado
+        câmera, OBS e executor. Esperar aqui, a partir da thread da UI, congelava a janela
+        por ~2.5s (o `container.close()` do DirectShow) e fazia o app piscar. Ver D-34.
 
-        O retorno do `wait` também era ignorado, então nada indicava que a parada tinha
-        falhado. Agora falha ruidosa: quem chama decide o que fazer, e o log diz o motivo.
+        `esperar_ms` existe para o fechamento do app, onde bloquear é correto: destruir uma
+        QThread ainda em execução derruba o processo.
         """
         self.running = False
-        if not self.isRunning():
+
+        if not self.isRunning() or esperar_ms <= 0:
             return True
 
-        parou = self.wait(8000)
+        parou = self.wait(esperar_ms)
         if not parou:
             logger.error(
-                "Engine não encerrou em 8s — a câmera pode continuar ocupada e a "
-                "próxima inicialização falhar"
+                "Engine não encerrou em %sms — a câmera pode continuar ocupada",
+                esperar_ms,
             )
         return parou

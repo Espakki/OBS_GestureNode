@@ -85,6 +85,12 @@ class EngineMixin:
         self.engine.frame_ready.connect(self.update_frame)
         self.engine.status_changed.connect(self.update_status)
         self.engine.latency_updated.connect(self.geral_tab.update_latency_badge)
+        self.engine.fps_ajustado.connect(self.on_fps_ajustado_pela_camera)
+        # Ligado AQUI, não no stop_engine. A engine também termina sozinha — falha ao
+        # abrir a câmera, por exemplo — e nesses casos o sinal disparava sem ninguém
+        # ouvindo: a UI ficava presa em "rodando", com Start desabilitado e um Stop que
+        # não reabilitava nada, porque o `finished` já tinha passado. Ver D-34.
+        self.engine.finished.connect(self.on_engine_finished)
         self.engine.start()
 
         self.status_label.setText("Status: Rodando")
@@ -98,22 +104,14 @@ class EngineMixin:
             self.update_status("Engine já está parada")
             return
 
-        # Desconectar SÓ este slot. O `disconnect()` sem argumento derrubava todas as
-        # conexões — inclusive a que `restart_engine` acabou de fazer, deixando a engine
-        # parada e nunca religada ao trocar 1↔2 mãos.
-        try:
-            self.engine.finished.disconnect(self.on_engine_finished)
-        except (RuntimeError, TypeError):
-            pass
-
-        self.engine.finished.connect(self.on_engine_finished)
-
-        # Nenhum botão habilitado enquanto a limpeza roda. Antes o Start voltava na hora,
-        # e clicar nele antes da câmera ser liberada dava [Errno 5] I/O error.
+        # Nenhum botão habilitado enquanto a limpeza roda — clicar Start antes da câmera
+        # ser liberada dava [Errno 5] I/O error. Quem reabilita é `on_engine_finished`,
+        # ligado ao sinal `finished` lá no `start_engine`.
         self.status_label.setText("Status: Parando...")
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
 
+        # Não bloqueia: a limpeza roda na thread da engine e a UI segue respondendo.
         self.engine.stop()
         self._refresh_health_panels()
 
@@ -125,11 +123,33 @@ class EngineMixin:
             self.start_engine()
 
     def _on_reiniciar_apos_parada(self):
-        try:
-            self.engine.finished.disconnect(self._on_reiniciar_apos_parada)
-        except Exception:
-            pass
+        """Sobe a engine de novo assim que a anterior terminou de se limpar.
+
+        Roda depois do `on_engine_finished` (conectado antes, no `start_engine`), então a
+        engine antiga já foi descartada. Não precisa desconectar nada: o objeto inteiro é
+        jogado fora, e o novo `start_engine` cria as conexões do zero.
+        """
         self.start_engine()
+
+    def on_fps_ajustado_pela_camera(self, fps):
+        """A câmera recusou o FPS pedido e caiu para outro. Alinha a UI com a realidade.
+
+        Sem isto o usuário via o aviso no status mas o botão continuava marcando 60,
+        com a interface discordando do que estava rodando. Ver D-34.
+
+        `blockSignals` evita que corrigir o botão dispare `on_fps_changed`, que gravaria
+        no config e poderia pedir restart.
+        """
+        self.config.setdefault("camera", {})["fps"] = int(fps)
+        self.salvar_config_automatico()
+
+        for botao in self.fps_buttons.values():
+            botao.blockSignals(True)
+        try:
+            self.geral_tab.set_fps(int(fps))
+        finally:
+            for botao in self.fps_buttons.values():
+                botao.blockSignals(False)
 
     def on_engine_finished(self):
         self.set_config_enabled(True)
