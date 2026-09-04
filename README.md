@@ -85,7 +85,7 @@ python main.py
 .venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-184 testes, ~2s, **sem precisar de webcam nem OBS**. `tests/maos_sinteticas.py` monta os 21
+203 testes, ~2s, **sem precisar de webcam nem OBS**. `tests/maos_sinteticas.py` monta os 21
 landmarks de uma mão a partir de uma descrição legível, então o detector é testável sem
 câmera.
 
@@ -98,8 +98,11 @@ antigos, que exigem hardware ligado e não são coletados pelo pytest.
 pyinstaller main.spec
 ```
 
-Gera `dist/main/`. O PyInstaller **não faz cross-compile**: o build do Windows sai numa
-máquina Windows, e o do Linux numa Linux.
+Gera `dist/main/` (~480 MB). O PyInstaller **não faz cross-compile**: o build do Windows
+sai numa máquina Windows, e o do Linux numa Linux.
+
+Para distribuir, compacte a **pasta inteira** — o `main.exe` sozinho não roda, ele depende
+do `_internal/` ao lado.
 
 ### Estrutura
 
@@ -145,9 +148,11 @@ projeto está, e [`CLAUDE.md`](CLAUDE.md) resume as convenções e os invariante
 
 ---
 
-## Licença
+## Histórico de versões
 
-As mudanças de cada versão estão em [CHANGELOG.md](CHANGELOG.md).
+O que mudou em cada versão está em [CHANGELOG.md](CHANGELOG.md).
+
+## Licença
 
 [MIT](LICENSE) — use, modifique e distribua à vontade, inclusive comercialmente, mantendo
 o aviso de copyright.
