@@ -8,10 +8,17 @@ keyboard==0.13.5
 pygrabber==0.2
 
 # Captura de câmera via FFmpeg/DirectShow (core/camera.py).
-# Faixa, não pin exato: a versão usada na migração pro PyAV se perdeu junto com o
-# ambiente da máquina anterior. Após a primeira instalação limpa bem-sucedida,
-# rodar `pip freeze | grep -i "^av=="` e fixar aqui. Ver D-24.
-av>=12,<15
+# Pin exato: 14.2.0 é a última release com wheel cp310 para win_amd64. Da 14.3 em
+# diante o PyAV só publica sdist para o 3.10, e o pip cai no build from source, que
+# exige MSVC Build Tools. Fecha a pendencia do D-24; ver D-25 e ENV-01.
+av==14.2.0
+
+# Dependência transitiva do mediapipe, declarada só para travar a versão. Os dois
+# pacotes de OpenCV instalam no MESMO diretório `cv2`, e o último a instalar vence:
+# sem este pin o contrib resolve para 5.0.0.93 e passa a responder no lugar do
+# opencv-python==4.10.0.84 acima, tornando aquele pin inócuo. Mesma versão upstream
+# nos dois, portanto, independente da ordem de instalação. Ver D-25 e ENV-02.
+opencv-contrib-python==4.10.0.84
 
 # Importado diretamente em integrations/obs_connect_thread.py (WebSocketTimeoutException).
 # Chega como dependência transitiva do obsws-python; declarado aqui porque o import é
