@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-04
-**Branch:** `main` · **Último commit:** `8ffbc2b`
+**Branch:** `main` · **Último commit:** `f8e3ca3`
 
 ---
 
@@ -52,6 +52,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Polimento | `f41d5c2` | Traço proporcional, VCam em BGR, confirmação ao reiniciar — B-14/16/18 |
 | UI | `c7715b0` | Parada assíncrona e FPS acompanhando o fallback — B-17/13 |
 | Detector | `8ffbc2b` | Polegar em profundidade não vira joinha — B-19 |
+| Detector | `f8e3ca3` | Tolerância do polegar 60°→45°, calibrada com foto real (D-36) |
 
 ---
 
@@ -114,9 +115,9 @@ do app.
 4. Copiar `dist\main\` para `C:\Program Files\`, rodar de lá e mexer num slider: deve
    **avisar** que não está salvando, não falhar em silêncio (B-08)
 
-### Números que só mão real valida
+### Números calibrados com mão real (2026-09-04)
 
-- **`TOLERANCIA_POLEGAR_GRAUS = 60`** (D-28): se joinha natural não disparar, está apertado.
-- **`COMPRIMENTO_MINIMO_POLEGAR = 0.55`** (D-35): se joinhas legítimos passarem a ser
-  recusados, é o primeiro a baixar.
+- **`TOLERANCIA_POLEGAR_GRAUS = 45`** (D-36) — validado. O valor original de 60° aceitava
+  um polegar na diagonal a ~50°, que o usuário não considera joinha.
+- **`COMPRIMENTO_MINIMO_POLEGAR = 0.55`** (D-35) — validado no mesmo teste.
 - **Espessura do esqueleto** (D-33): conferir no OBS se ficou boa em 1080p.
