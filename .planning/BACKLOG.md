@@ -114,18 +114,3 @@ debounce ou um botão explícito.
 **Relacionado:** `set_config_enabled` desabilita só câmera, resolução e FPS enquanto roda.
 O resto fica editável, o que é bom — mas então tudo que fica editável deveria aplicar.
 
-### B-19 · Joinha de lado ainda é aceito · **P** · polimento do D-28
-
-Com o polegar apontando para o lado/para trás (não inclinado, mas rotacionado no eixo da
-profundidade), o gesto ainda registra como joinha. Tecnicamente cumpre todos os critérios:
-os quatro dedos dobrados e o polegar dentro da tolerância angular.
-
-A causa é que `_angulo_do_polegar` mede só X/Y. Um polegar apontando para a câmera ou para
-longe dela **projeta um vetor curto**, e o ângulo desse vetor curto ainda pode cair dentro
-dos 60°.
-
-**Ideia:** exigir um comprimento mínimo do vetor polegar, proporcional ao `palm_size`. Um
-polegar muito encurtado na projeção está apontando na profundidade, e aí a orientação
-X/Y não significa nada.
-
-**Prioridade baixa** por decisão do dono: não atrapalha o uso, é polimento.
