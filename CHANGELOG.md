@@ -20,7 +20,7 @@ Primeira versão pública em preparação. Tudo abaixo entrou depois do MVP inte
 - **Esqueleto na saída do OBS** como opção separada da do preview: dá para calibrar vendo
   as linhas sem que o público as veja.
 - **Confirmação antes de reiniciar** ao trocar entre 1 e 2 mãos.
-- Licença MIT, README para usuário e desenvolvedor, e este changelog.
+- Licença GPL-3.0, README para usuário e desenvolvedor, e este changelog.
 
 ### Corrigido
 

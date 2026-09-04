@@ -1,3 +1,15 @@
+"""OBS GestureNode — controle o OBS Studio por gestos de mão via webcam.
+
+Copyright (C) 2026 Winicius Passaia
+
+Este programa é software livre: você pode redistribuí-lo e/ou modificá-lo sob os termos da
+Licença Pública Geral GNU, versão 3, publicada pela Free Software Foundation.
+
+Distribuído na esperança de ser útil, mas SEM NENHUMA GARANTIA — sem sequer a garantia
+implícita de COMERCIALIZAÇÃO ou ADEQUAÇÃO A UM PROPÓSITO ESPECÍFICO. Veja a Licença
+Pública Geral GNU para mais detalhes: <https://www.gnu.org/licenses/>.
+"""
+
 import sys
 import json
 from PySide6.QtWidgets import QApplication

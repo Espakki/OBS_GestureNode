@@ -90,3 +90,31 @@ provam no hardware real.
 **Decidir antes:** X11, Wayland, ou os dois? A diferença não é detalhe — no Wayland, injetar
 teclas exige `ydotool` com daemon e permissão, enquanto no X11 o `xdotool` resolve direto.
 Suportar os dois quase dobra o trabalho da parte mais cara.
+
+---
+
+## Fase J — Obrigações de licença na distribuição
+
+### B-24 · Cumprir as obrigações de LGPL e GPL no pacote do release · **P**
+
+O app é GPL-3.0 (D-44), mas o **pacote distribuído** tem obrigações que o arquivo `LICENSE`
+sozinho não cumpre.
+
+**PySide6 é LGPL-3.0.** Distribuir o bundle do PyInstaller com o Qt embutido exige, entre
+outras coisas, incluir o texto da LGPL e não impedir que o usuário substitua a biblioteca
+Qt por outra versão. Bundle congelado torna a substituição difícil — o caminho usual é
+oferecer, junto ao release, o código-fonte e as instruções de rebuild, que este projeto já
+tem no README.
+
+**A GPL exige o código-fonte correspondente.** Como o repositório é público e o release sai
+com tag, isso já está satisfeito na prática — mas o texto do release deve **apontar
+explicitamente** para o código da tag correspondente, não deixar implícito.
+
+**A fazer no pacote do release:**
+- Incluir `LICENSE` (GPL-3.0) na raiz do zip
+- Incluir um `LICENSES-TERCEIROS.txt` com os textos de LGPL-3.0, GPL-2.0, Apache-2.0,
+  BSD-3-Clause e MIT, e quais pacotes usam cada uma
+- Na descrição do release, linkar a tag do código-fonte
+
+Não é urgente para uso pessoal; passa a importar quando o binário for distribuído
+publicamente.

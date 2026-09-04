@@ -154,5 +154,26 @@ O que mudou em cada versão está em [CHANGELOG.md](CHANGELOG.md).
 
 ## Licença
 
-[MIT](LICENSE) — use, modifique e distribua à vontade, inclusive comercialmente, mantendo
-o aviso de copyright.
+Copyright (C) 2026 Winicius Passaia
+
+Este programa é software livre sob a **[GPL-3.0](LICENSE)**: você pode usar, estudar,
+modificar e redistribuir. Se distribuir uma versão modificada, é obrigado a publicar o
+código-fonte dela sob a mesma licença — ninguém pode transformar este trabalho num produto
+fechado.
+
+A escolha não foi só preferência: `pyvirtualcam` (GPLv2+) e `obsws-python` (GPLv3+), das
+quais o app depende, já exigem licenciamento compatível com GPL na distribuição.
+
+Este programa é distribuído na esperança de ser útil, mas **SEM NENHUMA GARANTIA**. Veja a
+[LICENSE](LICENSE) para os termos completos.
+
+### Dependências e suas licenças
+
+| Pacote | Licença |
+|---|---|
+| PySide6 | LGPL-3.0 |
+| pyvirtualcam | GPL-2.0-or-later |
+| obsws-python | GPL-3.0-or-later |
+| mediapipe, opencv, websocket-client | Apache-2.0 |
+| av | BSD-3-Clause |
+| keyboard, pygrabber | MIT |
