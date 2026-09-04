@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-03
-**Branch:** `main` · **Último commit:** `ebf2fc1`
+**Branch:** `main` · **Último commit:** `9565642`
 
 ---
 
@@ -44,6 +44,8 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Detector | `6080496` | Joinha/deslike por ângulo com zona morta — B-06 fechado |
 | Build | `2a4e119` | Wrappers comtypes congelados, UPX desligado — B-03 fechado |
 | Config | `ebf2fc1` | Config em `%APPDATA%` no app empacotado, com aviso de falha — B-08 fechado |
+| Limpeza | `2074859` | `hotkey_listener` morto removido — B-09 fechado |
+| Feature | `9565642` | Gestos combinados de duas mãos — B-07 fechado |
 
 ---
 
@@ -51,9 +53,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-07 — Gestos combinados.** Última feature do planning antigo ainda aberta.
-2. **B-09 — Apagar ou integrar o `hotkey_listener` morto.**
-3. **B-10 — Cortar as 774 MB do `dist`.** Só depois do `.exe` validado rodando.
+1. **B-10 — Cortar as 774 MB do `dist`.** Em andamento.
 
 A pendência do B-01 (converter `av` para pin exato) está fechada em `9e044dd`. Ver D-25.
 

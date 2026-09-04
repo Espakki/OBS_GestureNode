@@ -32,34 +32,13 @@ _Fechada: B-06 em `6080496`. Falta validar com câmera real a tolerância de 60�
 
 ## Fase D — Feature
 
-### B-07 · Gestos combinados (duas mãos como unidade) · **G**
-
-Único item genuinamente aberto do planning antigo. O schema já existe (`combined_bindings`
-no `config.json`), mas **não há código nenhum** consumindo — só o campo vazio.
-
-A fase 9 entregou detecção independente por mão (D-04: cada mão dispara sua própria binding
-com o mesmo pool). Combinados são o passo seguinte: o par esquerda+direita tratado como uma
-unidade, com bindings próprias.
-
-Decidir: como o par interage com o cooldown compartilhado (D-05) e com o dispatch
-independente (D-04)? Um combinado deve suprimir os dois gestos individuais?
-
-**Arquivos:** `engine/gesture_engine.py`, `ui/tabs/gestos_tab.py`, `config.json`
+_Fechada: B-07 em `9565642`._
 
 ---
 
 ## Fase E — Achados da validação do build (B-03)
 
-_B-08 fechado em `ebf2fc1`._
-
-### B-09 · `util/hotkey_listener.py` é código morto · **P**
-
-Nenhum arquivo do projeto o importa — confirmado por varredura. Corretamente ausente do
-bundle. O D-10 da fase 1 dizia que ele "será integrado na aba de gestos numa fase
-posterior"; a captura de atalho acabou sendo implementada direto em `ui/tabs/gestos_tab.py`.
-
-Decidir: apagar, ou manter e integrar? Se ninguém sente falta, apagar é mais honesto que
-deixar 230 linhas parecendo que fazem parte do sistema.
+_B-08 fechado em `ebf2fc1`, B-09 em `2074859`._
 
 ### B-10 · `dist/main` tem 774 MB · **M**
 
