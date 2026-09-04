@@ -84,13 +84,16 @@ class CameraManager:
         logger.info("Câmera virtual ativa: %s", cam_result[0].device)
         return cam_result[0]
 
-    def _abrir_container(self, tentativas=4, espera=0.4):
+    def _abrir_container(self, tentativas=8, espera=0.7):
         """Abre o dispositivo DirectShow, tolerando que ele ainda esteja sendo liberado.
 
         O DirectShow não devolve a câmera instantaneamente quando o container anterior é
         fechado: por um instante o dispositivo segue exclusivo e `av.open` falha com
-        `[Errno 5] I/O error`. Isso quebrava todo ciclo parar→iniciar. Algumas tentativas
-        espaçadas transformam a falha dura numa pequena espera.
+        `[Errno 5] I/O error`. Isso quebrava todo ciclo parar→iniciar.
+
+        O orçamento de espera precisa cobrir um `container.close()` inteiro, que foi medido
+        em **2.2s** nesta máquina. A primeira versão tentava 4x a cada 0.4s — 1.2s no total,
+        ou seja, desistia antes mesmo de um único close terminar. Agora são ~4.9s.
 
         Se o erro persistir, propaga — aí é câmera realmente ocupada por outro programa,
         e a mensagem tem de chegar ao usuário.
@@ -121,20 +124,31 @@ class CameraManager:
         raise ultimo_erro
 
     def iniciar(self):
-        if self.enable_virtual_camera:
-            self.virtual_camera = self._iniciar_virtual_cam_com_timeout()
+        """Abre câmera virtual e captura. Se falhar no meio, desfaz o que já abriu.
 
-        self._pyav_container = self._abrir_container()
+        Sem o rollback, um `av.open` que falha deixava a câmera virtual aberta para
+        sempre: quem chama trata a exceção e desiste, e o `encerrar()` nunca roda. Cada
+        tentativa frustrada vazava um produtor de VCam, e como só existe um, a tentativa
+        seguinte passava a esbarrar no timeout de 3s da própria sobra.
+        """
+        try:
+            if self.enable_virtual_camera:
+                self.virtual_camera = self._iniciar_virtual_cam_com_timeout()
 
-        self._ultimo_frame = None
-        self._frame_seq = 0
-        self._captura_ativa = True
-        self._captura_thread = threading.Thread(
-            target=self._loop_captura,
-            daemon=True,
-            name="camera-capture",
-        )
-        self._captura_thread.start()
+            self._pyav_container = self._abrir_container()
+
+            self._ultimo_frame = None
+            self._frame_seq = 0
+            self._captura_ativa = True
+            self._captura_thread = threading.Thread(
+                target=self._loop_captura,
+                daemon=True,
+                name="camera-capture",
+            )
+            self._captura_thread.start()
+        except Exception:
+            self.encerrar()
+            raise
 
     @property
     def aberta(self) -> bool:

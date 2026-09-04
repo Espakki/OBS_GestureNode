@@ -354,29 +354,30 @@ class GestureEngine(QThread):
 
         self._connect_obs()
 
+        # Este try envolve TUDO, inclusive o iniciar(). Antes ele cobria só o loop, então
+        # uma falha ao abrir a câmera saía por `return` sem passar pela limpeza — deixando
+        # a conexão OBS e o executor de ações pendurados a cada tentativa frustrada.
         try:
-            self.camera.iniciar()
-        except Exception as exc:
-            logger.exception("Falha ao iniciar câmera: %s", exc)
-            self.status_changed.emit("Falha ao iniciar câmera")
-            self.running = False
-            return
+            try:
+                self.camera.iniciar()
+            except Exception as exc:
+                logger.exception("Falha ao iniciar câmera: %s", exc)
+                self.status_changed.emit(f"Falha ao iniciar câmera: {exc}")
+                return
 
-        if not self.camera.aberta:
-            self.status_changed.emit("Falha ao iniciar câmera")
-            self.running = False
-            return
+            if not self.camera.aberta:
+                self.status_changed.emit("Falha ao iniciar câmera")
+                return
 
-        self.status_changed.emit("Câmera iniciada")
+            self.status_changed.emit("Câmera iniciada")
 
-        if self.modo == "teste":
-            self.status_changed.emit("Modo Teste — ações desativadas")
+            if self.modo == "teste":
+                self.status_changed.emit("Modo Teste — ações desativadas")
 
-        ultimo_disparo_por_gesto = {}
-        _latency_count = 0
-        _latency_sum = 0.0
+            ultimo_disparo_por_gesto = {}
+            _latency_count = 0
+            _latency_sum = 0.0
 
-        try:
             while self.running:
                 _loop_start = time.monotonic()
                 try:
