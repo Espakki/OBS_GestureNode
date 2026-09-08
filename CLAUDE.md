@@ -18,8 +18,12 @@ caso do checkout local estar 4 meses atrás do remoto, e toda a análise saiu er
 
 - **Python 3.10.11.** É o que o `requirements.txt` declara e contra o que tudo está pinado.
 - `mediapipe==0.10.14` é pin rígido — não atualize sem uma decisão nova (D-04).
-- Windows-only por design: `SendInput`/`ctypes` para hotkeys, `winsound` para áudio,
-  DirectShow para câmera.
+- **Validado só no Windows.** Existe implementação Linux (`plataforma/_linux.py`, D-46),
+  mas ela nunca rodou em Linux de verdade — os testes cobrem a montagem do comando, não o
+  efeito. Não afirme que o Linux funciona; diga que está escrito e não verificado.
+- Nada de API de sistema fora de `plataforma/` (D-42). Um `import winsound` no topo de um
+  módulo da cadeia normal derruba o app antes de a janela abrir. `tests/test_plataforma.py`
+  vigia isso.
 - `config.json` **não é versionado**. O app o regenera completo no primeiro boot.
 
 ## Convenções do código
@@ -38,7 +42,7 @@ caso do checkout local estar 4 meses atrás do remoto, e toda a análise saiu er
 .venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-203 testes, ~3s, sem webcam e sem OBS. Rode antes de commitar qualquer mudança em
+229 testes, ~3s, sem webcam e sem OBS. Rode antes de commitar qualquer mudança em
 `core/`, `engine/` ou nos aliases.
 
 - `tests/` — testes automatizados (pytest). `tests/maos_sinteticas.py` monta os 21

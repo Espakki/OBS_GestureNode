@@ -13,8 +13,9 @@ executar é que é fatal.
 A escolha acontece uma vez, aqui, olhando `sys.platform`. Cada implementação só é
 importada no sistema dela — `_windows` nunca é carregado no Linux e vice-versa.
 
-Para portar (B-23): criar `_linux.py` com as mesmas funções e adicioná-lo ao `_escolher`.
-Nada fora deste pacote precisa saber que ele existe.
+Windows e Linux têm implementação própria; o resto cai no `_generico`. Para portar para
+um sistema novo, criar o módulo e adicioná-lo ao `_escolher` — nada fora deste pacote
+precisa saber que ele existe.
 """
 
 import sys
@@ -29,6 +30,11 @@ def _escolher():
         from plataforma import _windows
 
         return _windows
+
+    if sys.platform.startswith("linux"):
+        from plataforma import _linux
+
+        return _linux
 
     # Ainda não há implementação nativa para este sistema. O `_generico` cobre teclado
     # via pacote `keyboard` e recusa áudio com aviso, em vez de derrubar o app.

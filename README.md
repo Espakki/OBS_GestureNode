@@ -6,8 +6,8 @@ teclado ou do mouse.
 Você configura qual gesto dispara qual ação, e o app faz o resto: reconhece o gesto pela
 câmera e troca a cena no OBS, dispara um atalho de teclado ou toca um som.
 
-> **Estado:** funcional e em uso. Windows por enquanto; o suporte a Linux está mapeado mas
-> ainda não implementado.
+> **Estado:** funcional e em uso no Windows. O Linux tem implementação escrita, mas ainda
+> **não foi executada em Linux nenhum** — trate como não verificada.
 
 ---
 
@@ -25,10 +25,26 @@ câmera e troca a cena no OBS, dispara um atalho de teclado ou toca um som.
 
 ## Requisitos
 
-- **Windows** — a injeção de atalhos e a captura usam APIs do sistema
+- **Windows** — é a única plataforma em que o app foi executado
 - **OBS Studio** com o WebSocket server ligado (Ferramentas → Configurações do WebSocket),
   se for usar troca de cena
 - Uma **webcam**
+
+### No Linux (escrito, nunca executado)
+
+O código existe e escolhe o backend sozinho, mas nada disto foi verificado em máquina real.
+Além do `pip install -r requirements.txt`, seriam necessários:
+
+| Para quê | Pacote | Observação |
+|---|---|---|
+| Atalhos no X11 | `xdotool` | funciona sem configuração |
+| Atalhos no Wayland | `wtype` | não funciona no GNOME nem no KDE, que não implementam o protocolo |
+| Atalhos, qualquer sessão | `ydotool` | única opção no GNOME/KDE; exige o daemon rodando e permissão no `/dev/uinput` |
+| Som | `pulseaudio-utils`, `alsa-utils` ou `ffmpeg` | qualquer um serve; para MP3 precisa do `ffmpeg` |
+| Câmera virtual | módulo `v4l2loopback` carregado | sem ele o modo automático não tem para onde enviar |
+
+O app tenta os injetores em ordem e cai para o seguinte quando um falha. Sem nenhum
+instalado, ele avisa no log em vez de falhar em silêncio.
 
 ## Como usar
 
@@ -85,7 +101,7 @@ python main.py
 .venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-203 testes, ~2s, **sem precisar de webcam nem OBS**. `tests/maos_sinteticas.py` monta os 21
+229 testes, ~3s, **sem precisar de webcam nem OBS**. `tests/maos_sinteticas.py` monta os 21
 landmarks de uma mão a partir de uma descrição legível, então o detector é testável sem
 câmera.
 
@@ -110,7 +126,8 @@ do `_internal/` ao lado.
 main.py                    entrypoint: carrega config, aplica tema, abre a janela
 plataforma/                tudo que depende do sistema operacional
   _windows.py              winsound + SendInput (só importado no Windows)
-  _generico.py             fallback de teclado; base da futura implementação Linux
+  _linux.py                xdotool/wtype/ydotool + tocador externo (não verificado)
+  _generico.py             fallback de teclado, comum às duas plataformas
 core/
   camera.py                captura via PyAV, câmera virtual, retry e fallback de FPS
   capacidades_camera.py    o que a câmera aceita de verdade, perguntado ao sistema

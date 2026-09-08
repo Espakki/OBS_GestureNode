@@ -5,7 +5,12 @@ mediapipe==0.10.14
 pyvirtualcam==0.15.0
 obsws-python==1.7.2
 keyboard==0.13.5
-pygrabber==0.2
+
+# Windows-only: o pygrabber fala DirectShow via comtypes, que não existe fora do Windows.
+# Sem o marcador, `pip install -r requirements.txt` quebra no Linux. Quem consome
+# (core/capacidades_camera.py e ui/mixins/camera_mixin.py) já trata a ausência com
+# fail-open, então no Linux o app roda sem o filtro de capacidades. Ver D-38 e D-46.
+pygrabber==0.2; sys_platform == "win32"
 
 # Captura de câmera via FFmpeg/DirectShow (core/camera.py).
 # Pin exato: 14.2.0 é a última release com wheel cp310 para win_amd64. Da 14.3 em
