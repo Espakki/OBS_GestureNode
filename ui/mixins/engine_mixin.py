@@ -40,9 +40,8 @@ class EngineMixin:
             self.restart_engine()
 
     def _reverter_selecao_de_maos(self, valor):
-        """Devolve os botões ao estado anterior sem disparar o handler de novo."""
-        with vinculo.sem_sinais(self.maos_1_button, self.maos_2_button):
-            self.geral_tab.set_max_maos(valor)
+        """Devolve a seleção ao estado anterior. A guarda mora na aba, não aqui."""
+        self.geral_tab.set_max_maos(valor)
 
     def start_engine(self):
         erros, avisos = validacao_execucao.validar(
@@ -147,9 +146,7 @@ class EngineMixin:
         no config e poderia pedir restart.
         """
         self.estado.camera_fps = int(fps)
-
-        with vinculo.sem_sinais(*self.fps_buttons.values()):
-            self.geral_tab.set_fps(int(fps))
+        self.geral_tab.set_fps(int(fps))
 
     def on_engine_finished(self):
         self.marcar_engine(EstadoEngine.PARADA)

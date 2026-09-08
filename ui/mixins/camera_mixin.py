@@ -55,73 +55,68 @@ class CameraMixin:
             return []
 
     def _populate_camera_devices(self):
-        self.camera_device_combo.blockSignals(True)
-        self.camera_device_combo.clear()
+        """Descobre as câmeras e entrega a lista pronta para a aba. Ver `geral_contrato`.
 
-        camera_cfg = self.config.setdefault("camera", {})
-        selected_index = int(camera_cfg.get("index", 0))
-        selected_name = str(camera_cfg.get("device_name", "") or "").strip()
+        Antes isto manipulava o `QComboBox` diretamente — `addItem`, `setCurrentIndex`,
+        `blockSignals` — e por isso só funcionava com a aba de Widgets. Agora produz dados
+        e deixa a aba desenhar.
+        """
+        indice_desejado = int(self.estado.camera_indice)
+        nome_desejado = str(self.estado.camera_dispositivo or "").strip()
 
-        # Preferir QMediaDevices (rápido, sem cv2)
-        raw_names = []
+        brutos = []
         if QMediaDevices is not None:
             try:
-                raw_names = [d.description() for d in QMediaDevices.videoInputs()]
+                brutos = [d.description() for d in QMediaDevices.videoInputs()]
             except Exception as exc:
                 logger.debug("Falha ao listar via QMediaDevices: %s", exc)
 
-        # Fallback: pygrabber DirectShow
-        if not raw_names:
-            raw_names = self._dshow_device_names()
+        if not brutos:
+            brutos = self._dshow_device_names()
 
-        camera_entries = []
-        if raw_names:
-            for index, name in enumerate(raw_names):
-                display_name = self._normalize_camera_display_name(name, index)
-                camera_entries.append((display_name, index))
+        if brutos:
+            entradas = [
+                (self._normalize_camera_display_name(nome, i), i)
+                for i, nome in enumerate(brutos)
+            ]
         else:
-            camera_entries = [(selected_name or "Câmera 0", 0)]
+            entradas = [(nome_desejado or "Câmera 0", 0)]
 
-        camera_entries.sort(key=lambda item: (self._is_virtual_camera_name(item[0]), item[1]))
+        # A câmera virtual vai para o fim: escolher a saída do OBS como *entrada* cria um
+        # laço de vídeo, e ninguém quer isso por engano.
+        entradas.sort(key=lambda item: (self._is_virtual_camera_name(item[0]), item[1]))
 
-        for name, index in camera_entries:
-            self.camera_device_combo.addItem(name, index)
+        escolhido = self._escolher_camera(entradas, indice_desejado, nome_desejado)
+        self.geral_tab.definir_cameras(entradas, escolhido)
 
-        selected_pos = 0
-        for pos in range(self.camera_device_combo.count()):
-            if int(self.camera_device_combo.itemData(pos)) == selected_index:
-                selected_pos = pos
-                break
-        else:
-            if selected_name:
-                for pos in range(self.camera_device_combo.count()):
-                    if self.camera_device_combo.itemText(pos).strip().lower() == selected_name.lower():
-                        selected_pos = pos
-                        break
-                else:
-                    for pos in range(self.camera_device_combo.count()):
-                        if not self._is_virtual_camera_name(self.camera_device_combo.itemText(pos)):
-                            selected_pos = pos
-                            break
-            else:
-                for pos in range(self.camera_device_combo.count()):
-                    if not self._is_virtual_camera_name(self.camera_device_combo.itemText(pos)):
-                        selected_pos = pos
-                        break
+        nome, indice = self.geral_tab.camera_atual()
+        self.estado.camera_indice = int(indice)
+        self.estado.camera_dispositivo = nome
 
-        self.camera_device_combo.setCurrentIndex(selected_pos)
-        selected_data = self.camera_device_combo.currentData()
-        if selected_data is not None:
-            camera_cfg["index"] = int(selected_data)
-        camera_cfg["device_name"] = self.camera_device_combo.currentText().strip()
-        self.camera_device_combo.blockSignals(False)
+    @staticmethod
+    def _preferir_fisica(entradas):
+        for nome, indice in entradas:
+            if not CameraMixin._is_virtual_camera_name(nome):
+                return indice
+        return entradas[0][1] if entradas else 0
 
-    def on_camera_changed(self, _value):
-        selected_index = self.camera_device_combo.currentData()
-        if selected_index is None:
-            selected_index = self.camera_device_combo.currentIndex()
-        self.estado.camera_indice = int(selected_index)
-        self.estado.camera_dispositivo = self.camera_device_combo.currentText().strip()
+    def _escolher_camera(self, entradas, indice_desejado, nome_desejado):
+        """Índice salvo primeiro; depois o nome; por último, a primeira câmera física."""
+        for _, indice in entradas:
+            if int(indice) == indice_desejado:
+                return indice
+
+        if nome_desejado:
+            for nome, indice in entradas:
+                if nome.strip().lower() == nome_desejado.lower():
+                    return indice
+
+        return self._preferir_fisica(entradas)
+
+    def on_camera_changed(self, indice_do_dispositivo):
+        nome, _ = self.geral_tab.camera_atual()
+        self.estado.camera_indice = int(indice_do_dispositivo)
+        self.estado.camera_dispositivo = nome
         self.aplicar_capacidades_da_camera()
 
     def on_resolution_changed(self, value):
@@ -133,98 +128,83 @@ class CameraMixin:
         # O teto de FPS varia por resolução, então a lista de FPS válidos muda junto.
         self.aplicar_capacidades_da_camera()
 
-    def aplicar_capacidades_da_camera(self):
-        """Desabilita na UI os modos que a câmera selecionada não oferece. Ver D-38.
+    FPS_OFERECIDOS = (30, 60)
 
-        Consulta o DirectShow a cada chamada (~170ms) em vez de guardar cache: capacidade
-        em cache envelhece mal — trocar de webcam com dado velho esconderia modos que
+    def aplicar_capacidades_da_camera(self):
+        """Diz à aba o que a câmera NÃO oferece. Ver D-38.
+
+        Consulta o sistema a cada chamada (~170ms) em vez de guardar cache: capacidade em
+        cache envelhece mal — trocar de webcam com dado velho esconderia modos que
         funcionam — e a consulta é barata o bastante para dispensar isso.
 
-        Se a consulta falhar, `capacidades()` devolve vazio e **tudo é reabilitado**. Um
+        Se a consulta falhar, `capacidades()` devolve vazio e **nada é desabilitado**. Um
         probe quebrado não pode trancar o usuário fora de opções que a câmera tem.
         """
-        camera_cfg = self.config.setdefault("camera", {})
-        modos = capacidades(camera_cfg.get("index", 0))
+        modos = capacidades(self.estado.camera_indice)
+        largura = int(self.estado.camera_largura)
+        altura = int(self.estado.camera_altura)
 
-        for rotulo, botao in self.resolution_buttons.items():
-            largura, altura = RESOLUTION_PRESETS[rotulo]
-            suportada = resolucao_suportada(modos, largura, altura)
-            botao.setEnabled(suportada)
-            botao.setToolTip(
-                "" if suportada else "Esta câmera não oferece esta resolução"
-            )
-
-        largura_atual = int(camera_cfg.get("width", 1280))
-        altura_atual = int(camera_cfg.get("height", 720))
-
-        for fps, botao in self.fps_buttons.items():
-            suportado = fps_suportado(modos, largura_atual, altura_atual, fps)
-            botao.setEnabled(suportado)
-            botao.setToolTip(
-                ""
-                if suportado
-                else f"Esta câmera não faz {fps} fps em {largura_atual}x{altura_atual}"
-            )
-
-        self._atualizar_aviso_de_camera(modos, largura_atual, altura_atual)
-
-    def _atualizar_aviso_de_camera(self, modos, largura, altura):
-        """Mostra a incompatibilidade numa faixa visível, não só no log. Ver D-39.
-
-        O log serve para histórico; para uma limitação permanente da câmera ele é o lugar
-        errado — some no scroll e o usuário fica tentando o mesmo valor sem entender por
-        que o botão está cinza.
-        """
-        aviso = self.geral_tab.camera_aviso
-        botao = self.geral_tab.usar_recomendado_button
-
-        if not modos:
-            aviso.setVisible(False)
-            botao.setVisible(False)
-            return
-
-        problemas = []
-
-        indisponiveis = [
+        resolucoes_off = [
             rotulo
             for rotulo, (w, h) in RESOLUTION_PRESETS.items()
             if not resolucao_suportada(modos, w, h)
         ]
-        if indisponiveis:
-            problemas.append("sem " + ", ".join(sorted(indisponiveis)))
+        fps_off = [
+            fps
+            for fps in self.FPS_OFERECIDOS
+            if not fps_suportado(modos, largura, altura, fps)
+        ]
+
+        self.geral_tab.definir_capacidades(
+            resolucoes_off,
+            fps_off,
+            self._texto_do_aviso(modos, largura, altura, resolucoes_off),
+            self._preset_recomendado(modos) is not None,
+        )
+
+    def _texto_do_aviso(self, modos, largura, altura, resolucoes_off):
+        """A faixa de limite, em uma linha. Ver D-39, D-40 e D-45.
+
+        Vazio quando não há limite — e vazio também quando o probe falhou, porque aí não
+        sabemos de nada e afirmar seria pior que calar.
+
+        Sem o `⚠️`: neste app ele marca falha acionável, o mesmo glifo de "não foi possível
+        salvar as configurações". Aqui o texto é um fato do hardware, que o usuário não tem
+        como resolver (D-45).
+        """
+        if not modos:
+            return ""
+
+        problemas = []
+
+        if resolucoes_off:
+            problemas.append("sem " + ", ".join(sorted(resolucoes_off)))
 
         if resolucao_suportada(modos, largura, altura):
             teto = modos.get((largura, altura))
             sem_fps = [
-                f for f in self.fps_buttons if not fps_suportado(modos, largura, altura, f)
+                fps
+                for fps in self.FPS_OFERECIDOS
+                if not fps_suportado(modos, largura, altura, fps)
             ]
             if sem_fps and teto:
                 lista = "/".join(str(f) for f in sorted(sem_fps))
                 problemas.append(f"máx. {int(teto)} fps em {largura}x{altura}, não {lista}")
 
         if not problemas:
-            aviso.setVisible(False)
-        else:
-            # Uma linha, só o fato. O botão apagado e o tooltip já dizem o resto — repetir
-            # aqui era o excesso de texto que poluía o painel. Ver D-40.
-            # Sem o ⚠️: neste app ele marca falha acionável — é o mesmo glifo de "não foi
-            # possível salvar as configurações". Aqui o texto é um fato do hardware, que o
-            # usuário não tem como resolver. Ver D-45.
-            aviso.setText("Limites desta câmera: " + " · ".join(problemas))
-            aviso.setToolTip("As opções fora do alcance desta câmera ficam desabilitadas.")
-            aviso.setVisible(True)
+            return ""
 
-        botao.setVisible(self._preset_recomendado(modos) is not None)
+        return "Limites desta câmera: " + " · ".join(problemas)
 
     def _preset_recomendado(self, modos=None):
         """`modos` já em mãos evita um segundo probe de ~170ms no mesmo ciclo."""
         if modos is None:
-            modos = capacidades(self.config.get("camera", {}).get("index", 0))
+            modos = capacidades(self.estado.camera_indice)
         return preset_recomendado(
             modos,
-            self.config.get("modo", "automatico"),
+            self.estado.modo,
             list(RESOLUTION_PRESETS.values()),
-            sorted(self.fps_buttons),
+            sorted(self.FPS_OFERECIDOS),
         )
 
     def aplicar_preset_recomendado(self):
@@ -235,24 +215,18 @@ class CameraMixin:
             return
 
         largura, altura, fps = preset
-        camera_cfg = self.config.setdefault("camera", {})
-        camera_cfg["width"] = int(largura)
-        camera_cfg["height"] = int(altura)
-        camera_cfg["fps"] = int(fps)
+        self.estado.camera_largura = int(largura)
+        self.estado.camera_altura = int(altura)
+        self.estado.camera_fps = int(fps)
 
         rotulo = RESOLUTION_PRESETS_REVERSED.get((largura, altura))
-        for botoes, alvo in (
-            (self.resolution_buttons, rotulo),
-            (self.fps_buttons, int(fps)),
-        ):
-            for chave, botao in botoes.items():
-                botao.blockSignals(True)
-                botao.setChecked(chave == alvo)
-                botao.blockSignals(False)
+        if rotulo:
+            self.geral_tab.set_resolution(rotulo)
+        self.geral_tab.set_fps(int(fps))
 
         motivo = (
             "a imagem vai para o OBS, então vale a maior resolução"
-            if self.config.get("modo") == "automatico"
+            if self.estado.modo == "automatico"
             else "sem câmera virtual, acima de 720p não melhora a detecção e só custa CPU"
         )
         self._append_log(f"Configuração recomendada: {largura}x{altura} a {fps} fps — {motivo}.")

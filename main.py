@@ -12,6 +12,14 @@ Pública Geral GNU para mais detalhes: <https://www.gnu.org/licenses/>.
 
 import sys
 
+from PySide6.QtQuickControls2 import QQuickStyle
+
+# Antes de qualquer coisa do QtQuick, e antes do QApplication. "Basic" é o único estilo que
+# deixa sobrescrever `background` e `contentItem` dos controles; nos estilos nativos o Qt
+# ignora essas customizações, e voltaríamos ao problema do QSS — pedaços do controle vindo
+# da plataforma. Ver D-49.
+QQuickStyle.setStyle("Basic")
+
 from PySide6.QtWidgets import QApplication
 
 from core import config_store

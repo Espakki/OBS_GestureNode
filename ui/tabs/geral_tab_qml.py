@@ -5,20 +5,19 @@ QML. Para o `QTabWidget` ele é uma aba como qualquer outra — o que torna a mi
 incremental de verdade: uma aba por vez, com o app rodando o tempo todo, em vez de um
 "big bang" que só se prova no fim.
 
-Este arquivo expõe a **mesma API pública** que o `GeralTab` de Widgets (`set_mode`,
-`set_max_maos`, `set_resolution`, `set_fps`, `set_esqueleto`, `update_latency_badge`,
-`reset_latency_badge`). Assim os mixins existentes seguem funcionando sem saber o que mudou.
+Cumpre o mesmo `ui/tabs/geral_contrato.py` que a versão em Widgets, então a janela não sabe
+qual das duas está montada.
 
-Só que agora os `set_*` são quase todos **no-op**, e isso não é preguiça — é a diferença
-que se quer mostrar. Na versão Widgets eles empurravam valor para dentro do widget, e cada
-um precisava da guarda do D-41 para o `setChecked` não parecer um clique. Aqui a tela lê o
-estado por ligação viva: quando o estado muda, o botão muda sozinho. Não há o que empurrar,
-logo não há o que guardar.
+**Os `set_*` aqui são quase todos no-op, e isso é o ponto — não preguiça.** Na versão
+Widgets eles empurravam valor para dentro do widget, e cada um precisava da guarda do D-41
+para o `setChecked` não parecer um clique do usuário. Aqui a tela lê o estado por ligação
+viva: quando o estado muda, o botão muda sozinho. Não há o que empurrar, logo não há o que
+guardar. As 43 guardas resolviam um problema que, deste lado, não chega a existir.
 """
 
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtQuickWidgets import QQuickWidget
 
@@ -33,10 +32,30 @@ DIRETORIO_QML = Path(__file__).resolve().parent.parent / "qml"
 class GeralTabQml(QQuickWidget):
     """Hospeda `GeralTab.qml` e mantém a ponte viva."""
 
+    modoPedido = Signal(str)
+    maosPedidas = Signal(int)
+    resolucaoPedida = Signal(str)
+    fpsPedido = Signal(int)
+    cameraPedida = Signal(int)
+    esqueletoPedido = Signal(bool, bool)
+    recomendadoPedido = Signal()
+
     def __init__(self, estado, parent=None):
         super().__init__(parent)
 
+        self._estado = estado
+        self._entradas = []
         self.ponte = PonteGeral(estado, parent=self)
+
+        # A ponte fala em posição da lista; o contrato fala em índice do dispositivo. A
+        # tradução acontece aqui, num lugar só — trocá-los abre a câmera errada.
+        self.ponte.modoPedido.connect(self.modoPedido)
+        self.ponte.maosPedidas.connect(self.maosPedidas)
+        self.ponte.resolucaoPedida.connect(self.resolucaoPedida)
+        self.ponte.fpsPedido.connect(self.fpsPedido)
+        self.ponte.esqueletoPedido.connect(self.esqueletoPedido)
+        self.ponte.recomendadoPedido.connect(self.recomendadoPedido)
+        self.ponte.cameraPedida.connect(self._ao_pedir_camera)
 
         # `contextProperty` antes do `setSource`: o QML avalia as ligações ao carregar, e
         # uma `ponte` ausente nesse instante viraria erro em cada binding.
@@ -46,7 +65,7 @@ class GeralTabQml(QQuickWidget):
         # que declara o singleton `Tema`.
         self.engine().addImportPath(str(DIRETORIO_QML))
 
-        # O padrão é branco, e ele vaza nas bordas antes de o QML pintar. Ver D-49.
+        # O padrão do QQuickWidget é branco, e ele vaza nas bordas antes de o QML pintar.
         self.setClearColor(QColor("#0d0d0d"))
 
         self.setResizeMode(QQuickWidget.SizeRootObjectToView)
@@ -56,7 +75,11 @@ class GeralTabQml(QQuickWidget):
             for erro in self.errors():
                 logger.error("QML: %s", erro.toString())
 
-    # ------------------------------------------------------------------ API compatível
+    def _ao_pedir_camera(self, posicao):
+        if 0 <= posicao < len(self._entradas):
+            self.cameraPedida.emit(int(self._entradas[posicao][1]))
+
+    # ------------------------------------------------------------------ contrato
 
     def set_mode(self, modo):
         """No-op: o QML lê `ponte.modo` por ligação. Ver o cabeçalho do módulo."""
@@ -70,11 +93,37 @@ class GeralTabQml(QQuickWidget):
     def set_fps(self, valor):
         """No-op: ligado a `ponte.fps`."""
 
-    def set_esqueleto(self, preview, obs):
+    def set_esqueleto(self, no_preview, na_saida_obs):
         """No-op: ligado a `ponte.esqueletoPreview` e `ponte.esqueletoObs`."""
 
+    def definir_cameras(self, entradas, indice_do_dispositivo):
+        self._entradas = list(entradas)
+        posicao = 0
+        for i, (_, indice) in enumerate(self._entradas):
+            if int(indice) == int(indice_do_dispositivo):
+                posicao = i
+                break
+        self.ponte.definir_cameras([nome for nome, _ in self._entradas], posicao)
+
+    def camera_atual(self):
+        posicao = self.ponte.cameraSelecionada
+        if 0 <= posicao < len(self._entradas):
+            nome, indice = self._entradas[posicao]
+            return nome, int(indice)
+        return "", 0
+
+    def definir_capacidades(self, resolucoes_off, fps_off, aviso, tem_recomendacao):
+        self.ponte.definir_capacidades(resolucoes_off, fps_off, aviso, tem_recomendacao)
+
+    def definir_saude(self, linhas):
+        self.ponte.definir_saude(linhas)
+
+    def definir_controles_habilitados(self, ligado):
+        # Sem a engine parada não se troca resolução nem câmera; o QML lê isto por ligação.
+        self.ponte.definir_controles_habilitados(bool(ligado))
+
     def update_latency_badge(self, ms):
-        self.ponte.definir_latencia(f"Latência: {ms:.0f} ms")
+        self.ponte.definir_latencia(ms)
 
     def reset_latency_badge(self):
-        self.ponte.definir_latencia("Latência: aguardando...")
+        self.ponte.definir_latencia(None)

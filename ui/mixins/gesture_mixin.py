@@ -219,17 +219,18 @@ class GestureMixin:
         self._refresh_gesture_feature_visibility()
         self._sincronizar_engine()
 
-    def on_show_skeleton_changed(self, checked):
-        self.estado.mostrar_esqueleto = bool(checked)
+    def on_esqueleto_changed(self, no_preview, na_saida_obs):
+        """Os dois toggles de esqueleto, aplicados na hora. Ver D-26.
 
-    def on_skeleton_vcam_changed(self, checked):
-        self.estado.esqueleto_na_vcam = bool(checked)
+        Os valores vêm no sinal, não de uma leitura de widget: é o que permite a mesma
+        função servir às duas implementações da aba.
+        """
+        self.estado.mostrar_esqueleto = bool(no_preview)
+        self.estado.esqueleto_na_vcam = bool(na_saida_obs)
+        self._sincronizar_engine()
 
     def on_dynamic_setting_changed(self, *_):
-        """Ajustes que valem na hora, sem reiniciar a captura."""
-        self.estado.mostrar_esqueleto = self.esqueleto_preview_button.isChecked()
-        self.estado.esqueleto_na_vcam = self.esqueleto_obs_button.isChecked()
-
+        """Tempo e cooldown do gesto atual, sem reiniciar a captura."""
         self.estado.definir_binding(
             self.current_gesture,
             hold_time=self.hold_slider.value() / 10,

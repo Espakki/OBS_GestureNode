@@ -16,14 +16,6 @@ que é o que uma camada de apresentação deve fazer.
 
 from core.estado_runtime import EstadoCamera, EstadoEngine, EstadoOBS, Saude, aplicar
 
-# Um tom por severidade. Mesma paleta do resto do tema.
-CORES = {
-    "ok": "#22c55e",
-    "warn": "#f59e0b",
-    "error": "#ef4444",
-    "idle": "#94a3b8",
-}
-
 # Cada estado vira (severidade, texto). Tabela em vez de cadeia de `if`: acrescentar um
 # estado passa a ser uma linha, e esquecer um vira KeyError na hora, não silêncio.
 APARENCIA_CAMERA = {
@@ -54,17 +46,12 @@ class HealthMixin:
         self.saude = aplicar(self.saude, evento, detalhe)
         self._refresh_health_panels()
 
-    def _set_health_label(self, label_widget, titulo, severidade, detalhe):
-        cor = CORES.get(severidade, CORES["idle"])
-        label_widget.setText(f"● {titulo}: {detalhe}")
-        label_widget.setStyleSheet(f"color: {cor}; font-weight: 600;")
-
     def _detalhe_da_camera(self):
         severidade, texto = APARENCIA_CAMERA[self.saude.camera]
 
         if self.saude.camera is EstadoCamera.PARADA:
-            nome = self.camera_device_combo.currentText() or "Câmera"
-            return severidade, f"Pronta ({nome})"
+            nome, _ = self.geral_tab.camera_atual()
+            return severidade, f"Pronta ({nome or 'Câmera'})"
 
         # O detalhe que veio da engine é mais específico que o rótulo genérico — é ele que
         # diz *qual* limite ou *qual* falha.
@@ -83,21 +70,23 @@ class HealthMixin:
         return APARENCIA_OBS[self.saude.obs]
 
     def _refresh_health_panels(self):
-        modo = self.estado.modo
-
-        severidade, detalhe = self._detalhe_da_camera()
-        self._set_health_label(self.health_camera, "Câmera", severidade, detalhe)
-
-        severidade, detalhe = self._severidade_do_obs(modo)
-        self._set_health_label(self.health_obs, "OBS", severidade, detalhe)
+        """Monta as três linhas e entrega. Quem pinta é a aba — ver `geral_contrato`."""
+        severidade_camera, detalhe_camera = self._detalhe_da_camera()
+        severidade_obs, detalhe_obs = self._severidade_do_obs(self.estado.modo)
 
         ativos = self.estado.gestos_ativos
-        if not ativos:
-            self._set_health_label(self.health_gestos, "Gestos", "warn", "Nenhum gesto ativo")
+        if ativos:
+            gestos = ("ok", f"{len(ativos)} gesto(s) ativos")
         else:
-            self._set_health_label(
-                self.health_gestos, "Gestos", "ok", f"{len(ativos)} gesto(s) ativos"
-            )
+            gestos = ("warn", "Nenhum gesto ativo")
+
+        self.geral_tab.definir_saude(
+            [
+                ("Câmera", severidade_camera, detalhe_camera),
+                ("OBS", severidade_obs, detalhe_obs),
+                ("Gestos", gestos[0], gestos[1]),
+            ]
+        )
 
     def marcar_obs(self, estado, detalhe=""):
         """O teste manual de conexão não passa pela engine, mas alimenta a mesma saúde."""

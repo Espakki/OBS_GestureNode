@@ -98,11 +98,7 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         super().closeEvent(event)
 
     def set_config_enabled(self, enabled):
-        self.camera_device_combo.setEnabled(enabled)
-        for button in self.resolution_buttons.values():
-            button.setEnabled(enabled)
-        for button in self.fps_buttons.values():
-            button.setEnabled(enabled)
+        self.geral_tab.definir_controles_habilitados(enabled)
 
     def update_frame(self, frame):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

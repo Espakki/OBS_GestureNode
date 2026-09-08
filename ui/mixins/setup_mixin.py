@@ -11,10 +11,36 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import os
+
 from ui import vinculo
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
 from ui.tabs.obs_tab import OBSTab
+from util.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+def _construir_aba_geral(estado):
+    """A aba Geral é QML por padrão. `GESTURENODE_UI=widgets` volta à antiga. Ver D-49.
+
+    A saída de emergência existe porque a versão QML é nova e só se prova em uso: se ela
+    falhar na máquina de alguém, esse alguém precisa de um caminho para continuar
+    trabalhando que não seja editar código. As duas cumprem `ui/tabs/geral_contrato.py`,
+    então nada além desta função sabe qual está montada.
+    """
+    if os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets":
+        return GeralTab(estado)
+
+    try:
+        from ui.tabs.geral_tab_qml import GeralTabQml
+
+        return GeralTabQml(estado)
+    except Exception:
+        # Um QtQuick indisponível não pode impedir o app de abrir — a aba antiga serve.
+        logger.exception("Falha ao carregar a aba Geral em QML; usando a de Widgets")
+        return GeralTab(estado)
 
 
 class SetupMixin:
@@ -36,7 +62,7 @@ class SetupMixin:
         self.tabs = QTabWidget()
         left_layout.addWidget(self.tabs)
 
-        self.geral_tab = GeralTab()
+        self.geral_tab = _construir_aba_geral(self.estado)
         self.gestos_tab = GestosTab()
         self.obs_tab = OBSTab()
 
@@ -44,21 +70,9 @@ class SetupMixin:
         self.tabs.addTab(self.gestos_tab, "Gestos")
         self.tabs.addTab(self.obs_tab, "OBS")
 
-        self.mode_test_button = self.geral_tab.mode_test_button
-        self.mode_manual_button = self.geral_tab.mode_manual_button
-        self.mode_auto_button = self.geral_tab.mode_auto_button
-        self.maos_1_button = self.geral_tab.maos_1_button
-        self.maos_2_button = self.geral_tab.maos_2_button
-        self.esqueleto_preview_button = self.geral_tab.esqueleto_preview_button
-        self.esqueleto_obs_button = self.geral_tab.esqueleto_obs_button
-        self.camera_device_combo = self.geral_tab.camera_device_combo
-        self.resolution_buttons = self.geral_tab.resolution_buttons
-        self.fps_buttons = self.geral_tab.fps_buttons
-        self.health_camera = self.geral_tab.health_camera
-        self.health_obs = self.geral_tab.health_obs
-        self.health_gestos = self.geral_tab.health_gestos
+        # Os aliases da aba Geral saíram: ela agora fala pelo contrato, e alcançar os
+        # widgets dela era justamente o que amarrava a janela a uma implementação.
         self.grid_layout = self.gestos_tab.grid_layout
-        self.usar_recomendado_button = self.geral_tab.usar_recomendado_button
         self.choose_gestures_button = self.gestos_tab.choose_gestures_button
         self.selected_gesture_label = self.gestos_tab.selected_gesture_label
         self.hold_slider = self.gestos_tab.hold_slider
@@ -82,22 +96,14 @@ class SetupMixin:
         self.test_obs_button = self.obs_tab.test_obs_button
         self.obs_status_label = self.obs_tab.obs_status_label
 
-        self.mode_test_button.toggled.connect(lambda checked: self.on_modo_changed("teste") if checked else None)
-        self.mode_manual_button.toggled.connect(lambda checked: self.on_modo_changed("manual") if checked else None)
-        self.mode_auto_button.toggled.connect(lambda checked: self.on_modo_changed("automatico") if checked else None)
-        self.maos_1_button.toggled.connect(lambda checked: self.on_max_maos_changed(1) if checked else None)
-        self.maos_2_button.toggled.connect(lambda checked: self.on_max_maos_changed(2) if checked else None)
-        self.esqueleto_preview_button.toggled.connect(self.on_show_skeleton_changed)
-        self.esqueleto_preview_button.toggled.connect(self.on_dynamic_setting_changed)
-        self.esqueleto_obs_button.toggled.connect(self.on_skeleton_vcam_changed)
-        self.esqueleto_obs_button.toggled.connect(self.on_dynamic_setting_changed)
-        self.camera_device_combo.currentIndexChanged.connect(self.on_camera_changed)
-        for label, button in self.resolution_buttons.items():
-            button.toggled.connect(lambda checked, value=label: self.on_resolution_changed(value) if checked else None)
-        for fps_value, button in self.fps_buttons.items():
-            button.toggled.connect(lambda checked, value=fps_value: self.on_fps_changed(value) if checked else None)
-
-        self.usar_recomendado_button.clicked.connect(self.aplicar_preset_recomendado)
+        # A aba Geral fala por intenção, não por widget. Ver `ui/tabs/geral_contrato.py`.
+        self.geral_tab.modoPedido.connect(self.on_modo_changed)
+        self.geral_tab.maosPedidas.connect(self.on_max_maos_changed)
+        self.geral_tab.resolucaoPedida.connect(self.on_resolution_changed)
+        self.geral_tab.fpsPedido.connect(self.on_fps_changed)
+        self.geral_tab.cameraPedida.connect(self.on_camera_changed)
+        self.geral_tab.esqueletoPedido.connect(self.on_esqueleto_changed)
+        self.geral_tab.recomendadoPedido.connect(self.aplicar_preset_recomendado)
         self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
         # O espelho slider↔spin sai daqui: `vinculo.espelhar` faz o que os quatro
         # handlers `on_*_changed` faziam, com a guarda de sinais num lugar só. Ver D-47.

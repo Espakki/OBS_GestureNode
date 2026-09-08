@@ -53,7 +53,7 @@ class PonteGeral(QObject):
     resolucaoPedida = Signal(str)
     fpsPedido = Signal(int)
     cameraPedida = Signal(int)
-    esqueletoPedido = Signal()
+    esqueletoPedido = Signal(bool, bool)
     recomendadoPedido = Signal()
 
     def __init__(self, estado, parent=None):
@@ -67,7 +67,9 @@ class PonteGeral(QObject):
         self._aviso = ""
         self._tem_recomendacao = False
         self._latencia = "Latência: aguardando..."
+        self._cor_latencia = "#a0a0a0"
         self._saude = []
+        self._controles_habilitados = True
 
         # É isto que faz a tela seguir o estado sem ninguém empurrar.
         self._cancelar = estado.escutar(self._ao_mudar_estado)
@@ -148,9 +150,33 @@ class PonteGeral(QObject):
     def latencia(self):
         return self._latencia
 
-    def definir_latencia(self, texto):
-        self._latencia = texto
+    @Property(str, notify=latenciaMudou)
+    def corDaLatencia(self):
+        return self._cor_latencia
+
+    def definir_latencia(self, ms):
+        """`None` volta ao estado de espera. As faixas são as mesmas da versão Widgets."""
+        if ms is None:
+            self._latencia = "Latência: aguardando..."
+            self._cor_latencia = "#a0a0a0"
+        else:
+            if ms <= 33:
+                cor, rotulo = "#22c55e", "Ótima"
+            elif ms <= 66:
+                cor, rotulo = "#f59e0b", "Boa"
+            else:
+                cor, rotulo = "#ef4444", "Lenta"
+            self._latencia = f"⚡ Latência de processamento: {ms:.0f}ms — {rotulo}"
+            self._cor_latencia = cor
         self.latenciaMudou.emit()
+
+    @Property(bool, notify=mudou)
+    def controlesHabilitados(self):
+        return self._controles_habilitados
+
+    def definir_controles_habilitados(self, ligado):
+        self._controles_habilitados = bool(ligado)
+        self.mudou.emit()
 
     @Property(list, notify=saudeMudou)
     def saude(self):
@@ -193,12 +219,16 @@ class PonteGeral(QObject):
     @Slot(bool)
     def alternarEsqueletoPreview(self, ligado):
         self._estado.mostrar_esqueleto = bool(ligado)
-        self.esqueletoPedido.emit()
+        self.esqueletoPedido.emit(
+            self._estado.mostrar_esqueleto, self._estado.esqueleto_na_vcam
+        )
 
     @Slot(bool)
     def alternarEsqueletoObs(self, ligado):
         self._estado.esqueleto_na_vcam = bool(ligado)
-        self.esqueletoPedido.emit()
+        self.esqueletoPedido.emit(
+            self._estado.mostrar_esqueleto, self._estado.esqueleto_na_vcam
+        )
 
     @Slot()
     def aplicarRecomendado(self):

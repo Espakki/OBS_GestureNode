@@ -118,6 +118,7 @@ Item {
                 SeletorDeCamera {
                     model: ponte.cameras
                     currentIndex: ponte.cameraSelecionada
+                    enabled: ponte.controlesHabilitados
                     onActivated: (indice) => ponte.escolherCamera(indice)
                 }
             }
@@ -220,7 +221,8 @@ Item {
                             required property string modelData
                             text: modelData
                             checked: ponte.resolucao === modelData
-                            enabled: !ponte.resolucoesIndisponiveis.includes(modelData)
+                            enabled: ponte.controlesHabilitados
+                                     && !ponte.resolucoesIndisponiveis.includes(modelData)
                             onClicked: ponte.escolherResolucao(modelData)
                             ToolTip.text: enabled
                                 ? "Define resolução do preview e da captura para " + modelData + "."
@@ -239,7 +241,8 @@ Item {
                             required property int modelData
                             text: modelData
                             checked: ponte.fps === modelData
-                            enabled: !ponte.fpsIndisponiveis.includes(modelData)
+                            enabled: ponte.controlesHabilitados
+                                     && !ponte.fpsIndisponiveis.includes(modelData)
                             onClicked: ponte.escolherFps(modelData)
                             ToolTip.text: enabled
                                 ? "Define a taxa de quadros para " + modelData + " FPS."
@@ -261,8 +264,9 @@ Item {
             Text {
                 Layout.fillWidth: true
                 text: ponte.latencia
-                color: "#a0a0a0"
+                color: ponte.corDaLatencia
                 font.pixelSize: Tema.fonteSecundaria
+                Behavior on color { ColorAnimation { duration: 200 } }
             }
 
             Repeater {
