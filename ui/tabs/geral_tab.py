@@ -143,13 +143,17 @@ class GeralTab(QWidget):
         self.camera_aviso.setObjectName("cameraAviso")
         self.camera_aviso.setWordWrap(True)
         self.camera_aviso.setVisible(False)
+        # Paleta neutra do tema (fundo de card, borda padrão, texto secundário) e não a
+        # âmbar de alerta que estava aqui. A faixa informa um fato do hardware, não uma
+        # falha: o âmbar é reservado ao que o usuário precisa resolver. Ver D-45.
         self.camera_aviso.setStyleSheet(
             "QLabel#cameraAviso {"
-            " background-color: #3a2e12;"
-            " border: 1px solid #8a6d1f;"
+            " background-color: #161616;"
+            " border: 1px solid #2d2d2d;"
             " border-radius: 6px;"
             " padding: 10px;"
-            " color: #ffd479; }"
+            " font-size: 14px;"
+            " color: #a0a0a0; }"
         )
         layout.addWidget(self.camera_aviso)
 

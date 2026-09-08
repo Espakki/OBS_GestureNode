@@ -210,11 +210,11 @@ class CameraMixin:
         else:
             # Uma linha, só o fato. O botão apagado e o tooltip já dizem o resto — repetir
             # aqui era o excesso de texto que poluía o painel. Ver D-40.
-            aviso.setText("⚠️ Limite da sua câmera: " + " · ".join(problemas))
-            aviso.setToolTip(
-                "As opções fora do alcance da câmera ficam desabilitadas. "
-                "Não é erro do app."
-            )
+            # Sem o ⚠️: neste app ele marca falha acionável — é o mesmo glifo de "não foi
+            # possível salvar as configurações". Aqui o texto é um fato do hardware, que o
+            # usuário não tem como resolver. Ver D-45.
+            aviso.setText("Limites desta câmera: " + " · ".join(problemas))
+            aviso.setToolTip("As opções fora do alcance desta câmera ficam desabilitadas.")
             aviso.setVisible(True)
 
         botao.setVisible(self._preset_recomendado(modos) is not None)
