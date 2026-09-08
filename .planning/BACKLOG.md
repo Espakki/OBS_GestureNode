@@ -58,17 +58,26 @@ motivo concreto (o que exatamente o PySide6 está impedindo?) antes de virar pla
 
 ## Fase I — Port para Linux
 
-_B-22 fechado em `0ab76f5`._
+_B-22 fechado em `0ab76f5`, B-23 em `f34fe59`._
 
-### B-23 · Implementação Linux · **G** · depende de B-22
+### B-26 · Executar o app num Linux de verdade · **M** · precisa de máquina Linux
 
-Preencher a interface do B-22. **Não dá para fazer daqui**: exige máquina ou VM Linux para
-qualquer verificação — e a lição desta semana é que câmera e entrada de teclado só se
-provam no hardware real.
+O código do B-23 está escrito e testado na forma do comando, **nunca no efeito**. Os mapas
+de keycode saíram do `input-event-codes.h` e jamais encostaram num kernel. Enquanto isso
+não acontecer, o Linux é "escrito, não verificado" — e o projeto já pagou uma vez para
+aprender que câmera e injeção de tecla só se provam no hardware. Ver D-46.
 
-**Decidir antes:** X11, Wayland, ou os dois? A diferença não é detalhe — no Wayland, injetar
-teclas exige `ydotool` com daemon e permissão, enquanto no X11 o `xdotool` resolve direto.
-Suportar os dois quase dobra o trabalho da parte mais cara.
+**O que verificar, em ordem:**
+1. `pip install -r requirements.txt` completa (era o que o `pygrabber` sem marcador quebrava)
+2. O app abre e a webcam aparece no preview via `/dev/video0`
+3. Um atalho chega ao OBS — testar no X11 **e** no Wayland, que usam injetores diferentes
+4. O som toca
+5. Câmera virtual: exige o módulo `v4l2loopback` carregado, o que é configuração de máquina
+
+**Achado provável, não bug:** a listagem de câmeras usa `QMediaDevices`, que é portável,
+mas o filtro de capacidades depende do `pygrabber` e vai falhar em aberto no Linux — o app
+oferece todas as resoluções e descobre o limite falhando. É o comportamento projetado
+(D-38), não uma regressão.
 
 ---
 

@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-08
-**Branch:** `main` · **Último commit de código:** `13ee25c`
+**Branch:** `main` · **Último commit de código:** `f34fe59`
 
 > Este campo aponta o último commit que mexeu em **código** — commits só de documentação
 > não o movem. Como referência ao próprio commit que o edita, ele já se corrompeu duas vezes.
@@ -15,7 +15,7 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue, com 203 testes automatizados cobrindo detector, estabilidade,
+operação) está entregue, com 229 testes automatizados cobrindo detector, estabilidade,
 despacho por mão e caminhos de config.
 
 **Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
@@ -64,6 +64,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Docs | `c0a7a4a` | LICENSE (MIT) e README reescrito |
 | Release prep | `44c5ef6` | LICENSE GPL-3.0, README, CHANGELOG, build 774→480 MB |
 | Plataforma | `0ab76f5` | `plataforma/` isola o SO; testes de atalho migrados — B-22 |
+| Plataforma | `f34fe59` | `_linux.py`: xdotool/wtype/ydotool + som — B-23 (D-46) |
 | UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
 
 ---
@@ -74,7 +75,8 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
 1. **B-24 — Obrigações de LGPL/GPL no pacote.** Pequeno, e é o que falta para publicar o
    binário.
-2. **B-23 — Implementação Linux.** Precisa de máquina Linux; a interface já existe (D-42).
+2. **B-26 — Executar o app num Linux de verdade.** O código do B-23 existe e passa nos
+   testes, mas nunca rodou. Precisa de máquina ou VM Linux.
 
 ---
 
@@ -84,8 +86,12 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
   `C:\Users\wini\AppData\Local\Programs\Python\Python310`, `.venv/` recriado do zero e
   validado. O `venv/` antigo, que apontava para `C:\Users\Computer\...` (outro PC), foi
   apagado — junto com ele se perderam os pins que funcionavam na máquina anterior.
-- **Nada bloqueando.** Código-fonte e `.exe` empacotado (480 MB, já pós-corte do B-10)
-  validados. O B-10 dependia desse baseline de "funciona" e agora o tem.
+- **Nada bloqueando no Windows.** Código-fonte e `.exe` empacotado (480 MB, já pós-corte
+  do B-10) validados. O B-10 dependia desse baseline de "funciona" e agora o tem.
+- **O Linux está escrito e não verificado.** `plataforma/_linux.py` existe, escolhe o
+  injetor pela sessão gráfica e passa em 26 testes — que cobrem a **forma do comando**, não
+  o efeito dele. Nunca foi executado em Linux. Não conte como entregue ao usuário até o
+  B-26. Ver D-46.
 
 ---
 

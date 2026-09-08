@@ -205,6 +205,64 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-46 · Linux não escolhe entre X11 e Wayland: tenta os injetores em ordem**
+*2026-09-08 · B-23 · commit `f34fe59`*
+
+O backlog do B-23 mandava **decidir antes**: X11, Wayland, ou os dois — anotando que
+suportar os dois "quase dobra o trabalho da parte mais cara". Não escolhi nenhum dos dois,
+e a razão é que a pergunta tinha uma premissa falsa.
+
+**Nenhuma das duas opções cobre os usuários sozinha.** No X11, qualquer cliente pode falar
+com o servidor e o `xdotool` resolve direto. No Wayland isso foi fechado por design, e
+sobram dois caminhos incompatíveis entre si: o protocolo de teclado virtual, que o `wtype`
+usa e que **GNOME e KDE não implementam**, ou o `uinput` do kernel, que o `ydotool` usa e
+que funciona em qualquer sessão — ao custo de um daemon rodando e permissão no dispositivo.
+Escolher só X11 deixaria de fora as distros mais recentes; escolher só Wayland via `wtype`
+deixaria de fora justamente os dois desktops mais usados.
+
+**A saída foi uma lista ordenada em vez de uma escolha.** `sessao_grafica()` lê o
+`XDG_SESSION_TYPE`, com as variáveis de display como plano B, e `backends_preferidos()`
+devolve a ordem: X11 → `xdotool`, `ydotool`; Wayland → `wtype`, `ydotool`; desconhecida →
+os três. O `ydotool` é sempre o último porque é o que cobra algo do usuário.
+
+**Um backend que falha não encerra a tentativa** — e isso não é robustez decorativa, é o
+caso principal: no Wayland do GNOME o `wtype` está instalado e **sai com erro**, porque o
+compositor não implementa o protocolo. Se a primeira falha abortasse, o GNOME nunca
+chegaria no `ydotool`, que é o que funciona lá.
+
+**Não dobrou o trabalho.** A previsão do backlog partia de "dois caminhos independentes",
+mas os três backends compartilham só dois mapas de tecla: um de keysym do X11, que
+`xdotool` e `wtype` usam igual, e um de código do kernel, que só o `ydotool` precisa. O
+custo real foi o segundo mapa, não um port inteiro a mais.
+
+**`_linux.py` importa em qualquer sistema, de propósito.** Ele não toca em API nativa — só
+monta linha de comando e chama `subprocess`. Isso é o oposto do `_windows.py`, que só pode
+ser importado no Windows, e é deliberado: deixa a lógica toda (detecção de sessão, ordem
+dos backends, mapas de tecla, montagem do comando) coberta por teste automatizado rodando
+**na única máquina que este projeto tem**, que é Windows. Foram 26 testes, validados por
+mutação: 9 alterações no módulo, 9 pegas.
+
+**O que os testes não provam, e precisa ficar claro:** que o comando montado funciona. A
+forma da linha de comando está fixada; o efeito dela, não. Os mapas de keycode foram
+escritos a partir do `input-event-codes.h` e nunca confrontados com um kernel. Enquanto
+ninguém rodar em Linux real, o correto é dizer **"escrito, não verificado"** — o projeto já
+levou essa lição uma vez com câmera e entrada de teclado.
+
+**Paridade é testada, não torcida.** Um teste exige que toda tecla do `VK_NOMEADAS` do
+Windows tenha keysym e keycode no Linux. O `config.json` é o mesmo arquivo nos dois
+sistemas, então um atalho configurado no Windows atravessa para o Linux — sem a paridade,
+ele viraria silêncio em vez de erro.
+
+**Efeito colateral corrigido junto:** o `requirements.txt` instalava `pygrabber==0.2` sem
+marcador. Ele fala DirectShow via `comtypes` e não existe fora do Windows, então
+`pip install -r requirements.txt` quebrava no Linux antes de o app sequer subir. Agora é
+`; sys_platform == "win32"`. Quem consome já tratava a ausência com fail-open (D-38), então
+no Linux o app roda sem o filtro de capacidades da câmera — degrada, não quebra.
+
+**Ainda fora do alcance desta decisão:** a câmera virtual. O `pyvirtualcam` no Linux exige o
+módulo `v4l2loopback` carregado, o que é configuração de máquina e não de código. Sem ele,
+o modo automático não tem para onde enviar o vídeo.
+
 **D-45 · A faixa de limite da câmera é informação, e não pode falar como falha**
 *2026-09-08 · B-25 · achado do dono na validação do `.exe`*
 
