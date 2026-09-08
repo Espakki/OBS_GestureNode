@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-08
-**Branch:** `main` · **Último commit de código:** `f34fe59`
+**Branch:** `main` · **Último commit de código:** `4b9a9cb`
 
 > Este campo aponta o último commit que mexeu em **código** — commits só de documentação
 > não o movem. Como referência ao próprio commit que o edita, ele já se corrompeu duas vezes.
@@ -15,8 +15,12 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue, com 229 testes automatizados cobrindo detector, estabilidade,
-despacho por mão e caminhos de config.
+operação) está entregue, com 240 testes automatizados cobrindo detector, estabilidade,
+despacho por mão, caminhos de config e tradução de atalho.
+
+**A interface é QML desde 2026-09-08** (D-49). A implementação em Qt Widgets continua no
+repositório e volta com `GESTURENODE_UI=widgets`, como rede enquanto o QML não rodar no
+pacote.
 
 **Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
 2026-09-04 — conexão OBS, VCam em resolução nativa, esqueleto na saída, joinha, duas mãos
@@ -65,6 +69,13 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Release prep | `44c5ef6` | LICENSE GPL-3.0, README, CHANGELOG, build 774→480 MB |
 | Plataforma | `0ab76f5` | `plataforma/` isola o SO; testes de atalho migrados — B-22 |
 | Plataforma | `f34fe59` | `_linux.py`: xdotool/wtype/ydotool + som — B-23 (D-46) |
+| Arquitetura | `66da7f0` | Estado sai da UI: `core/estado_app.py` e amigos (D-47, D-48) |
+| UI | `afac56b` | Aba Geral em QML, atrás de um contrato (D-49) |
+| UI | `2c8ffac` | Barra de rolagem própria; aba OBS em QML |
+| Atalhos | `e371776` | Tradução de tecla extraída; teste do AltGr corrigido (D-50) |
+| UI | `89c7386` | Aba Gestos em QML — as três abas migradas |
+| Build | `247ef41` | `.qml` no pacote; queda para Widgets visível e sem vazamento |
+| Release | `4b9a9cb` | `version.py`, aba Sobre com licenças, D-47 a D-51 |
 | UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
 
 ---
@@ -73,10 +84,12 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **B-24 — Obrigações de LGPL/GPL no pacote.** Pequeno, e é o que falta para publicar o
-   binário.
-2. **B-26 — Executar o app num Linux de verdade.** O código do B-23 existe e passa nos
-   testes, mas nunca rodou. Precisa de máquina ou VM Linux.
+1. **Construir o `.exe` com a interface nova.** É a validação que falta: os `.qml` agora
+   entram no pacote (`247ef41`), mas isso nunca foi exercitado num build de verdade.
+2. **B-27 — Licença do `pyvirtualcam`.** Pode travar o release público. Verificar antes de
+   investir em qualquer outra coisa de publicação.
+3. **B-26 — Executar o app num Linux de verdade.** Precisa de máquina ou VM Linux.
+4. **B-28 — Aviso de atualização** comparando com o último release do GitHub.
 
 ---
 
@@ -86,8 +99,11 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
   `C:\Users\wini\AppData\Local\Programs\Python\Python310`, `.venv/` recriado do zero e
   validado. O `venv/` antigo, que apontava para `C:\Users\Computer\...` (outro PC), foi
   apagado — junto com ele se perderam os pins que funcionavam na máquina anterior.
-- **Nada bloqueando no Windows.** Código-fonte e `.exe` empacotado (480 MB, já pós-corte
-  do B-10) validados. O B-10 dependia desse baseline de "funciona" e agora o tem.
+- **Nada bloqueando no Windows para rodar do código-fonte.** Validado com a interface QML.
+- **O `.exe` atual (de 2026-09-04) é anterior à migração de UI.** Um build novo é a próxima
+  verificação, e nele mora o risco que o `247ef41` endereçou: sem os `.qml` no pacote, o app
+  cairia para a interface antiga. Agora isso aparece no log da janela em vez de acontecer em
+  silêncio.
 - **O Linux está escrito e não verificado.** `plataforma/_linux.py` existe, escolhe o
   injetor pela sessão gráfica e passa em 26 testes — que cobrem a **forma do comando**, não
   o efeito dele. Nunca foi executado em Linux. Não conte como entregue ao usuário até o
