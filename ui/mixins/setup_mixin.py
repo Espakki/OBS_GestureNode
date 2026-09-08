@@ -22,6 +22,23 @@ from util.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _usar_widgets():
+    return os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets"
+
+
+def _construir_aba_obs(estado):
+    """Mesma escolha e mesma rede de segurança da aba Geral."""
+    if _usar_widgets():
+        return OBSTab(estado)
+    try:
+        from ui.tabs.obs_tab_qml import ObsTabQml
+
+        return ObsTabQml(estado)
+    except Exception:
+        logger.exception("Falha ao carregar a aba OBS em QML; usando a de Widgets")
+        return OBSTab(estado)
+
+
 def _construir_aba_geral(estado):
     """A aba Geral é QML por padrão. `GESTURENODE_UI=widgets` volta à antiga. Ver D-49.
 
@@ -30,7 +47,7 @@ def _construir_aba_geral(estado):
     trabalhando que não seja editar código. As duas cumprem `ui/tabs/geral_contrato.py`,
     então nada além desta função sabe qual está montada.
     """
-    if os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets":
+    if _usar_widgets():
         return GeralTab(estado)
 
     try:
@@ -64,7 +81,7 @@ class SetupMixin:
 
         self.geral_tab = _construir_aba_geral(self.estado)
         self.gestos_tab = GestosTab()
-        self.obs_tab = OBSTab()
+        self.obs_tab = _construir_aba_obs(self.estado)
 
         self.tabs.addTab(self.geral_tab, "Geral")
         self.tabs.addTab(self.gestos_tab, "Gestos")
@@ -90,11 +107,6 @@ class SetupMixin:
         self.hotkey_edit = self.gestos_tab.hotkey_edit
         self.browse_sound_button = self.gestos_tab.browse_sound_button
 
-        self.obs_host = self.obs_tab.obs_host
-        self.obs_port = self.obs_tab.obs_port
-        self.obs_password = self.obs_tab.obs_password
-        self.test_obs_button = self.obs_tab.test_obs_button
-        self.obs_status_label = self.obs_tab.obs_status_label
 
         # A aba Geral fala por intenção, não por widget. Ver `ui/tabs/geral_contrato.py`.
         self.geral_tab.modoPedido.connect(self.on_modo_changed)
@@ -129,10 +141,9 @@ class SetupMixin:
         self.hotkey_edit.hotkeyCommitted.connect(self.on_current_gesture_changed)
         self.browse_sound_button.clicked.connect(self.select_sound_file)
 
-        self.obs_host.textChanged.connect(self.on_obs_changed)
-        self.obs_port.valueChanged.connect(self.on_obs_changed)
-        self.obs_password.textChanged.connect(self.on_obs_changed)
-        self.test_obs_button.clicked.connect(self.testar_conexao_obs)
+        # A aba OBS também fala por intenção.
+        self.obs_tab.credenciaisMudaram.connect(self.on_obs_changed)
+        self.obs_tab.testePedido.connect(self.testar_conexao_obs)
 
         right_panel = QFrame()
         right_panel.setObjectName("card")

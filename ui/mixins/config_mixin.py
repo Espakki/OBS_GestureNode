@@ -49,9 +49,7 @@ class ConfigMixin:
         self.geral_tab.set_fps(estado.camera_fps)
         self.geral_tab.set_esqueleto(estado.mostrar_esqueleto, estado.esqueleto_na_vcam)
 
-        self.obs_host.setText(estado.obs_host)
-        self.obs_port.setValue(estado.obs_porta)
-        self.obs_password.setText(estado.obs_senha)
+        # A aba OBS lê as credenciais do estado por ligação; nada a empurrar aqui.
 
         # Depois de os botões refletirem o estado, filtra o que a câmera não oferece.
         self.aplicar_capacidades_da_camera()

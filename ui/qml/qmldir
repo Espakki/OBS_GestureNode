@@ -4,3 +4,7 @@ SeletorDeCamera 1.0 SeletorDeCamera.qml
 LinhaDeCampo 1.0 LinhaDeCampo.qml
 FaixaInfo 1.0 FaixaInfo.qml
 GeralTab 1.0 GeralTab.qml
+PainelRolavel 1.0 PainelRolavel.qml
+CampoDeTexto 1.0 CampoDeTexto.qml
+BotaoAcao 1.0 BotaoAcao.qml
+ObsTab 1.0 ObsTab.qml

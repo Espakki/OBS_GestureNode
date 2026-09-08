@@ -18,9 +18,13 @@ class OBSMixin:
         self._refresh_health_panels()
 
     def on_obs_changed(self):
-        self.estado.obs_host = self.obs_host.text().strip()
-        self.estado.obs_porta = int(self.obs_port.value())
-        self.estado.obs_senha = self.obs_password.text()
+        """As credenciais já foram gravadas pela aba; aqui só o efeito colateral.
+
+        Trocar host ou porta invalida uma conexão testada antes — deixar o status verde
+        seria mentir sobre um endereço que ninguém tentou.
+        """
+        if self.saude.obs is EstadoOBS.CONECTADO:
+            self.marcar_obs(EstadoOBS.NAO_TESTADO)
 
     def testar_conexao_obs(self):
         if self._obs_connect_thread is not None:
@@ -32,16 +36,13 @@ class OBSMixin:
                 pass
             self._obs_connect_thread = None
 
-        host = self.obs_host.text().strip()
-        port = self.obs_port.value()
-        password = self.obs_password.text()
+        host = self.estado.obs_host
+        port = self.estado.obs_porta
+        password = self.estado.obs_senha
 
-        self.test_obs_button.setEnabled(False)
-        self.obs_status_label.setText("Conectando...")
+        self.obs_tab.definir_status(EstadoOBS.CONECTANDO)
         self.obs_footer_label.setText("⏳ OBS: Conectando...")
         self.marcar_obs(EstadoOBS.CONECTANDO)
-        from PySide6.QtWidgets import QApplication
-        QApplication.processEvents()
 
         thread = OBSConnectThread(host, port, password)
         thread.connecting.connect(self.on_obs_conectando)
@@ -52,13 +53,12 @@ class OBSMixin:
         thread.start()
 
     def on_obs_conectando(self):
-        self.obs_status_label.setText("Conectando...")
+        self.obs_tab.definir_status(EstadoOBS.CONECTANDO)
         self.obs_footer_label.setText("⏳ OBS: Conectando...")
         self.marcar_obs(EstadoOBS.CONECTANDO)
 
     def on_obs_conectado(self, obs_controller):
-        self.test_obs_button.setEnabled(True)
-        self.obs_status_label.setText("Status: Conectado ✅")
+        self.obs_tab.definir_status(EstadoOBS.CONECTADO)
         self.obs_footer_label.setText("🟢 OBS: Conectado")
         if self.engine and self.engine.isRunning():
             self.engine.set_obs_controller(obs_controller)
@@ -66,8 +66,7 @@ class OBSMixin:
         self._obs_connect_thread = None
 
     def on_obs_falhou(self, mensagem):
-        self.test_obs_button.setEnabled(True)
-        self.obs_status_label.setText(mensagem)
+        self.obs_tab.definir_status(EstadoOBS.FALHOU, mensagem)
         self.obs_footer_label.setText(self._resumir_footer_obs(mensagem))
         self.marcar_obs(EstadoOBS.FALHOU, mensagem)
         self._obs_connect_thread = None
