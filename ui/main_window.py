@@ -6,6 +6,7 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QMainWindow
 
 from core.estado_app import EstadoApp
+from version import NOME_DO_APP, __version__
 from ui.mixins.config_mixin import ConfigMixin
 from ui.mixins.camera_mixin import CameraMixin
 from ui.mixins.gesture_mixin import GestureMixin
@@ -39,7 +40,7 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
     def __init__(self, config, config_path=None):
         super().__init__()
 
-        self.setWindowTitle("OBS GestureNode")
+        self.setWindowTitle(f"{NOME_DO_APP} {__version__}")
         self.setMinimumSize(1200, 760)
 
         # Sem config_path explícito, resolve pelo mesmo critério do main.py: ao lado do

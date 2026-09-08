@@ -744,6 +744,177 @@ Valores legados migram silenciosamente na leitura: `test` vira `teste`, `obs` vi
 
 ## UI
 
+**D-50 · A tradução de tecla saiu do widget, e o teste do AltGr passou a testar**
+*2026-09-08 · commit `e371776`*
+
+Com a captura de atalho existindo em duas telas — o `HotkeyLineEdit` de Widgets e a de QML
+—, a regra não podia continuar dentro de uma delas. `ui/atalho_capturado.py` recebe números
+e devolve texto; as duas chamam a mesma função.
+
+**O que está em jogo é a defesa contra AltGr** (commit `8838edf`). Em layouts como o ABNT2,
+Ctrl+Alt age como AltGr e o Qt entrega o caractere composto — `æ` no lugar de `z`. Gravar
+isso produz um atalho que nunca casa com o registrado no OBS, e o usuário fica com um gesto
+mudo, sem mensagem de erro. A proteção é usar o **código** da tecla, nunca o texto.
+
+**O achado não foi a extração, foi o teste.** Ao validar por mutação, apagar a consulta ao
+virtual key nativo — que *é* a proteção — deixava a suíte inteira verde.
+
+O motivo: `test_altgr_nao_corrompe_a_tecla` montava o evento com `Qt.Key_Z`. Como 90 está na
+faixa A-Z, a função retorna `"Z"` na primeira linha e **nunca chega** na consulta ao vk
+nativo. O teste exercitava o caminho fácil e afirmava cobrir o difícil. Ele existia desde o
+`8838edf` e ninguém tinha como notar, porque passava.
+
+O caso real é outro: com AltGr o Qt reporta `Key_AE` (198), fora da faixa A-Z. Só o virtual
+key nativo ainda diz `Z`. O teste agora usa esse caso; o antigo virou um segundo teste
+explícito para o caminho fácil.
+
+**Segundo achado, no mesmo lugar:** o QML entrega `int` na ponte e o `HotkeyLineEdit`
+entrega enum do Qt. `int & KeyboardModifier` levanta `TypeError` — mas o caso das teclas era
+pior: `17 in (Qt.Key_Control, ...)` podia dar `False` **em silêncio**, e o Ctrl deixaria de
+contar como modificador sem erro aparecer. O módulo normaliza na fronteira, com teste
+cobrindo os dois tipos.
+
+**Regra que fica:** regra de domínio que duas telas precisam não mora em nenhuma das duas. E
+teste de regressão que nunca entra no caminho que protege é decoração — a mutação é o que
+separa um do outro.
+
+**D-49 · A interface migra para QML, uma aba por vez, atrás de um contrato**
+*2026-09-08 · commits `f638f45`, `afac56b`, `2c8ffac`, `89c7386`, `247ef41`*
+
+O dono levantou a troca de framework em 2026-09-04 (B-21), sem decisão. A conversa que a
+fechou foi em 2026-09-08, e o que decidiu não foi argumento — foi as duas versões da aba
+Geral lado a lado (`teste/comparar_ui.py`).
+
+**As queixas eram do toolkit, e verificáveis.** Dropdown, caixas, botões e redimensionamento:
+
+- O `QComboBox` **não tinha seta**. O QSS fazia `::drop-down { border: none; width: 24px; }`
+  e nunca estilizou `::down-arrow`. O campo de câmera não parecia um dropdown.
+- O popup tinha cor mas nenhuma regra `::item`, então altura e respiro vinham do padrão
+  nativo e não combinavam com a caixa.
+- A 700px de largura a aba **cortava o conteúdo** e mostrava barra horizontal. Não é bug de
+  implementação: `QLayout` não tem ponto de quebra, a ideia não existe no modelo.
+- O indicador do `QCheckBox` tinha `image: none` — marcado se distinguia só pelo
+  preenchimento roxo, sem marca nenhuma.
+- 33 tamanhos fixos ou mínimos espalhados, incluindo `setMinimumSize(1200, 760)` na janela.
+
+Esse é o modo de falhar característico do QSS: você sobrescreve um controle nativo em
+pedaços, e todo pedaço esquecido fica com a aparência da plataforma. É a origem concreta da
+sensação de "software de outra época".
+
+**Custo zero de pacote.** O `QtQuick` já vem no PySide6 6.8.3 instalado. Nenhuma dependência
+nova, nenhum MB a mais — o que também descartou as alternativas: Electron somaria ~150 MB
+sobre os 480, e Tauri traria Rust, IPC e um empacotamento de Python notoriamente chato.
+
+**O que destravou a migração foi um contrato, não a tela.** `ui/tabs/geral_contrato.py`
+define o que a aba emite (intenções: `modoPedido`, `resolucaoPedida`, `cameraPedida`) e o
+que ela oferece (`definir_cameras`, `definir_capacidades`, `definir_saude`). As duas
+implementações o cumprem, e nenhum mixin conhece um widget de aba.
+
+**Era isso que fazia a troca parecer cara — e o B-21 errou o diagnóstico.** Ele temia perder
+a `QThread`, os `Signal` e o `QMediaDevices`. Nada disso se perde com QML, porque é tudo do
+lado Python. O que prendia era o **alcance**: a janela mexia botão por botão
+(`camera_device_combo.currentText()`, `resolution_buttons[r].setEnabled(...)`), então
+qualquer implementação nova teria que fingir ser um `QComboBox`.
+
+**`QQuickWidget` permite migrar uma aba por vez**, com o app rodando o tempo todo, em vez de
+um "big bang" que só se prova no fim.
+
+**A ordem importou:** a extração do D-47 veio antes. Sem um estado separado da tela, testar
+QML exigiria reimplementar as regras junto, e a comparação seria entre duas coisas
+diferentes. Com o estado pronto, a ponte Python↔QML ficou em ~190 linhas de tradução de
+nomes.
+
+**Três armadilhas de empacotamento, encontradas ao testar o caminho de falha:**
+
+1. O `main.spec` só empacotava `assets/`. Os `.qml` são lidos do disco em execução, não
+   importados como módulo, então o PyInstaller não os descobre. No `.exe` a interface nova
+   não existiria.
+2. O `QQuickWidget` **não levanta** quando o arquivo falta: registra o erro e fica em
+   branco. O `try/except` do `setup_mixin` nunca era acionado, e o resultado da falha mais
+   provável seria uma **aba vazia** — não o fallback que estava escrito. Os hosts passaram a
+   conferir `status()` e levantar.
+3. A queda só ia para o log de console, que não existe no `.exe`. O usuário veria a
+   interface antiga achando que era a nova. Agora aparece no log da janela. Mesma regra do
+   D-29 e do D-39: degradação silenciosa é pior que anunciada.
+
+**E um vazamento:** quando a construção do QML falhava, a ponte era destruída mas continuava
+inscrita no `EstadoApp`. Como `_notificar` engole exceção de ouvinte por desenho (D-47),
+isso não virava falha — virava `Internal C++ object already deleted` no log a cada mudança
+de estado. As pontes ganharam `desligar()`.
+
+**A implementação de Widgets fica**, atrás de `GESTURENODE_UI=widgets`, enquanto o QML não
+tiver rodado no pacote. Quando tiver, ela vira código paralelo que apodrece em silêncio, e a
+pergunta certa passa a ser apagar ou manter — não é para ficar por inércia.
+
+**D-48 · O estado do runtime é enum, não frase em português**
+*2026-09-08 · commit `66da7f0`*
+
+O painel de saúde decidia o estado do sistema lendo texto:
+
+```python
+if "falha ao iniciar câmera" in texto.lower():
+obs_status_text = self.obs_status_label.text().lower()
+```
+
+A segunda linha é a grave: o painel lia o estado **de dentro do texto de um label**, ou
+seja, o widget era a fonte da verdade. Renomear uma mensagem quebrava o painel em silêncio,
+e nenhum teste pegaria — a mensagem "continua certa", só que ninguém mais a reconhece.
+
+**A engine emite os dois canais, não um no lugar do outro.** `status_changed` continua
+levando a frase para o log, e `evento` leva um `Evento` tipado para quem precisa decidir. O
+log quer texto; o painel quer estado. Forçar um formato só era o erro.
+
+A transição é uma função pura — `aplicar(saude, evento) → nova saúde` — testável sem
+construir nada. E a aparência virou tabela por estado em vez de cadeia de `if`: acrescentar
+um estado passa a ser uma linha, e esquecer um vira `KeyError` na hora, não silêncio.
+
+**D-47 · O estado sai de dentro da UI e ganha aviso de mudança**
+*2026-09-08 · commit `66da7f0`*
+
+A UI decidia coisas que não eram da UI. O diagnóstico veio contado:
+
+| Sintoma | Ocorrências |
+|---|---|
+| Guardas "isto é carga, não clique" (`blockSignals`, `_updating_gesture_form`) | 43 |
+| Chamadas manuais de `salvar_config_automatico()` | 14 |
+| UI escrevendo direto em atributo da engine em execução | 9 |
+| UI chamando método privado da engine | 2 |
+| Estado decidido lendo frase em português | 6 |
+
+**Três causas, nenhuma delas o Qt:**
+
+**Objeto-deus.** `MainWindow` herdava de sete mixins ao mesmo tempo — não módulos, um `self`
+só dividido em arquivos. `ConfigMixin._load_ui_from_config` chamava métodos de três outros
+mixins e mexia em widgets de um quarto. Não havia fronteira.
+
+**O `config` era um dict cru fazendo papel de modelo.** Mutado no lugar de toda parte, sem
+validação e sem notificação. Daí saem os dois primeiros números: os 14 saves existiam porque
+nada avisava que o modelo mudou, e as 43 guardas porque `setChecked` não distingue "o
+usuário clicou" de "estou carregando a config". **O D-41 não foi um bug que aconteceu — foi
+a consequência inevitável do desenho**, e voltaria em cada campo novo.
+
+**Regra de domínio na view.** `_init_config_schema` eram ~100 linhas de schema, migração de
+campo legado e alias dentro de um mixin de UI. A mesma regra de clamp do `hold_time` existia
+em três lugares, e ninguém tinha como notar que divergiram.
+
+**O que saiu:** `core/config_schema.py`, `core/validacao_execucao.py`, `core/config_store.py`
+e `core/estado_app.py`. Cerca de 400 linhas que nunca tocaram num widget — e que, enquanto
+estiveram ali, **só rodavam se alguém abrisse a janela**, ou seja, nunca em teste.
+
+**`EstadoApp` não importa Qt, e isso não é purismo.** Foi o que permitiu, dias depois,
+adaptá-lo ao modelo de propriedades do QML traduzindo nomes em vez de reimplementar lógica
+(D-49). Um modelo acoplado ao framework de tela teria que ser reescrito junto com ela.
+
+**A guarda sobrou num lugar só.** `ui/vinculo.py` concentra o que estava espalhado — e
+deliberadamente não virou sistema de binding declarativo: reimplementar binding sobre Qt
+Widgets é escrever um mini-framework que o Qt Quick já traz pronto.
+
+**Mudança de comportamento, uma:** `aplicar_config` lê `tempo_minimo` e `cooldown` de
+`default_hold_time`/`default_cooldown`, como o `_setup()` já fazia no boot. O código antigo
+os sobrescrevia com o binding do gesto **selecionado na tela**, fazendo o padrão global
+depender de onde o usuário tinha clicado por último. Sem efeito visível, porque o schema
+garante tempo próprio em todo binding — mas divergia do boot sem motivo.
+
 **D-19 · Tema via QSS global em `ui/styles.py`, sem dependência nova**
 *Origem: fase 15 (D-01, D-02) · 2026-07-01*
 Aplicado uma vez em `main.py`. Recusado `qdarktheme` e similares.

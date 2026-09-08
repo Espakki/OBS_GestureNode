@@ -118,6 +118,17 @@ class SetupMixin:
         self.tabs.addTab(self.gestos_tab, "Gestos")
         self.tabs.addTab(self.obs_tab, "OBS")
 
+        # A Sobre é opcional: sem estado para refletir, se o QML falhar ela some em vez de
+        # impedir o app de abrir. É a única aba de que se pode abrir mão. Ver D-51.
+        try:
+            from ui.tabs.sobre_tab_qml import SobreTabQml
+
+            self.sobre_tab = SobreTabQml()
+            self.tabs.addTab(self.sobre_tab, "Sobre")
+        except Exception:
+            logger.exception("Aba Sobre indisponível; seguindo sem ela")
+            self.sobre_tab = None
+
         # Os aliases da aba Geral saíram: ela agora fala pelo contrato, e alcançar os
         # widgets dela era justamente o que amarrava a janela a uma implementação.
 
