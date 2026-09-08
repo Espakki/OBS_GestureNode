@@ -1,8 +1,9 @@
-import os
-
 from PySide6.QtWidgets import QMessageBox
 
+from core import validacao_execucao
+from core.estado_runtime import EstadoEngine
 from engine.gesture_engine import GestureEngine
+from ui import vinculo
 from util.logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,24 +34,20 @@ class EngineMixin:
                 self._reverter_selecao_de_maos(anterior)
                 return
 
-        self.config["max_maos"] = max_maos
-        self.salvar_config_automatico()
+        self.estado.max_maos = max_maos
 
         if self.engine and self.engine.isRunning():
             self.restart_engine()
 
     def _reverter_selecao_de_maos(self, valor):
         """Devolve os botões ao estado anterior sem disparar o handler de novo."""
-        for botao in (self.maos_1_button, self.maos_2_button):
-            botao.blockSignals(True)
-        try:
+        with vinculo.sem_sinais(self.maos_1_button, self.maos_2_button):
             self.geral_tab.set_max_maos(valor)
-        finally:
-            for botao in (self.maos_1_button, self.maos_2_button):
-                botao.blockSignals(False)
 
     def start_engine(self):
-        erros, avisos = self._validar_config_execucao()
+        erros, avisos = validacao_execucao.validar(
+            self.estado.config_bruta(), self.estado.gestos_ativos
+        )
 
         if erros:
             mensagem = "\n".join(f"• {erro}" for erro in erros)
@@ -91,8 +88,10 @@ class EngineMixin:
         # ouvindo: a UI ficava presa em "rodando", com Start desabilitado e um Stop que
         # não reabilitava nada, porque o `finished` já tinha passado. Ver D-34.
         self.engine.finished.connect(self.on_engine_finished)
+        self.engine.evento.connect(self.ao_receber_evento_da_engine)
         self.engine.start()
 
+        self.marcar_engine(EstadoEngine.RODANDO)
         self.status_label.setText("Status: Rodando")
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
@@ -107,6 +106,7 @@ class EngineMixin:
         # Nenhum botão habilitado enquanto a limpeza roda — clicar Start antes da câmera
         # ser liberada dava [Errno 5] I/O error. Quem reabilita é `on_engine_finished`,
         # ligado ao sinal `finished` lá no `start_engine`.
+        self.marcar_engine(EstadoEngine.PARANDO)
         self.status_label.setText("Status: Parando...")
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
@@ -146,18 +146,13 @@ class EngineMixin:
         `blockSignals` evita que corrigir o botão dispare `on_fps_changed`, que gravaria
         no config e poderia pedir restart.
         """
-        self.config.setdefault("camera", {})["fps"] = int(fps)
-        self.salvar_config_automatico()
+        self.estado.camera_fps = int(fps)
 
-        for botao in self.fps_buttons.values():
-            botao.blockSignals(True)
-        try:
+        with vinculo.sem_sinais(*self.fps_buttons.values()):
             self.geral_tab.set_fps(int(fps))
-        finally:
-            for botao in self.fps_buttons.values():
-                botao.blockSignals(False)
 
     def on_engine_finished(self):
+        self.marcar_engine(EstadoEngine.PARADA)
         self.set_config_enabled(True)
         self.status_label.setText("Status: Parado")
         self.start_button.setEnabled(True)
@@ -166,65 +161,3 @@ class EngineMixin:
         self.geral_tab.reset_latency_badge()
         self.engine = None
         self._refresh_health_panels()
-
-    def _validar_config_execucao(self):
-        erros = []
-        avisos = []
-
-        modo = self.config.get("modo", "automatico")
-        obs_cfg = self.config.get("obs", {})
-        bindings = self.config.get("gestures", {}).get("bindings", {})
-        active_set = set(self._active_gestures())
-
-        if modo in ("manual", "automatico"):
-            if not str(obs_cfg.get("host", "")).strip():
-                erros.append("Host do OBS está vazio")
-            porta = int(obs_cfg.get("port", 0) or 0)
-            if porta <= 0:
-                erros.append("Porta do OBS inválida")
-
-        gestos_ativos = [
-            (nome, cfg)
-            for nome, cfg in bindings.items()
-            if nome in active_set
-        ]
-
-        if not gestos_ativos:
-            avisos.append("Nenhum gesto está ativado")
-
-        tem_alguma_acao = False
-        for nome, cfg in gestos_ativos:
-            usa_cena = bool(cfg.get("use_scene", False))
-            usa_som = bool(cfg.get("use_sound", False))
-            usa_atalho = bool(cfg.get("use_hotkey", False))
-
-            if not (usa_cena or usa_som or usa_atalho):
-                avisos.append(f"Gesto {nome} está ativo, mas sem funcionalidade selecionada")
-                continue
-
-            tem_alguma_acao = True
-
-            if usa_cena and not str(cfg.get("scene", "")).strip():
-                erros.append(f"Gesto {nome}: cena está vazia")
-
-            if usa_som:
-                arquivo_som = str(cfg.get("sound_file", "")).strip()
-                if not arquivo_som:
-                    erros.append(f"Gesto {nome}: arquivo de som está vazio")
-                elif not os.path.exists(arquivo_som):
-                    avisos.append(f"Gesto {nome}: arquivo de som não encontrado no caminho informado")
-
-            if usa_atalho and not str(cfg.get("hotkey", "")).strip():
-                avisos.append(f"Gesto {nome}: atalho está vazio")
-
-            hold_time = float(cfg.get("hold_time", 0.7))
-            cooldown = float(cfg.get("cooldown", 2.0))
-            if hold_time < 0.1:
-                erros.append(f"Gesto {nome}: tempo de resposta deve ser >= 0.1s")
-            if cooldown < 0:
-                erros.append(f"Gesto {nome}: cooldown não pode ser negativo")
-
-        if not tem_alguma_acao and gestos_ativos:
-            avisos.append("Nenhum gesto ativo possui ação efetiva")
-
-        return erros, avisos

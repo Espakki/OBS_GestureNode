@@ -23,13 +23,8 @@ logger = get_logger(__name__)
 class GestureMixin:
 
     def _active_gestures(self):
-        gesture_ids = {gesture for gesture, _ in self.ALL_GESTURES}
-        configured = self.config.setdefault("gestures", {}).setdefault("active_gestures", [])
-        valid = [gesture for gesture in configured if gesture in gesture_ids]
-        if not valid:
-            valid = [self.ALL_GESTURES[0][0]]
-        self.config["gestures"]["active_gestures"] = valid
-        return valid
+        """Delegado ao estado, que já garante a lista válida e não vazia."""
+        return self.estado.gestos_ativos
 
     def _rebuild_gesture_grid(self):
         self.gestos_tab.clear_gesture_grid()
@@ -137,19 +132,12 @@ class GestureMixin:
                 QMessageBox.warning(dialog, "Seleção inválida", "Selecione pelo menos um gesto.")
                 return
 
-            self.config.setdefault("gestures", {})["active_gestures"] = selected
-            bindings = self.config.setdefault("gestures", {}).setdefault("bindings", {})
-            for gesture, cfg in bindings.items():
-                if isinstance(cfg, dict):
-                    cfg["enabled"] = gesture in selected
-
-            if self.engine and self.engine.isRunning():
-                gestures_cfg = self.config.get("gestures", {})
-                self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
+            # O estado cuida de marcar `enabled` em cada binding e de notificar o save.
+            self.estado.gestos_ativos = selected
+            self._sincronizar_engine()
 
             self._rebuild_gesture_grid()
             self._refresh_health_panels()
-            self.salvar_config_automatico()
             dialog.accept()
 
         buttons.accepted.connect(on_accept)
@@ -164,7 +152,7 @@ class GestureMixin:
         for name, btn in self.gesture_buttons.items():
             btn.setChecked(name == gesture)
 
-        cfg = self.config.get("gestures", {}).get("bindings", {}).get(gesture, {})
+        cfg = self.estado.binding(gesture)
 
         self._updating_gesture_form = True
         self.selected_gesture_label.setText(f"Gesto selecionado: {gesture}")
@@ -189,32 +177,6 @@ class GestureMixin:
 
         self._refresh_gesture_feature_visibility()
 
-    def on_hold_slider_changed(self):
-        if not self._updating_gesture_form:
-            seconds = self.hold_slider.value() / 10.0
-            self.hold_value_spinbox.blockSignals(True)
-            self.hold_value_spinbox.setValue(seconds)
-            self.hold_value_spinbox.blockSignals(False)
-
-    def on_hold_spinbox_changed(self):
-        if not self._updating_gesture_form:
-            self.hold_slider.blockSignals(True)
-            self.hold_slider.setValue(int(self.hold_value_spinbox.value() * 10))
-            self.hold_slider.blockSignals(False)
-
-    def on_cooldown_slider_changed(self):
-        if not self._updating_gesture_form:
-            seconds = self.cooldown_slider.value() / 10.0
-            self.cooldown_value_spinbox.blockSignals(True)
-            self.cooldown_value_spinbox.setValue(seconds)
-            self.cooldown_value_spinbox.blockSignals(False)
-
-    def on_cooldown_spinbox_changed(self):
-        if not self._updating_gesture_form:
-            self.cooldown_slider.blockSignals(True)
-            self.cooldown_slider.setValue(int(self.cooldown_value_spinbox.value() * 10))
-            self.cooldown_slider.blockSignals(False)
-
     def _refresh_gesture_feature_visibility(self):
         scene_enabled = self.scene_action_checkbox.isChecked()
         sound_enabled = self.sound_action_checkbox.isChecked()
@@ -225,62 +187,56 @@ class GestureMixin:
         self.browse_sound_button.setEnabled(sound_enabled)
         self.hotkey_edit.setEnabled(hotkey_enabled)
 
+    def _sincronizar_engine(self):
+        """Um ponto só onde a engine viva recebe config nova. Ver D-47.
+
+        Substitui os 9 lugares que escreviam direto num atributo da engine e os 2 que
+        chamavam `engine._normalize_gesture_keys()`, um método privado, de fora. Aquilo
+        obrigava todo campo novo a ser repetido em dois handlers — e esquecer um deixava a
+        engine rodando com config velha, sem sinal nenhum.
+        """
+        if self.engine and self.engine.isRunning():
+            self.engine.aplicar_config(self.estado.config_bruta())
+
     def on_current_gesture_changed(self):
         if self._updating_gesture_form:
             return
 
-        binding = self._get_current_binding()
-        binding["enabled"] = self.current_gesture in set(self._active_gestures())
-        binding["hold_time"] = float(self.hold_value_spinbox.value())
-        binding["cooldown"] = float(self.cooldown_value_spinbox.value())
-        binding["use_scene"] = self.scene_action_checkbox.isChecked()
-        binding["use_sound"] = self.sound_action_checkbox.isChecked()
-        binding["use_hotkey"] = self.hotkey_action_checkbox.isChecked()
-        binding["scene"] = self.scene_edit.text().strip()
-        binding["play_sound"] = self.sound_action_checkbox.isChecked()
-        binding["sound_file"] = self.sound_file_edit.text().strip()
-        binding["hotkey"] = self.hotkey_edit.text().strip()
+        self.estado.definir_binding(
+            self.current_gesture,
+            enabled=self.current_gesture in set(self._active_gestures()),
+            hold_time=float(self.hold_value_spinbox.value()),
+            cooldown=float(self.cooldown_value_spinbox.value()),
+            use_scene=self.scene_action_checkbox.isChecked(),
+            use_sound=self.sound_action_checkbox.isChecked(),
+            use_hotkey=self.hotkey_action_checkbox.isChecked(),
+            scene=self.scene_edit.text().strip(),
+            play_sound=self.sound_action_checkbox.isChecked(),
+            sound_file=self.sound_file_edit.text().strip(),
+            hotkey=self.hotkey_edit.text().strip(),
+        )
 
         self._refresh_gesture_feature_visibility()
-        self.salvar_config_automatico()
-
-        if self.engine and self.engine.isRunning():
-            gestures_cfg = self.config.setdefault("gestures", {})
-            self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
-            self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
-            self.engine._normalize_gesture_keys()
+        self._sincronizar_engine()
 
     def on_show_skeleton_changed(self, checked):
-        self.config.setdefault("camera", {})
-        self.config["camera"]["show_skeleton"] = bool(checked)
+        self.estado.mostrar_esqueleto = bool(checked)
 
     def on_skeleton_vcam_changed(self, checked):
-        self.config.setdefault("camera", {})
-        self.config["camera"]["skeleton_na_vcam"] = bool(checked)
+        self.estado.esqueleto_na_vcam = bool(checked)
 
     def on_dynamic_setting_changed(self, *_):
-        self.config.setdefault("camera", {})
-        self.config["camera"]["show_skeleton"] = self.esqueleto_preview_button.isChecked()
-        self.config["camera"]["skeleton_na_vcam"] = self.esqueleto_obs_button.isChecked()
+        """Ajustes que valem na hora, sem reiniciar a captura."""
+        self.estado.mostrar_esqueleto = self.esqueleto_preview_button.isChecked()
+        self.estado.esqueleto_na_vcam = self.esqueleto_obs_button.isChecked()
 
-        binding = self._get_current_binding()
-        binding["hold_time"] = self.hold_slider.value() / 10
-        binding["cooldown"] = self.cooldown_slider.value() / 10
+        self.estado.definir_binding(
+            self.current_gesture,
+            hold_time=self.hold_slider.value() / 10,
+            cooldown=self.cooldown_slider.value() / 10,
+        )
 
-        gestures_cfg = self.config.setdefault("gestures", {})
-
-        self.salvar_config_automatico()
-
-        if not (self.engine and self.engine.isRunning()):
-            return
-
-        self.engine.show_skeleton = self.config["camera"]["show_skeleton"]
-        self.engine.skeleton_na_vcam = self.config["camera"]["skeleton_na_vcam"]
-        self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
-        self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
-        self.engine.tempo_minimo = float(binding["hold_time"])
-        self.engine.cooldown = float(binding["cooldown"])
-        self.engine._normalize_gesture_keys()
+        self._sincronizar_engine()
 
     def select_sound_file(self):
         file_path, _ = QFileDialog.getOpenFileName(

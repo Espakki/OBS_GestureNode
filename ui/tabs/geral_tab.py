@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -12,6 +11,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from ui import vinculo
 
 
 class GeralTab(QWidget):
@@ -250,26 +251,8 @@ class GeralTab(QWidget):
             "Configurações Avançadas ▲" if checked else "Configurações Avançadas ▼"
         )
 
-    @staticmethod
-    @contextmanager
-    def _sem_sinais(*botoes):
-        """Marca botões sem que isso pareça um clique do usuário. Ver D-41.
-
-        Todos os `set_*` desta aba existem para **refletir a config na interface**. Sem
-        este guarda, o `setChecked` emite `toggled`, o handler roda como se o usuário
-        tivesse clicado, e a carga da config vira uma sequência de ações: reescreve a
-        config, agenda um save e refaz o probe da câmera.
-        """
-        for botao in botoes:
-            botao.blockSignals(True)
-        try:
-            yield
-        finally:
-            for botao in botoes:
-                botao.blockSignals(False)
-
     def set_max_maos(self, max_maos):
-        with self._sem_sinais(self.maos_1_button, self.maos_2_button):
+        with vinculo.sem_sinais(self.maos_1_button, self.maos_2_button):
             if int(max_maos) == 2:
                 self.maos_2_button.setChecked(True)
             else:
@@ -284,7 +267,7 @@ class GeralTab(QWidget):
     def set_mode(self, modo):
         modo_norm = str(modo).lower()
         botoes = (self.mode_test_button, self.mode_manual_button, self.mode_auto_button)
-        with self._sem_sinais(*botoes):
+        with vinculo.sem_sinais(*botoes):
             if modo_norm == "automatico":
                 self.mode_auto_button.setChecked(True)
             elif modo_norm == "manual":
@@ -297,17 +280,17 @@ class GeralTab(QWidget):
 
     def set_esqueleto(self, no_preview, na_saida_obs):
         botoes = (self.esqueleto_preview_button, self.esqueleto_obs_button)
-        with self._sem_sinais(*botoes):
+        with vinculo.sem_sinais(*botoes):
             self.esqueleto_preview_button.setChecked(bool(no_preview))
             self.esqueleto_obs_button.setChecked(bool(na_saida_obs))
 
     def set_resolution(self, resolution_label):
-        with self._sem_sinais(*self.resolution_buttons.values()):
+        with vinculo.sem_sinais(*self.resolution_buttons.values()):
             alvo = self.resolution_buttons.get(resolution_label)
             (alvo or self.resolution_buttons["720p"]).setChecked(True)
 
     def set_fps(self, fps_value):
-        with self._sem_sinais(*self.fps_buttons.values()):
+        with vinculo.sem_sinais(*self.fps_buttons.values()):
             alvo = self.fps_buttons.get(fps_value)
             (alvo or self.fps_buttons[30]).setChecked(True)
 

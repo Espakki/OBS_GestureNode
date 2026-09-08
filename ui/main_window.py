@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, QEvent, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QMainWindow
 
+from core.estado_app import EstadoApp
 from ui.mixins.config_mixin import ConfigMixin
 from ui.mixins.camera_mixin import CameraMixin
 from ui.mixins.gesture_mixin import GestureMixin
@@ -41,12 +42,17 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self.setWindowTitle("OBS GestureNode")
         self.setMinimumSize(1200, 760)
 
-        self.config = config or {}
         # Sem config_path explícito, resolve pelo mesmo critério do main.py: ao lado do
         # código em desenvolvimento, %APPDATA% quando empacotado. Ver D-29.
         self._config_path = (
             Path(config_path) if config_path is not None else caminho_do_config()
         )
+
+        # O estado é a fonte da verdade; a janela só reflete. Ver D-47.
+        self.estado = EstadoApp(config, [nome for nome, _ in self.ALL_GESTURES])
+        # Uma assinatura, no boot, no lugar das 14 chamadas manuais de save que existiam
+        # espalhadas — e que só salvavam onde alguém tinha lembrado de pedir.
+        self.estado.escutar(self._ao_mudar_estado)
         self.engine = None
         self._obs_connect_thread = None
         self.current_gesture = self.ALL_GESTURES[0][0]
@@ -57,7 +63,7 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self._save_timer.setSingleShot(True)
         self._save_timer.timeout.connect(self._do_save_config)
 
-        self._init_config_schema()
+        self._init_saude()
         self._setup_ui()
         self._load_ui_from_config()
         self.salvar_config_automatico()
@@ -67,7 +73,7 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
     def changeEvent(self, event):
         if event.type() == QEvent.WindowStateChange:
             engine_ativo = self.engine and self.engine.isRunning()
-            modo_automatico = self.config.get("modo") == "automatico"
+            modo_automatico = self.estado.modo == "automatico"
             if engine_ativo and modo_automatico:
                 self.engine.set_preview_suprimido(self.isMinimized())
         super().changeEvent(event)
@@ -114,10 +120,18 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self.preview_label.clear()
         self.preview_label.setText("Preview")
 
+    @property
+    def config(self):
+        """O dicionário cru, para quem ainda precisa dele (engine, save, onboarding).
+
+        **Só leitura.** Escrever aqui não notifica ninguém e a alteração não é salva —
+        use as propriedades de `self.estado`.
+        """
+        return self.estado.config_bruta()
+
     def update_status(self, text):
         self.status_label.setText(text)
         self._append_log(text)
-        self._update_runtime_health_from_status(text)
         if text == "OBS conectado":
             self.obs_footer_label.setText("🟢 OBS: Conectado")
         elif text.startswith("OBS:"):

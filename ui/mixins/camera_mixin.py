@@ -120,21 +120,18 @@ class CameraMixin:
         selected_index = self.camera_device_combo.currentData()
         if selected_index is None:
             selected_index = self.camera_device_combo.currentIndex()
-        camera_cfg = self.config.setdefault("camera", {})
-        camera_cfg["index"] = int(selected_index)
-        camera_cfg["device_name"] = self.camera_device_combo.currentText().strip()
+        self.estado.camera_indice = int(selected_index)
+        self.estado.camera_dispositivo = self.camera_device_combo.currentText().strip()
         self.aplicar_capacidades_da_camera()
-        self.salvar_config_automatico()
 
     def on_resolution_changed(self, value):
         if value not in RESOLUTION_PRESETS:
             return
         width, height = RESOLUTION_PRESETS[value]
-        self.config.setdefault("camera", {})["width"] = width
-        self.config.setdefault("camera", {})["height"] = height
+        self.estado.camera_largura = width
+        self.estado.camera_altura = height
         # O teto de FPS varia por resolução, então a lista de FPS válidos muda junto.
         self.aplicar_capacidades_da_camera()
-        self.salvar_config_automatico()
 
     def aplicar_capacidades_da_camera(self):
         """Desabilita na UI os modos que a câmera selecionada não oferece. Ver D-38.
@@ -267,5 +264,4 @@ class CameraMixin:
             self._append_log("Reinicie a captura para a nova resolução valer.")
 
     def on_fps_changed(self, value):
-        self.config.setdefault("camera", {})["fps"] = int(value)
-        self.salvar_config_automatico()
+        self.estado.camera_fps = int(value)

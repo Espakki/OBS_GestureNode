@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ui import vinculo
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
 from ui.tabs.obs_tab import OBSTab
@@ -98,19 +99,20 @@ class SetupMixin:
 
         self.usar_recomendado_button.clicked.connect(self.aplicar_preset_recomendado)
         self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
-        self.hold_slider.valueChanged.connect(self.on_hold_slider_changed)
-        self.hold_slider.valueChanged.connect(self.on_current_gesture_changed)
-        self.hold_slider.valueChanged.connect(self.on_dynamic_setting_changed)
-        self.hold_value_spinbox.valueChanged.connect(self.on_hold_spinbox_changed)
-        self.hold_value_spinbox.valueChanged.connect(self.on_current_gesture_changed)
-        self.hold_value_spinbox.valueChanged.connect(self.on_dynamic_setting_changed)
+        # O espelho slider↔spin sai daqui: `vinculo.espelhar` faz o que os quatro
+        # handlers `on_*_changed` faziam, com a guarda de sinais num lugar só. Ver D-47.
+        vinculo.espelhar(self.hold_slider, self.hold_value_spinbox)
+        vinculo.espelhar(self.cooldown_slider, self.cooldown_value_spinbox)
 
-        self.cooldown_slider.valueChanged.connect(self.on_cooldown_slider_changed)
-        self.cooldown_slider.valueChanged.connect(self.on_current_gesture_changed)
-        self.cooldown_slider.valueChanged.connect(self.on_dynamic_setting_changed)
-        self.cooldown_value_spinbox.valueChanged.connect(self.on_cooldown_spinbox_changed)
-        self.cooldown_value_spinbox.valueChanged.connect(self.on_current_gesture_changed)
-        self.cooldown_value_spinbox.valueChanged.connect(self.on_dynamic_setting_changed)
+        # Um handler por controle, não três. `on_dynamic_setting_changed` já grava
+        # hold/cooldown e reconfigura a engine viva — que é tudo que mover um slider muda.
+        for controle in (
+            self.hold_slider,
+            self.hold_value_spinbox,
+            self.cooldown_slider,
+            self.cooldown_value_spinbox,
+        ):
+            controle.valueChanged.connect(self.on_dynamic_setting_changed)
 
         self.scene_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
         self.sound_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)

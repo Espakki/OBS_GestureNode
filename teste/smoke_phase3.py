@@ -11,6 +11,7 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from PySide6.QtWidgets import QApplication
 
+from core import validacao_execucao
 from engine.gesture_engine import GestureEngine
 from ui.main_window import MainWindow
 
@@ -25,7 +26,9 @@ def run():
     config_test["modo"] = "test"
 
     window_test = MainWindow(config_test)
-    test_errors, test_warnings = window_test._validar_config_execucao()
+    test_errors, test_warnings = validacao_execucao.validar(
+        window_test.estado.config_bruta(), window_test.estado.gestos_ativos
+    )
 
     engine_test = GestureEngine(config_test)
 
@@ -33,7 +36,9 @@ def run():
     config_obs["modo"] = "obs"
 
     window_obs = MainWindow(config_obs)
-    obs_errors, obs_warnings = window_obs._validar_config_execucao()
+    obs_errors, obs_warnings = validacao_execucao.validar(
+        window_obs.estado.config_bruta(), window_obs.estado.gestos_ativos
+    )
 
     engine_obs = GestureEngine(config_obs)
 
