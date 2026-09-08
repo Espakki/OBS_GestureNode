@@ -3,8 +3,11 @@
 > **Este é o único arquivo que diz status.** Se outro arquivo parecer contradizer este,
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
-**Última atualização:** 2026-09-04
-**Branch:** `main` · **Último commit:** `44c5ef6`
+**Última atualização:** 2026-09-08
+**Branch:** `main` · **Último commit de código:** `0ab76f5`
+
+> Este campo aponta o último commit que mexeu em **código** — commits só de documentação
+> não o movem. Como referência ao próprio commit que o edita, ele já se corrompeu duas vezes.
 
 ---
 
@@ -17,7 +20,8 @@ despacho por mão e caminhos de config.
 
 **Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
 2026-09-04 — conexão OBS, VCam em resolução nativa, esqueleto na saída, joinha, duas mãos
-e o ciclo parar/iniciar. **O `.exe` empacotado nunca foi aberto por ninguém.**
+e o ciclo parar/iniciar. O `.exe` empacotado foi aberto e usado em 2026-09-08, e rodou
+bem — único achado, a faixa de limite da câmera (B-25).
 
 ---
 
@@ -67,10 +71,10 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **Abrir o `.exe`** — `dist\main\main.exe`, com tudo desta semana e já enxugado para
-   480 MB. É a única validação que resta.
-2. **B-24 — Obrigações de LGPL/GPL no pacote.** Pequeno, mas precisa estar feito antes de
-   publicar o binário.
+1. **B-24 — Obrigações de LGPL/GPL no pacote.** Pequeno, e é o que falta para publicar o
+   binário.
+2. **B-25 — A faixa de limite da câmera parece um alerta e não é.** Achado da validação do
+   `.exe`. Cosmético.
 3. **B-23 — Implementação Linux.** Precisa de máquina Linux; a interface já existe (D-42).
 
 ---
@@ -81,9 +85,8 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
   `C:\Users\wini\AppData\Local\Programs\Python\Python310`, `.venv/` recriado do zero e
   validado. O `venv/` antigo, que apontava para `C:\Users\Computer\...` (outro PC), foi
   apagado — junto com ele se perderam os pins que funcionavam na máquina anterior.
-- **Rodando do código-fonte está validado.** O que segue sem verificação é só o `.exe`
-  empacotado — e é ele que bloqueia o B-10, porque sem um baseline de "funciona" não dá
-  para saber se um corte de dependência quebrou algo ou se já estava quebrado.
+- **Nada bloqueando.** Código-fonte e `.exe` empacotado (480 MB, já pós-corte do B-10)
+  validados. O B-10 dependia desse baseline de "funciona" e agora o tem.
 
 ---
 
@@ -112,13 +115,18 @@ uma ação só; ciclo parar/iniciar/reiniciar; e a parada sem travar a UI.
 Achados viraram B-14 a B-19, todos fechados. A queixa de resolução era da cena do OBS, não
 do app.
 
-### Ainda falta: o executável empacotado
+### Executável empacotado — feito em 2026-09-08
 
-1. `dist\main\main.exe` abre sem message box de erro
-2. Preview da câmera funciona (valida PyAV/dshow empacotado)
-3. Dropdown lista as câmeras (valida comtypes congelado)
-4. Copiar `dist\main\` para `C:\Program Files\`, rodar de lá e mexer num slider: deve
-   **avisar** que não está salvando, não falhar em silêncio (B-08)
+`dist\main\main.exe` (480 MB, o build já enxugado do B-10) abriu e rodou bem em uso
+normal. Isso cobre o que o corte de dependências podia ter quebrado: a message box de erro
+no boot, o preview da câmera (PyAV/dshow empacotado) e a listagem de câmeras (comtypes
+congelado).
+
+Achado único: a faixa de limite da câmera lê como alerta urgente sem ser — virou B-25.
+
+**Não verificado:** rodar a partir de `C:\Program Files\` e mexer num slider, que deve
+**avisar** que não está salvando em vez de falhar em silêncio (B-08). É um teste que não
+acontece por acaso — some quando alguém copiar a pasta para lá.
 
 ### Números calibrados com mão real (2026-09-04)
 

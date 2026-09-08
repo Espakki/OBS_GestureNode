@@ -38,7 +38,7 @@ caso do checkout local estar 4 meses atrás do remoto, e toda a análise saiu er
 .venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-65 testes, ~2s, sem webcam e sem OBS. Rode antes de commitar qualquer mudança em
+203 testes, ~8s, sem webcam e sem OBS. Rode antes de commitar qualquer mudança em
 `core/`, `engine/` ou nos aliases.
 
 - `tests/` — testes automatizados (pytest). `tests/maos_sinteticas.py` monta os 21

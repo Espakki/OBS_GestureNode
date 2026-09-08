@@ -26,7 +26,8 @@ _Fechada: B-05 em `627d997`, B-04 em `70fe7cf`._
 
 ## Fase C — Robustez da detecção
 
-_Fechada: B-06 em `6080496`. Falta validar com câmera real a tolerância de 60° (D-28)._
+_Fechada: B-06 em `6080496`. Tolerância validada com mão real e ajustada de 60° para
+45° (D-36)._
 
 ---
 
@@ -96,3 +97,27 @@ explicitamente** para o código da tag correspondente, não deixar implícito.
 
 Não é urgente para uso pessoal; passa a importar quando o binário for distribuído
 publicamente.
+
+---
+
+## Fase K — Achados da validação do `.exe`
+
+### B-25 · A faixa de limite da câmera parece um alerta e não é · **P**
+
+Levantado pelo dono em 2026-09-08, na primeira execução do `.exe` empacotado.
+
+A faixa (`camera_aviso`, montada em `ui/tabs/geral_tab.py` e preenchida por
+`_atualizar_aviso_de_camera` em `ui/mixins/camera_mixin.py`) é permanente: aparece sempre
+que a webcam não cobre algum preset e fica na tela o tempo todo. Só que ela é âmbar, tem
+borda e começa com ⚠️ — a linguagem visual de "algo deu errado, resolva isso". O conteúdo é
+o oposto: um fato estático sobre o hardware, que o usuário não tem como mudar e sobre o
+qual não precisa fazer nada. O próprio tooltip já diz "Não é erro do app" — sinal de que a
+faixa promete uma urgência que ela mesma precisa desmentir logo em seguida.
+
+**Não é reverter o D-39.** O motivo de a faixa existir continua de pé: no log a informação
+sumia no scroll e o usuário ficava tentando o mesmo valor sem entender o botão cinza. O que
+está errado é o *tom*, não o lugar nem a existência.
+
+**Caminhos possíveis**, nenhum decidido: trocar o âmbar por uma cor neutra e o ⚠️ por um
+ícone informativo; tornar a faixa dispensável, guardando a dispensa no config; ou reduzi-la
+a uma linha de texto discreta sob os botões de resolução.
