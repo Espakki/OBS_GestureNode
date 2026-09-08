@@ -1,7 +1,7 @@
 import os
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QKeySequence
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QKeySequence
 
 from ui import atalho_capturado
 from PySide6.QtWidgets import (
@@ -158,9 +158,20 @@ class HotkeyLineEdit(QLineEdit):
 
 
 class GestosTab(QWidget):
-    def __init__(self):
+    """A aba Gestos em Qt Widgets. Mesmo contrato da versão QML."""
+
+    gestoSelecionado = Signal(str)
+    escolherGestosPedido = Signal()
+    procurarSomPedido = Signal()
+    bindingEditado = Signal()
+
+    def __init__(self, estado=None):
         super().__init__()
         self._gesture_buttons = []
+        self._estado = estado
+        self._atual = ""
+        self._refletindo = False
+        self._botoes_por_gesto = {}
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -311,6 +322,113 @@ class GestosTab(QWidget):
 
         layout.addWidget(self.gesture_editor)
         layout.addStretch(1)
+
+        self._ligar_contrato()
+
+    # ------------------------------------------------------------------ contrato
+
+    def _ligar_contrato(self):
+        self.choose_gestures_button.clicked.connect(self.escolherGestosPedido.emit)
+        self.browse_sound_button.clicked.connect(self.procurarSomPedido.emit)
+
+        for caixa, campo in (
+            (self.scene_action_checkbox, "use_scene"),
+            (self.sound_action_checkbox, "use_sound"),
+            (self.hotkey_action_checkbox, "use_hotkey"),
+        ):
+            caixa.toggled.connect(lambda _=None: self._gravar_do_formulario())
+
+        for editor in (self.scene_edit, self.sound_file_edit):
+            editor.textEdited.connect(lambda _=None: self._gravar_do_formulario())
+
+        self.hotkey_edit.hotkeyCommitted.connect(lambda _=None: self._gravar_do_formulario())
+        self.hold_slider.valueChanged.connect(lambda _=None: self._gravar_do_formulario())
+        self.cooldown_slider.valueChanged.connect(lambda _=None: self._gravar_do_formulario())
+
+    def definir_gestos(self, entradas, selecionado):
+        self.clear_gesture_grid()
+        self._botoes_por_gesto = {}
+
+        for indice, (nome, icone) in enumerate(entradas):
+            botao = self.add_gesture_button(
+                indice // 4, indice % 4, nome, lambda _=None, g=nome: self._escolher(g)
+            )
+            botao.setMinimumSize(110, 140)
+            botao.setIconSize(QSize(64, 64))
+            if icone and os.path.exists(icone):
+                botao.setIcon(QIcon(icone))
+            self._botoes_por_gesto[nome] = botao
+
+        self._atual = selecionado or (entradas[0][0] if entradas else "")
+        self._escolher(self._atual, avisar=False)
+
+    def gesto_atual(self):
+        return self._atual
+
+    def _escolher(self, nome, avisar=True):
+        if not nome:
+            return
+        self._atual = nome
+        for chave, botao in self._botoes_por_gesto.items():
+            botao.setChecked(chave == nome)
+        self.refletir_binding()
+        if avisar:
+            self.gestoSelecionado.emit(nome)
+
+    def refletir_binding(self):
+        """Estado → formulário. `_refletindo` impede que isso pareça edição do usuário."""
+        if self._estado is None or not self._atual:
+            return
+
+        cfg = self._estado.binding(self._atual)
+        self._refletindo = True
+        try:
+            self.selected_gesture_label.setText(f"Gesto selecionado: {self._atual}")
+            hold = max(0.5, min(5.0, float(cfg.get("hold_time", 2.0))))
+            self.hold_value_spinbox.setValue(hold)
+            self.hold_slider.setValue(int(hold * 10))
+
+            cooldown = max(2.0, min(20.0, float(cfg.get("cooldown", 2.0))))
+            self.cooldown_value_spinbox.setValue(cooldown)
+            self.cooldown_slider.setValue(int(cooldown * 10))
+
+            self.scene_action_checkbox.setChecked(bool(cfg.get("use_scene", False)))
+            self.sound_action_checkbox.setChecked(bool(cfg.get("use_sound", False)))
+            self.hotkey_action_checkbox.setChecked(bool(cfg.get("use_hotkey", False)))
+            self.scene_edit.setText(cfg.get("scene", ""))
+            self.sound_file_edit.setText(cfg.get("sound_file", ""))
+            self.hotkey_edit.setText(cfg.get("hotkey", ""))
+        finally:
+            self._refletindo = False
+
+        self.scene_edit.setEnabled(self.scene_action_checkbox.isChecked())
+        self.sound_file_edit.setEnabled(self.sound_action_checkbox.isChecked())
+        self.browse_sound_button.setEnabled(self.sound_action_checkbox.isChecked())
+        self.hotkey_edit.setEnabled(self.hotkey_action_checkbox.isChecked())
+        self._validate_sound_file()
+
+    def _gravar_do_formulario(self):
+        if self._refletindo or self._estado is None or not self._atual:
+            return
+
+        usa_som = self.sound_action_checkbox.isChecked()
+        self._estado.definir_binding(
+            self._atual,
+            hold_time=self.hold_slider.value() / 10,
+            cooldown=self.cooldown_slider.value() / 10,
+            use_scene=self.scene_action_checkbox.isChecked(),
+            use_sound=usa_som,
+            play_sound=usa_som,
+            use_hotkey=self.hotkey_action_checkbox.isChecked(),
+            scene=self.scene_edit.text().strip(),
+            sound_file=self.sound_file_edit.text().strip(),
+            hotkey=self.hotkey_edit.text().strip(),
+        )
+        self.bindingEditado.emit()
+
+    def definir_arquivo_de_som(self, caminho):
+        self.sound_file_edit.setText(caminho)
+        self._gravar_do_formulario()
 
     def _validate_sound_file(self):
         path = self.sound_file_edit.text().strip()

@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
 
 import os
 
-from ui import vinculo
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
 from ui.tabs.obs_tab import OBSTab
@@ -24,6 +23,18 @@ logger = get_logger(__name__)
 
 def _usar_widgets():
     return os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets"
+
+
+def _construir_aba_gestos(estado):
+    if _usar_widgets():
+        return GestosTab(estado)
+    try:
+        from ui.tabs.gestos_tab_qml import GestosTabQml
+
+        return GestosTabQml(estado)
+    except Exception:
+        logger.exception("Falha ao carregar a aba Gestos em QML; usando a de Widgets")
+        return GestosTab(estado)
 
 
 def _construir_aba_obs(estado):
@@ -80,7 +91,7 @@ class SetupMixin:
         left_layout.addWidget(self.tabs)
 
         self.geral_tab = _construir_aba_geral(self.estado)
-        self.gestos_tab = GestosTab()
+        self.gestos_tab = _construir_aba_gestos(self.estado)
         self.obs_tab = _construir_aba_obs(self.estado)
 
         self.tabs.addTab(self.geral_tab, "Geral")
@@ -89,23 +100,6 @@ class SetupMixin:
 
         # Os aliases da aba Geral saíram: ela agora fala pelo contrato, e alcançar os
         # widgets dela era justamente o que amarrava a janela a uma implementação.
-        self.grid_layout = self.gestos_tab.grid_layout
-        self.choose_gestures_button = self.gestos_tab.choose_gestures_button
-        self.selected_gesture_label = self.gestos_tab.selected_gesture_label
-        self.hold_slider = self.gestos_tab.hold_slider
-        self.hold_value_spinbox = self.gestos_tab.hold_value_spinbox
-        self.cooldown_slider = self.gestos_tab.cooldown_slider
-        self.cooldown_value_spinbox = self.gestos_tab.cooldown_value_spinbox
-        self.scene_action_checkbox = self.gestos_tab.scene_action_checkbox
-        self.sound_action_checkbox = self.gestos_tab.sound_action_checkbox
-        self.hotkey_action_checkbox = self.gestos_tab.hotkey_action_checkbox
-        self.scene_row = self.gestos_tab.scene_row
-        self.sound_row = self.gestos_tab.sound_row
-        self.hotkey_row = self.gestos_tab.hotkey_row
-        self.scene_edit = self.gestos_tab.scene_edit
-        self.sound_file_edit = self.gestos_tab.sound_file_edit
-        self.hotkey_edit = self.gestos_tab.hotkey_edit
-        self.browse_sound_button = self.gestos_tab.browse_sound_button
 
 
         # A aba Geral fala por intenção, não por widget. Ver `ui/tabs/geral_contrato.py`.
@@ -116,30 +110,12 @@ class SetupMixin:
         self.geral_tab.cameraPedida.connect(self.on_camera_changed)
         self.geral_tab.esqueletoPedido.connect(self.on_esqueleto_changed)
         self.geral_tab.recomendadoPedido.connect(self.aplicar_preset_recomendado)
-        self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
-        # O espelho slider↔spin sai daqui: `vinculo.espelhar` faz o que os quatro
-        # handlers `on_*_changed` faziam, com a guarda de sinais num lugar só. Ver D-47.
-        vinculo.espelhar(self.hold_slider, self.hold_value_spinbox)
-        vinculo.espelhar(self.cooldown_slider, self.cooldown_value_spinbox)
-
-        # Um handler por controle, não três. `on_dynamic_setting_changed` já grava
-        # hold/cooldown e reconfigura a engine viva — que é tudo que mover um slider muda.
-        for controle in (
-            self.hold_slider,
-            self.hold_value_spinbox,
-            self.cooldown_slider,
-            self.cooldown_value_spinbox,
-        ):
-            controle.valueChanged.connect(self.on_dynamic_setting_changed)
-
-        self.scene_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
-        self.sound_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
-        self.hotkey_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
-        self.scene_edit.textChanged.connect(self.on_current_gesture_changed)
-        self.sound_file_edit.textChanged.connect(self.on_current_gesture_changed)
-        self.hotkey_edit.textChanged.connect(self.on_current_gesture_changed)
-        self.hotkey_edit.hotkeyCommitted.connect(self.on_current_gesture_changed)
-        self.browse_sound_button.clicked.connect(self.select_sound_file)
+        # A aba Gestos também. O espelho slider↔spin e os oito `connect` por campo
+        # sumiram: quem grava agora é a aba, que avisa uma vez que editou.
+        self.gestos_tab.escolherGestosPedido.connect(self.open_gesture_selector_dialog)
+        self.gestos_tab.procurarSomPedido.connect(self.select_sound_file)
+        self.gestos_tab.bindingEditado.connect(self.on_current_gesture_changed)
+        self.gestos_tab.gestoSelecionado.connect(self.ao_selecionar_gesto)
 
         # A aba OBS também fala por intenção.
         self.obs_tab.credenciaisMudaram.connect(self.on_obs_changed)

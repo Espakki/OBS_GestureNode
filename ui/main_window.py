@@ -57,7 +57,6 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self._obs_connect_thread = None
         self.current_gesture = self.ALL_GESTURES[0][0]
         self._updating_gesture_form = False
-        self.gesture_buttons = {}
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)

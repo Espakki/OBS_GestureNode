@@ -22,6 +22,32 @@ from PySide6.QtGui import QKeySequence
 
 MODIFICADORES = (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta)
 
+
+def _numero(valor):
+    """Aceita enum do Qt ou `int` cru, e devolve `int`.
+
+    Isto não é conveniência: as duas telas chamam esta função com tipos diferentes. O
+    `HotkeyLineEdit` entrega `event.modifiers()`, que é um `KeyboardModifier`; o QML
+    entrega um `int` puro, porque é o que atravessa a ponte. Sem normalizar, `int & enum`
+    levanta TypeError — e do lado das teclas seria pior: `17 in (Qt.Key_Control, ...)`
+    poderia dar `False` em silêncio, e o Ctrl deixaria de ser reconhecido como modificador
+    sem nenhum erro aparecer.
+    """
+    if valor is None:
+        return 0
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return int(getattr(valor, "value", 0))
+
+
+_MODIFICADORES_NUM = frozenset(_numero(k) for k in MODIFICADORES)
+
+
+def e_modificador(codigo):
+    """`True` se a tecla é Ctrl, Shift, Alt ou Win — em enum ou em int."""
+    return _numero(codigo) in _MODIFICADORES_NUM
+
 # A ordem é fixa para que a mesma combinação produza sempre o mesmo texto — o config é
 # comparado como string, e "Shift+Ctrl+A" nunca casaria com "Ctrl+Shift+A".
 _ORDEM = (
@@ -73,6 +99,9 @@ PONTUACAO_POR_CODIGO = {
     Qt.Key_QuoteLeft: "`",
 }
 
+_NOME_POR_NUMERO = {_numero(k): v for k, v in NOME_POR_CODIGO.items()}
+_PONTUACAO_POR_NUMERO = {_numero(k): v for k, v in PONTUACAO_POR_CODIGO.items()}
+
 _PERMITIDOS = {
     "Space", "Tab", "Enter", "Return", "Backspace", "Delete",
     "Insert", "Home", "End", "PageUp", "PageDown", "Up", "Down",
@@ -82,7 +111,8 @@ _PERMITIDOS = {
 
 def modificadores_de_flags(flags):
     """Os modificadores presentes nas flags do evento, na ordem canônica."""
-    return [nome for _, flag, nome in _ORDEM if flags & flag]
+    valor = _numero(flags)
+    return [nome for _, flag, nome in _ORDEM if valor & _numero(flag)]
 
 
 def modificadores_de_teclas(codigos_pressionados):
@@ -92,7 +122,8 @@ def modificadores_de_teclas(codigos_pressionados):
     batido a tecla final, as flags do evento ainda não refletem o que está seguro — e é
     disso que sai o texto "Ctrl+Shift+..." mostrado durante a captura.
     """
-    return [nome for codigo, _, nome in _ORDEM if codigo in codigos_pressionados]
+    segurados = {_numero(c) for c in codigos_pressionados}
+    return [nome for codigo, _, nome in _ORDEM if _numero(codigo) in segurados]
 
 
 def _do_virtual_key_nativo(native_vk):
@@ -117,24 +148,26 @@ def _do_virtual_key_nativo(native_vk):
 
 def nome_da_tecla(codigo, flags=0, texto="", native_vk=0):
     """O nome canônico da tecla final, ou `""` se ela não serve como atalho."""
-    if Qt.Key_A <= codigo <= Qt.Key_Z:
+    codigo = _numero(codigo)
+
+    if _numero(Qt.Key_A) <= codigo <= _numero(Qt.Key_Z):
         return chr(codigo)
 
-    if Qt.Key_0 <= codigo <= Qt.Key_9:
+    if _numero(Qt.Key_0) <= codigo <= _numero(Qt.Key_9):
         return chr(codigo)
 
     nativo = _do_virtual_key_nativo(native_vk)
     if nativo:
         return nativo
 
-    if Qt.Key_F1 <= codigo <= Qt.Key_F24:
-        return f"F{codigo - Qt.Key_F1 + 1}"
+    if _numero(Qt.Key_F1) <= codigo <= _numero(Qt.Key_F24):
+        return f"F{codigo - _numero(Qt.Key_F1) + 1}"
 
-    if codigo in NOME_POR_CODIGO:
-        return NOME_POR_CODIGO[codigo]
+    if codigo in _NOME_POR_NUMERO:
+        return _NOME_POR_NUMERO[codigo]
 
-    if codigo in PONTUACAO_POR_CODIGO:
-        return PONTUACAO_POR_CODIGO[codigo]
+    if codigo in _PONTUACAO_POR_NUMERO:
+        return _PONTUACAO_POR_NUMERO[codigo]
 
     normalizado = QKeySequence(codigo).toString(QKeySequence.NativeText).strip()
     if not normalizado:
@@ -161,7 +194,7 @@ def montar(codigo, flags=0, texto="", native_vk=0, segurados=()):
     Sem modificador não há atalho: uma tecla solta viraria um gesto que dispara toda vez
     que o usuário digitasse aquela letra em qualquer lugar.
     """
-    if codigo in MODIFICADORES:
+    if e_modificador(codigo):
         return ""
 
     mods = modificadores_de_flags(flags) or modificadores_de_teclas(segurados)

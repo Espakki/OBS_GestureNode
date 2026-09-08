@@ -8,3 +8,7 @@ PainelRolavel 1.0 PainelRolavel.qml
 CampoDeTexto 1.0 CampoDeTexto.qml
 BotaoAcao 1.0 BotaoAcao.qml
 ObsTab 1.0 ObsTab.qml
+Deslizante 1.0 Deslizante.qml
+Interruptor 1.0 Interruptor.qml
+CapturaDeAtalho 1.0 CapturaDeAtalho.qml
+GestosTab 1.0 GestosTab.qml

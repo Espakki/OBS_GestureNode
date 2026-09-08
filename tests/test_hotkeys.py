@@ -237,3 +237,24 @@ class TestTraducaoPura:
         assert atalho_capturado.montar(
             Qt.Key_B, Qt.NoModifier, "b", 0x42, segurados=segurados
         ) == "Ctrl+Shift+B"
+
+    def test_aceita_int_cru_alem_do_enum_do_qt(self):
+        """As duas telas chamam com tipos diferentes. Ver D-50.
+
+        O `HotkeyLineEdit` entrega `event.modifiers()`, que é um `KeyboardModifier`; a
+        captura em QML entrega `int`, porque é o que atravessa a ponte. Sem normalizar,
+        `int & enum` levanta TypeError -- e no caso das teclas seria pior: a comparação
+        daria `False` em silêncio e o Ctrl deixaria de contar como modificador.
+        """
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        flags = int(Qt.ControlModifier.value) | int(Qt.AltModifier.value)
+        assert atalho_capturado.montar(
+            int(Qt.Key_AE.value), flags, "æ", 0x5A
+        ) == "Ctrl+Alt+Z"
+
+        assert atalho_capturado.e_modificador(int(Qt.Key_Control.value)) is True
+        assert atalho_capturado.e_modificador(Qt.Key_Control) is True
+        assert atalho_capturado.e_modificador(int(Qt.Key_A.value)) is False
