@@ -74,6 +74,19 @@ class PonteGeral(QObject):
         # É isto que faz a tela seguir o estado sem ninguém empurrar.
         self._cancelar = estado.escutar(self._ao_mudar_estado)
 
+    def desligar(self):
+        """Cancela a inscrição no estado.
+
+        Sem isto, uma ponte destruída continua na lista de ouvintes do `EstadoApp` e
+        estoura `Internal C++ object already deleted` a **cada** mudança de estado, para
+        sempre. O `EstadoApp` engole a exceção (por desenho: um ouvinte quebrado não pode
+        derrubar quem mexeu num slider), então o vazamento não aparece como falha — aparece
+        como um traceback no log a cada clique.
+        """
+        if self._cancelar is not None:
+            self._cancelar()
+            self._cancelar = None
+
     def _ao_mudar_estado(self, campo, valor):
         self.mudou.emit()
 

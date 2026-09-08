@@ -48,6 +48,19 @@ class PonteGestos(QObject):
 
         self._cancelar = estado.escutar(lambda campo, valor: self.mudou.emit())
 
+    def desligar(self):
+        """Cancela a inscrição no estado.
+
+        Sem isto, uma ponte destruída continua na lista de ouvintes do `EstadoApp` e
+        estoura `Internal C++ object already deleted` a **cada** mudança de estado, para
+        sempre. O `EstadoApp` engole a exceção (por desenho: um ouvinte quebrado não pode
+        derrubar quem mexeu num slider), então o vazamento não aparece como falha — aparece
+        como um traceback no log a cada clique.
+        """
+        if self._cancelar is not None:
+            self._cancelar()
+            self._cancelar = None
+
     # ------------------------------------------------------------------ grade
 
     @Property(list, notify=gestosMudaram)

@@ -21,8 +21,22 @@ from util.logger import get_logger
 logger = get_logger(__name__)
 
 
+# Abas que caíram para a versão antiga por falha ao carregar o QML. Ver D-49.
+#
+# O log sozinho não basta: empacotado, o app roda sem console, então a mensagem não chega
+# a lugar nenhum. O usuário veria a interface antiga achando que era a nova, e nós
+# perderíamos horas procurando um problema no QML que na verdade seria de empacotamento.
+# Mesma regra do D-29 e do D-39: degradação silenciosa é pior que degradação anunciada.
+_QUEDAS = []
+
+
 def _usar_widgets():
     return os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets"
+
+
+def _cair_para_widgets(aba, erro):
+    logger.exception("Falha ao carregar a aba %s em QML; usando a de Widgets", aba)
+    _QUEDAS.append(f"Aba {aba}: interface nova indisponível ({erro}); usando a antiga.")
 
 
 def _construir_aba_gestos(estado):
@@ -32,8 +46,8 @@ def _construir_aba_gestos(estado):
         from ui.tabs.gestos_tab_qml import GestosTabQml
 
         return GestosTabQml(estado)
-    except Exception:
-        logger.exception("Falha ao carregar a aba Gestos em QML; usando a de Widgets")
+    except Exception as exc:
+        _cair_para_widgets("Gestos", exc)
         return GestosTab(estado)
 
 
@@ -45,8 +59,8 @@ def _construir_aba_obs(estado):
         from ui.tabs.obs_tab_qml import ObsTabQml
 
         return ObsTabQml(estado)
-    except Exception:
-        logger.exception("Falha ao carregar a aba OBS em QML; usando a de Widgets")
+    except Exception as exc:
+        _cair_para_widgets("OBS", exc)
         return OBSTab(estado)
 
 
@@ -65,13 +79,19 @@ def _construir_aba_geral(estado):
         from ui.tabs.geral_tab_qml import GeralTabQml
 
         return GeralTabQml(estado)
-    except Exception:
+    except Exception as exc:
         # Um QtQuick indisponível não pode impedir o app de abrir — a aba antiga serve.
-        logger.exception("Falha ao carregar a aba Geral em QML; usando a de Widgets")
+        _cair_para_widgets("Geral", exc)
         return GeralTab(estado)
 
 
 class SetupMixin:
+
+    @staticmethod
+    def quedas_de_interface():
+        """O que caiu para a versão antiga. A janela relata depois que o log existe."""
+        return list(_QUEDAS)
+
 
     def _setup_ui(self):
         central_widget = QWidget()

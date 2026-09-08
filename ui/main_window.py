@@ -67,6 +67,9 @@ class MainWindow(QMainWindow, ConfigMixin, CameraMixin, GestureMixin, OBSMixin, 
         self._load_ui_from_config()
         self.salvar_config_automatico()
 
+        for queda in self.quedas_de_interface():
+            self._append_log(f"⚠️ {queda}")
+
         self._append_log("Interface inicializada")
 
     def changeEvent(self, event):

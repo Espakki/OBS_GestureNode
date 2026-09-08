@@ -71,9 +71,28 @@ class GeralTabQml(QQuickWidget):
         self.setResizeMode(QQuickWidget.SizeRootObjectToView)
         self.setSource(QUrl.fromLocalFile(str(DIRETORIO_QML / "GeralTab.qml")))
 
-        if self.status() == QQuickWidget.Error:
-            for erro in self.errors():
-                logger.error("QML: %s", erro.toString())
+        # Fechar a janela também precisa desligar; senão a ponte sobrevive ao widget.
+        self.destroyed.connect(lambda *_: self.ponte.desligar())
+
+        self._exigir_carregamento()
+
+    def _exigir_carregamento(self):
+        """Levanta quando o QML não carregou, para o fallback de Widgets valer. Ver D-49.
+
+        O `QQuickWidget` **não** levanta sozinho: com o arquivo ausente ele registra o erro
+        e fica em branco. Sem este `raise`, a falha mais provável — os `.qml` fora do
+        bundle do PyInstaller — daria uma aba vazia em vez da interface antiga, e o
+        `try/except` de `setup_mixin` nunca seria acionado.
+        """
+        if self.status() != QQuickWidget.Error:
+            return
+
+        motivos = "; ".join(erro.toString() for erro in self.errors())
+        logger.error("QML não carregou: %s", motivos)
+        # Desliga antes de levantar: a ponte já se inscreveu no estado, e uma inscrição
+        # órfã estoura a cada mudança daqui em diante.
+        self.ponte.desligar()
+        raise RuntimeError(motivos or "QML não carregou")
 
     def _ao_pedir_camera(self, posicao):
         if 0 <= posicao < len(self._entradas):
