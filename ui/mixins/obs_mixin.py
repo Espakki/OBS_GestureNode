@@ -1,3 +1,4 @@
+from core.estado_runtime import EstadoOBS
 from integrations.obs_connect_thread import (
     OBSConnectThread,
     _resumir_footer_obs as _resumir_footer_obs_fn,
@@ -10,18 +11,20 @@ logger = get_logger(__name__)
 class OBSMixin:
 
     def on_modo_changed(self, modo):
-        self.config["modo"] = modo
-        self.config.setdefault("camera", {})
-        self.config["camera"]["enable_virtual_camera"] = modo == "automatico"
+        self.estado.modo = modo
+        # A câmera virtual só existe no modo automático (D-17). Derivado, não escolhido:
+        # deixar os dois separados permitia um config dizendo "manual com VCam ligada".
+        self.estado.camera_virtual_ativa = modo == "automatico"
         self._refresh_health_panels()
-        self.salvar_config_automatico()
 
     def on_obs_changed(self):
-        self.config.setdefault("obs", {})
-        self.config["obs"]["host"] = self.obs_host.text().strip()
-        self.config["obs"]["port"] = int(self.obs_port.value())
-        self.config["obs"]["password"] = self.obs_password.text()
-        self.salvar_config_automatico()
+        """As credenciais já foram gravadas pela aba; aqui só o efeito colateral.
+
+        Trocar host ou porta invalida uma conexão testada antes — deixar o status verde
+        seria mentir sobre um endereço que ninguém tentou.
+        """
+        if self.saude.obs is EstadoOBS.CONECTADO:
+            self.marcar_obs(EstadoOBS.NAO_TESTADO)
 
     def testar_conexao_obs(self):
         if self._obs_connect_thread is not None:
@@ -33,15 +36,13 @@ class OBSMixin:
                 pass
             self._obs_connect_thread = None
 
-        host = self.obs_host.text().strip()
-        port = self.obs_port.value()
-        password = self.obs_password.text()
+        host = self.estado.obs_host
+        port = self.estado.obs_porta
+        password = self.estado.obs_senha
 
-        self.test_obs_button.setEnabled(False)
-        self.obs_status_label.setText("Conectando...")
+        self.obs_tab.definir_status(EstadoOBS.CONECTANDO)
         self.obs_footer_label.setText("⏳ OBS: Conectando...")
-        from PySide6.QtWidgets import QApplication
-        QApplication.processEvents()
+        self.marcar_obs(EstadoOBS.CONECTANDO)
 
         thread = OBSConnectThread(host, port, password)
         thread.connecting.connect(self.on_obs_conectando)
@@ -52,23 +53,22 @@ class OBSMixin:
         thread.start()
 
     def on_obs_conectando(self):
-        self.obs_status_label.setText("Conectando...")
+        self.obs_tab.definir_status(EstadoOBS.CONECTANDO)
         self.obs_footer_label.setText("⏳ OBS: Conectando...")
+        self.marcar_obs(EstadoOBS.CONECTANDO)
 
     def on_obs_conectado(self, obs_controller):
-        self.test_obs_button.setEnabled(True)
-        self.obs_status_label.setText("Status: Conectado ✅")
+        self.obs_tab.definir_status(EstadoOBS.CONECTADO)
         self.obs_footer_label.setText("🟢 OBS: Conectado")
         if self.engine and self.engine.isRunning():
             self.engine.set_obs_controller(obs_controller)
-        self._refresh_health_panels()
+        self.marcar_obs(EstadoOBS.CONECTADO)
         self._obs_connect_thread = None
 
     def on_obs_falhou(self, mensagem):
-        self.test_obs_button.setEnabled(True)
-        self.obs_status_label.setText(mensagem)
+        self.obs_tab.definir_status(EstadoOBS.FALHOU, mensagem)
         self.obs_footer_label.setText(self._resumir_footer_obs(mensagem))
-        self._refresh_health_panels()
+        self.marcar_obs(EstadoOBS.FALHOU, mensagem)
         self._obs_connect_thread = None
 
     def _resumir_footer_obs(self, mensagem):

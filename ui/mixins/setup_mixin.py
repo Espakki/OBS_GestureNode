@@ -11,12 +11,87 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import os
+
 from ui.tabs.geral_tab import GeralTab
 from ui.tabs.gestos_tab import GestosTab
 from ui.tabs.obs_tab import OBSTab
+from util.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+# Abas que caíram para a versão antiga por falha ao carregar o QML. Ver D-49.
+#
+# O log sozinho não basta: empacotado, o app roda sem console, então a mensagem não chega
+# a lugar nenhum. O usuário veria a interface antiga achando que era a nova, e nós
+# perderíamos horas procurando um problema no QML que na verdade seria de empacotamento.
+# Mesma regra do D-29 e do D-39: degradação silenciosa é pior que degradação anunciada.
+_QUEDAS = []
+
+
+def _usar_widgets():
+    return os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets"
+
+
+def _cair_para_widgets(aba, erro):
+    logger.exception("Falha ao carregar a aba %s em QML; usando a de Widgets", aba)
+    _QUEDAS.append(f"Aba {aba}: interface nova indisponível ({erro}); usando a antiga.")
+
+
+def _construir_aba_gestos(estado):
+    if _usar_widgets():
+        return GestosTab(estado)
+    try:
+        from ui.tabs.gestos_tab_qml import GestosTabQml
+
+        return GestosTabQml(estado)
+    except Exception as exc:
+        _cair_para_widgets("Gestos", exc)
+        return GestosTab(estado)
+
+
+def _construir_aba_obs(estado):
+    """Mesma escolha e mesma rede de segurança da aba Geral."""
+    if _usar_widgets():
+        return OBSTab(estado)
+    try:
+        from ui.tabs.obs_tab_qml import ObsTabQml
+
+        return ObsTabQml(estado)
+    except Exception as exc:
+        _cair_para_widgets("OBS", exc)
+        return OBSTab(estado)
+
+
+def _construir_aba_geral(estado):
+    """A aba Geral é QML por padrão. `GESTURENODE_UI=widgets` volta à antiga. Ver D-49.
+
+    A saída de emergência existe porque a versão QML é nova e só se prova em uso: se ela
+    falhar na máquina de alguém, esse alguém precisa de um caminho para continuar
+    trabalhando que não seja editar código. As duas cumprem `ui/tabs/geral_contrato.py`,
+    então nada além desta função sabe qual está montada.
+    """
+    if _usar_widgets():
+        return GeralTab(estado)
+
+    try:
+        from ui.tabs.geral_tab_qml import GeralTabQml
+
+        return GeralTabQml(estado)
+    except Exception as exc:
+        # Um QtQuick indisponível não pode impedir o app de abrir — a aba antiga serve.
+        _cair_para_widgets("Geral", exc)
+        return GeralTab(estado)
 
 
 class SetupMixin:
+
+    @staticmethod
+    def quedas_de_interface():
+        """O que caiu para a versão antiga. A janela relata depois que o log existe."""
+        return list(_QUEDAS)
+
 
     def _setup_ui(self):
         central_widget = QWidget()
@@ -35,96 +110,47 @@ class SetupMixin:
         self.tabs = QTabWidget()
         left_layout.addWidget(self.tabs)
 
-        self.geral_tab = GeralTab()
-        self.gestos_tab = GestosTab()
-        self.obs_tab = OBSTab()
+        self.geral_tab = _construir_aba_geral(self.estado)
+        self.gestos_tab = _construir_aba_gestos(self.estado)
+        self.obs_tab = _construir_aba_obs(self.estado)
 
         self.tabs.addTab(self.geral_tab, "Geral")
         self.tabs.addTab(self.gestos_tab, "Gestos")
         self.tabs.addTab(self.obs_tab, "OBS")
 
-        self.mode_test_button = self.geral_tab.mode_test_button
-        self.mode_manual_button = self.geral_tab.mode_manual_button
-        self.mode_auto_button = self.geral_tab.mode_auto_button
-        self.maos_1_button = self.geral_tab.maos_1_button
-        self.maos_2_button = self.geral_tab.maos_2_button
-        self.esqueleto_preview_button = self.geral_tab.esqueleto_preview_button
-        self.esqueleto_obs_button = self.geral_tab.esqueleto_obs_button
-        self.camera_device_combo = self.geral_tab.camera_device_combo
-        self.resolution_buttons = self.geral_tab.resolution_buttons
-        self.fps_buttons = self.geral_tab.fps_buttons
-        self.health_camera = self.geral_tab.health_camera
-        self.health_obs = self.geral_tab.health_obs
-        self.health_gestos = self.geral_tab.health_gestos
-        self.grid_layout = self.gestos_tab.grid_layout
-        self.usar_recomendado_button = self.geral_tab.usar_recomendado_button
-        self.choose_gestures_button = self.gestos_tab.choose_gestures_button
-        self.selected_gesture_label = self.gestos_tab.selected_gesture_label
-        self.hold_slider = self.gestos_tab.hold_slider
-        self.hold_value_spinbox = self.gestos_tab.hold_value_spinbox
-        self.cooldown_slider = self.gestos_tab.cooldown_slider
-        self.cooldown_value_spinbox = self.gestos_tab.cooldown_value_spinbox
-        self.scene_action_checkbox = self.gestos_tab.scene_action_checkbox
-        self.sound_action_checkbox = self.gestos_tab.sound_action_checkbox
-        self.hotkey_action_checkbox = self.gestos_tab.hotkey_action_checkbox
-        self.scene_row = self.gestos_tab.scene_row
-        self.sound_row = self.gestos_tab.sound_row
-        self.hotkey_row = self.gestos_tab.hotkey_row
-        self.scene_edit = self.gestos_tab.scene_edit
-        self.sound_file_edit = self.gestos_tab.sound_file_edit
-        self.hotkey_edit = self.gestos_tab.hotkey_edit
-        self.browse_sound_button = self.gestos_tab.browse_sound_button
+        # A Sobre é opcional: sem estado para refletir, se o QML falhar ela some em vez de
+        # impedir o app de abrir. É a única aba de que se pode abrir mão. Ver D-51.
+        try:
+            from ui.tabs.sobre_tab_qml import SobreTabQml
 
-        self.obs_host = self.obs_tab.obs_host
-        self.obs_port = self.obs_tab.obs_port
-        self.obs_password = self.obs_tab.obs_password
-        self.test_obs_button = self.obs_tab.test_obs_button
-        self.obs_status_label = self.obs_tab.obs_status_label
+            self.sobre_tab = SobreTabQml()
+            self.tabs.addTab(self.sobre_tab, "Sobre")
+        except Exception:
+            logger.exception("Aba Sobre indisponível; seguindo sem ela")
+            self.sobre_tab = None
 
-        self.mode_test_button.toggled.connect(lambda checked: self.on_modo_changed("teste") if checked else None)
-        self.mode_manual_button.toggled.connect(lambda checked: self.on_modo_changed("manual") if checked else None)
-        self.mode_auto_button.toggled.connect(lambda checked: self.on_modo_changed("automatico") if checked else None)
-        self.maos_1_button.toggled.connect(lambda checked: self.on_max_maos_changed(1) if checked else None)
-        self.maos_2_button.toggled.connect(lambda checked: self.on_max_maos_changed(2) if checked else None)
-        self.esqueleto_preview_button.toggled.connect(self.on_show_skeleton_changed)
-        self.esqueleto_preview_button.toggled.connect(self.on_dynamic_setting_changed)
-        self.esqueleto_obs_button.toggled.connect(self.on_skeleton_vcam_changed)
-        self.esqueleto_obs_button.toggled.connect(self.on_dynamic_setting_changed)
-        self.camera_device_combo.currentIndexChanged.connect(self.on_camera_changed)
-        for label, button in self.resolution_buttons.items():
-            button.toggled.connect(lambda checked, value=label: self.on_resolution_changed(value) if checked else None)
-        for fps_value, button in self.fps_buttons.items():
-            button.toggled.connect(lambda checked, value=fps_value: self.on_fps_changed(value) if checked else None)
+        # Os aliases da aba Geral saíram: ela agora fala pelo contrato, e alcançar os
+        # widgets dela era justamente o que amarrava a janela a uma implementação.
 
-        self.usar_recomendado_button.clicked.connect(self.aplicar_preset_recomendado)
-        self.choose_gestures_button.clicked.connect(self.open_gesture_selector_dialog)
-        self.hold_slider.valueChanged.connect(self.on_hold_slider_changed)
-        self.hold_slider.valueChanged.connect(self.on_current_gesture_changed)
-        self.hold_slider.valueChanged.connect(self.on_dynamic_setting_changed)
-        self.hold_value_spinbox.valueChanged.connect(self.on_hold_spinbox_changed)
-        self.hold_value_spinbox.valueChanged.connect(self.on_current_gesture_changed)
-        self.hold_value_spinbox.valueChanged.connect(self.on_dynamic_setting_changed)
 
-        self.cooldown_slider.valueChanged.connect(self.on_cooldown_slider_changed)
-        self.cooldown_slider.valueChanged.connect(self.on_current_gesture_changed)
-        self.cooldown_slider.valueChanged.connect(self.on_dynamic_setting_changed)
-        self.cooldown_value_spinbox.valueChanged.connect(self.on_cooldown_spinbox_changed)
-        self.cooldown_value_spinbox.valueChanged.connect(self.on_current_gesture_changed)
-        self.cooldown_value_spinbox.valueChanged.connect(self.on_dynamic_setting_changed)
+        # A aba Geral fala por intenção, não por widget. Ver `ui/tabs/geral_contrato.py`.
+        self.geral_tab.modoPedido.connect(self.on_modo_changed)
+        self.geral_tab.maosPedidas.connect(self.on_max_maos_changed)
+        self.geral_tab.resolucaoPedida.connect(self.on_resolution_changed)
+        self.geral_tab.fpsPedido.connect(self.on_fps_changed)
+        self.geral_tab.cameraPedida.connect(self.on_camera_changed)
+        self.geral_tab.esqueletoPedido.connect(self.on_esqueleto_changed)
+        self.geral_tab.recomendadoPedido.connect(self.aplicar_preset_recomendado)
+        # A aba Gestos também. O espelho slider↔spin e os oito `connect` por campo
+        # sumiram: quem grava agora é a aba, que avisa uma vez que editou.
+        self.gestos_tab.escolherGestosPedido.connect(self.open_gesture_selector_dialog)
+        self.gestos_tab.procurarSomPedido.connect(self.select_sound_file)
+        self.gestos_tab.bindingEditado.connect(self.on_current_gesture_changed)
+        self.gestos_tab.gestoSelecionado.connect(self.ao_selecionar_gesto)
 
-        self.scene_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
-        self.sound_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
-        self.hotkey_action_checkbox.stateChanged.connect(self.on_current_gesture_changed)
-        self.scene_edit.textChanged.connect(self.on_current_gesture_changed)
-        self.sound_file_edit.textChanged.connect(self.on_current_gesture_changed)
-        self.hotkey_edit.textChanged.connect(self.on_current_gesture_changed)
-        self.hotkey_edit.hotkeyCommitted.connect(self.on_current_gesture_changed)
-        self.browse_sound_button.clicked.connect(self.select_sound_file)
-
-        self.obs_host.textChanged.connect(self.on_obs_changed)
-        self.obs_port.valueChanged.connect(self.on_obs_changed)
-        self.obs_password.textChanged.connect(self.on_obs_changed)
-        self.test_obs_button.clicked.connect(self.testar_conexao_obs)
+        # A aba OBS também fala por intenção.
+        self.obs_tab.credenciaisMudaram.connect(self.on_obs_changed)
+        self.obs_tab.testePedido.connect(self.testar_conexao_obs)
 
         right_panel = QFrame()
         right_panel.setObjectName("card")

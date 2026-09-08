@@ -1,6 +1,5 @@
-from contextlib import contextmanager
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -13,10 +12,25 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ui import vinculo
+
 
 class GeralTab(QWidget):
-    def __init__(self):
+    """A aba Geral em Qt Widgets. Cumpre `ui/tabs/geral_contrato.py`."""
+
+    modoPedido = Signal(str)
+    maosPedidas = Signal(int)
+    resolucaoPedida = Signal(str)
+    fpsPedido = Signal(int)
+    cameraPedida = Signal(int)
+    esqueletoPedido = Signal(bool, bool)
+    recomendadoPedido = Signal()
+
+    def __init__(self, estado=None):
         super().__init__()
+        # `estado` entra só por simetria com a versão QML, que precisa dele. Aqui a aba
+        # continua sendo empurrada pela janela.
+        self._estado = estado
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -244,32 +258,127 @@ class GeralTab(QWidget):
 
         layout.addStretch(1)
 
+        self._ligar_sinais()
+
+    def _ligar_sinais(self):
+        """Traduz evento de widget em intenção. Ver `geral_contrato`.
+
+        Isto morava no `setup_mixin`, que alcançava `geral_tab.mode_test_button` e ligava
+        na mão. Trazido para cá, quem usa a aba deixa de precisar conhecer os botões dela.
+        """
+        for botao, modo in (
+            (self.mode_test_button, "teste"),
+            (self.mode_manual_button, "manual"),
+            (self.mode_auto_button, "automatico"),
+        ):
+            botao.toggled.connect(
+                lambda marcado, m=modo: marcado and self.modoPedido.emit(m)
+            )
+
+        for botao, quantidade in ((self.maos_1_button, 1), (self.maos_2_button, 2)):
+            botao.toggled.connect(
+                lambda marcado, n=quantidade: marcado and self.maosPedidas.emit(n)
+            )
+
+        for botao in (self.esqueleto_preview_button, self.esqueleto_obs_button):
+            botao.toggled.connect(
+                lambda _=None: self.esqueletoPedido.emit(
+                    self.esqueleto_preview_button.isChecked(),
+                    self.esqueleto_obs_button.isChecked(),
+                )
+            )
+
+        for rotulo, botao in self.resolution_buttons.items():
+            botao.toggled.connect(
+                lambda marcado, r=rotulo: marcado and self.resolucaoPedida.emit(r)
+            )
+
+        for valor, botao in self.fps_buttons.items():
+            botao.toggled.connect(
+                lambda marcado, v=valor: marcado and self.fpsPedido.emit(v)
+            )
+
+        self.camera_device_combo.currentIndexChanged.connect(self._ao_trocar_camera)
+        self.usar_recomendado_button.clicked.connect(self.recomendadoPedido.emit)
+
+    def _ao_trocar_camera(self, posicao):
+        """Emite o índice do DISPOSITIVO, não a posição na lista — elas divergem."""
+        dado = self.camera_device_combo.itemData(posicao)
+        self.cameraPedida.emit(int(dado if dado is not None else posicao))
+
+    # ---------------------------------------------------------------- contrato
+
+    def definir_cameras(self, entradas, indice_do_dispositivo):
+        with vinculo.sem_sinais(self.camera_device_combo):
+            self.camera_device_combo.clear()
+            for nome, indice in entradas:
+                self.camera_device_combo.addItem(nome, indice)
+
+            for posicao in range(self.camera_device_combo.count()):
+                if int(self.camera_device_combo.itemData(posicao)) == int(indice_do_dispositivo):
+                    self.camera_device_combo.setCurrentIndex(posicao)
+                    break
+
+    def camera_atual(self):
+        dado = self.camera_device_combo.currentData()
+        posicao = self.camera_device_combo.currentIndex()
+        return (
+            self.camera_device_combo.currentText().strip(),
+            int(dado if dado is not None else max(posicao, 0)),
+        )
+
+    def definir_capacidades(self, resolucoes_off, fps_off, aviso, tem_recomendacao):
+        resolucoes_off = set(resolucoes_off)
+        fps_off = {int(f) for f in fps_off}
+
+        for rotulo, botao in self.resolution_buttons.items():
+            disponivel = rotulo not in resolucoes_off
+            botao.setEnabled(disponivel)
+            botao.setToolTip("" if disponivel else "Esta câmera não oferece esta resolução")
+
+        for valor, botao in self.fps_buttons.items():
+            disponivel = int(valor) not in fps_off
+            botao.setEnabled(disponivel)
+            botao.setToolTip("" if disponivel else f"Esta câmera não faz {valor} fps aqui")
+
+        self.camera_aviso.setText(aviso or "")
+        self.camera_aviso.setToolTip(
+            "As opções fora do alcance desta câmera ficam desabilitadas." if aviso else ""
+        )
+        self.camera_aviso.setVisible(bool(aviso))
+        self.usar_recomendado_button.setVisible(bool(tem_recomendacao))
+
+    CORES_DE_SEVERIDADE = {
+        "ok": "#22c55e",
+        "warn": "#f59e0b",
+        "error": "#ef4444",
+        "idle": "#94a3b8",
+    }
+
+    def definir_saude(self, linhas):
+        alvos = (self.health_camera, self.health_obs, self.health_gestos)
+        for alvo, (titulo, severidade, detalhe) in zip(alvos, linhas):
+            cor = self.CORES_DE_SEVERIDADE.get(severidade, self.CORES_DE_SEVERIDADE["idle"])
+            alvo.setText(f"● {titulo}: {detalhe}")
+            alvo.setStyleSheet(f"color: {cor}; font-weight: 600;")
+
+    def definir_controles_habilitados(self, ligado):
+        self.camera_device_combo.setEnabled(ligado)
+        for botao in self.resolution_buttons.values():
+            botao.setEnabled(ligado)
+        for botao in self.fps_buttons.values():
+            botao.setEnabled(ligado)
+
+    # ---------------------------------------------------------------- interno
+
     def _on_advanced_toggle(self, checked):
         self.advanced_panel.setVisible(checked)
         self.advanced_toggle.setText(
             "Configurações Avançadas ▲" if checked else "Configurações Avançadas ▼"
         )
 
-    @staticmethod
-    @contextmanager
-    def _sem_sinais(*botoes):
-        """Marca botões sem que isso pareça um clique do usuário. Ver D-41.
-
-        Todos os `set_*` desta aba existem para **refletir a config na interface**. Sem
-        este guarda, o `setChecked` emite `toggled`, o handler roda como se o usuário
-        tivesse clicado, e a carga da config vira uma sequência de ações: reescreve a
-        config, agenda um save e refaz o probe da câmera.
-        """
-        for botao in botoes:
-            botao.blockSignals(True)
-        try:
-            yield
-        finally:
-            for botao in botoes:
-                botao.blockSignals(False)
-
     def set_max_maos(self, max_maos):
-        with self._sem_sinais(self.maos_1_button, self.maos_2_button):
+        with vinculo.sem_sinais(self.maos_1_button, self.maos_2_button):
             if int(max_maos) == 2:
                 self.maos_2_button.setChecked(True)
             else:
@@ -284,7 +393,7 @@ class GeralTab(QWidget):
     def set_mode(self, modo):
         modo_norm = str(modo).lower()
         botoes = (self.mode_test_button, self.mode_manual_button, self.mode_auto_button)
-        with self._sem_sinais(*botoes):
+        with vinculo.sem_sinais(*botoes):
             if modo_norm == "automatico":
                 self.mode_auto_button.setChecked(True)
             elif modo_norm == "manual":
@@ -297,17 +406,17 @@ class GeralTab(QWidget):
 
     def set_esqueleto(self, no_preview, na_saida_obs):
         botoes = (self.esqueleto_preview_button, self.esqueleto_obs_button)
-        with self._sem_sinais(*botoes):
+        with vinculo.sem_sinais(*botoes):
             self.esqueleto_preview_button.setChecked(bool(no_preview))
             self.esqueleto_obs_button.setChecked(bool(na_saida_obs))
 
     def set_resolution(self, resolution_label):
-        with self._sem_sinais(*self.resolution_buttons.values()):
+        with vinculo.sem_sinais(*self.resolution_buttons.values()):
             alvo = self.resolution_buttons.get(resolution_label)
             (alvo or self.resolution_buttons["720p"]).setChecked(True)
 
     def set_fps(self, fps_value):
-        with self._sem_sinais(*self.fps_buttons.values()):
+        with vinculo.sem_sinais(*self.fps_buttons.values()):
             alvo = self.fps_buttons.get(fps_value)
             (alvo or self.fps_buttons[30]).setChecked(True)
 

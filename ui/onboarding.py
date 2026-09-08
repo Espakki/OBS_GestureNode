@@ -67,10 +67,11 @@ _STEPS = [
 
 
 class OnboardingDialog(QDialog):
-    def __init__(self, config, save_callback, parent=None):
+    def __init__(self, estado, parent=None):
         super().__init__(parent)
-        self._config = config
-        self._save_callback = save_callback
+        # Recebe o estado, não o dicionário: marcar o onboarding como feito passa a
+        # notificar e salvar sozinho, como qualquer outra mudança. Ver D-47.
+        self._estado = estado
 
         self.setWindowTitle("Bem-vindo ao OBS GestureNode")
         self.setMinimumWidth(540)
@@ -138,11 +139,11 @@ class OnboardingDialog(QDialog):
         self._next_btn.setText("Concluir" if idx == self._stack.count() - 1 else "Próximo")
 
     def _finish(self):
-        self._config["onboarding_done"] = True
-        self._save_callback()
+        self._estado.onboarding_feito = True
         self.accept()
 
     def closeEvent(self, event):
-        self._config["onboarding_done"] = True
-        self._save_callback()
+        # Fechar no X também conclui: reabrir o tutorial a cada boot porque o usuário o
+        # dispensou seria justamente o oposto de acolher.
+        self._estado.onboarding_feito = True
         super().closeEvent(event)

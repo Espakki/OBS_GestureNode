@@ -1,10 +1,26 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFormLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget
+
+from core.estado_runtime import EstadoOBS
+
+TEXTO_PADRAO = {
+    EstadoOBS.CONECTADO: "Conectado",
+    EstadoOBS.CONECTANDO: "Conectando...",
+    EstadoOBS.FALHOU: "Falha de conexão",
+    EstadoOBS.DESATIVADO: "Desativado (modo Teste)",
+    EstadoOBS.NAO_TESTADO: "Desconectado",
+}
 
 
 class OBSTab(QWidget):
-    def __init__(self):
+    """A aba OBS em Qt Widgets. Mesmo contrato da versão QML."""
+
+    testePedido = Signal()
+    credenciaisMudaram = Signal()
+
+    def __init__(self, estado=None):
         super().__init__()
+        self._estado = estado
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -74,3 +90,25 @@ class OBSTab(QWidget):
         layout.addWidget(self.obs_plugin_link_label)
 
         layout.addStretch(1)
+
+        self.test_obs_button.clicked.connect(self.testePedido.emit)
+        for campo in (self.obs_host, self.obs_password):
+            campo.textEdited.connect(self._ao_editar)
+        self.obs_port.valueChanged.connect(self._ao_editar)
+
+    def _ao_editar(self, *_):
+        if self._estado is not None:
+            self._estado.obs_host = self.obs_host.text().strip()
+            self._estado.obs_porta = int(self.obs_port.value())
+            self._estado.obs_senha = self.obs_password.text()
+        self.credenciaisMudaram.emit()
+
+    def definir_status(self, situacao, detalhe=""):
+        self.obs_status_label.setText(detalhe or TEXTO_PADRAO.get(situacao, "Desconectado"))
+        self.test_obs_button.setEnabled(situacao is not EstadoOBS.CONECTANDO)
+
+    def texto_do_status(self):
+        return self.obs_status_label.text()
+
+    def definir_controles_habilitados(self, ligado):
+        """A aba OBS não trava com a engine rodando."""

@@ -106,3 +106,44 @@ explicitamente** para o código da tag correspondente, não deixar implícito.
 
 Não é urgente para uso pessoal; passa a importar quando o binário for distribuído
 publicamente.
+
+---
+
+## Fase L — Antes de publicar o binário
+
+### B-27 · Verificar a compatibilidade de licença do `pyvirtualcam` · **P** · pode bloquear o release
+
+Achado ao gerar o catálogo de licenças (D-51). O `pyvirtualcam==0.15.0` se declara com o
+classificador **`GNU General Public License v2 (GPLv2)`** — não `GPLv2+` —, e o texto que
+ele distribui é o da GPL-2.0.
+
+**Se for GPLv2-only, é incompatível com a GPL-3.0 deste projeto.** As duas licenças não são
+compatíveis entre si, e distribuir um binário que combina as duas seria distribuir sem
+permissão. Isso não afeta rodar do código-fonte para uso próprio; afeta **publicar o
+pacote**.
+
+**Não confirmei.** O classificador do PyPI sugere "only", mas o projeto pode declarar "ou
+posterior" em outro lugar. Antes de qualquer release público, conferir na fonte:
+<https://github.com/letmaik/pyvirtualcam>.
+
+**Saídas, se confirmar a incompatibilidade:**
+- O upstream aceitar relicenciar ou esclarecer que é GPLv2+
+- Trocar a biblioteca de câmera virtual
+- O projeto passar para GPL-2.0-or-later, o que muda o D-44
+- Deixar a câmera virtual como componente separado, fora do binário
+
+Nenhuma é rápida — daí registrar agora, e não na véspera do lançamento.
+
+### B-28 · Comparar versão com o último release e avisar no app · **P** · depende do D-51
+
+O `version.py` existe e o app já sabe a própria versão. Falta consultar
+`api.github.com/repos/Espakki/OBS_GestureNode/releases/latest`, comparar, e mostrar um aviso
+com link para a página do release.
+
+Decidido em conversa: **não baixa nem instala nada** — só avisa e leva ao GitHub. Sem UAC,
+sem instalador disparado por conta própria, sem download pela metade para tratar. E como o
+release sai por tag, e não por commit, o peso do download deixa de importar.
+
+Detalhes que valem lembrar: a API do GitHub limita a 60 chamadas por hora por IP sem
+autenticação (suficiente para uma checagem por abertura), e ficar offline não pode virar
+diálogo de erro.

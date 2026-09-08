@@ -1,7 +1,9 @@
 import os
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QKeySequence
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QKeySequence
+
+from ui import atalho_capturado
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -80,22 +82,8 @@ class HotkeyLineEdit(QLineEdit):
         self.captureCanceled.emit()
 
     def _build_hotkey_from_event(self, event):
-        modifiers = self._ordered_modifiers_from_flags(event.modifiers())
-        if not modifiers:
-            modifiers = self._ordered_modifiers_from_state()
-        if not modifiers:
-            return ""
-
-        key_name = self._format_key_name(event)
-        if not key_name:
-            text = (event.text() or "").strip()
-            if len(text) == 1 and text.isascii():
-                key_name = text.upper()
-
-        if not key_name:
-            return ""
-
-        return "+".join(modifiers + [key_name])
+        """Delega a `ui/atalho_capturado.py`, que é onde a regra do AltGr mora. Ver D-50."""
+        return atalho_capturado.montar_de_evento(event, self._pressed_modifiers)
 
     def _commit_if_possible(self, event):
         hotkey_str = self._build_hotkey_from_event(event)
@@ -158,149 +146,32 @@ class HotkeyLineEdit(QLineEdit):
         super().focusOutEvent(event)
 
     def _ordered_modifiers_from_flags(self, flags):
-        ordered = []
-        if flags & Qt.ControlModifier:
-            ordered.append("Ctrl")
-        if flags & Qt.AltModifier:
-            ordered.append("Alt")
-        if flags & Qt.ShiftModifier:
-            ordered.append("Shift")
-        if flags & Qt.MetaModifier:
-            ordered.append("Win")
-        return ordered
+        return atalho_capturado.modificadores_de_flags(flags)
 
     def _ordered_modifiers_from_state(self):
-        ordered = []
-        if Qt.Key_Control in self._pressed_modifiers:
-            ordered.append("Ctrl")
-        if Qt.Key_Alt in self._pressed_modifiers:
-            ordered.append("Alt")
-        if Qt.Key_Shift in self._pressed_modifiers:
-            ordered.append("Shift")
-        if Qt.Key_Meta in self._pressed_modifiers:
-            ordered.append("Win")
-        return ordered
+        return atalho_capturado.modificadores_de_teclas(self._pressed_modifiers)
 
     def _format_key_name(self, event):
-        key_code = event.key()
-
-        # Letras A-Z
-        if Qt.Key_A <= key_code <= Qt.Key_Z:
-            return chr(key_code)
-
-        # Numeros 0-9
-        if Qt.Key_0 <= key_code <= Qt.Key_9:
-            return chr(key_code)
-
-        # Numpad 0-9
-        if event.modifiers() & Qt.KeypadModifier and Qt.Key_0 <= key_code <= Qt.Key_9:
-            return chr(key_code)
-
-        # Em layouts com AltGr, o Qt pode reportar key_code especial para letras.
-        # O virtual key nativo mantém a tecla física (ex: Z), evitando caracteres como æ.
-        native_vk = self._native_vk_to_key_name(event)
-        if native_vk:
-            return native_vk
-
-        # F1-F24
-        if Qt.Key_F1 <= key_code <= Qt.Key_F24:
-            return f"F{key_code - Qt.Key_F1 + 1}"
-
-        key_name_by_code = {
-            Qt.Key_Space: "Space",
-            Qt.Key_Tab: "Tab",
-            Qt.Key_Backtab: "Tab",
-            Qt.Key_Return: "Enter",
-            Qt.Key_Enter: "Enter",
-            Qt.Key_Backspace: "Backspace",
-            Qt.Key_Delete: "Delete",
-            Qt.Key_Insert: "Insert",
-            Qt.Key_Home: "Home",
-            Qt.Key_End: "End",
-            Qt.Key_PageUp: "PageUp",
-            Qt.Key_PageDown: "PageDown",
-            Qt.Key_Left: "Left",
-            Qt.Key_Right: "Right",
-            Qt.Key_Up: "Up",
-            Qt.Key_Down: "Down",
-            Qt.Key_Escape: "Esc",
-            Qt.Key_Pause: "Pause",
-            Qt.Key_Print: "PrintScreen",
-            Qt.Key_ScrollLock: "ScrollLock",
-            Qt.Key_CapsLock: "CapsLock",
-            Qt.Key_NumLock: "NumLock",
-            Qt.Key_Menu: "Menu",
-            Qt.Key_Help: "Help",
-        }
-        if key_code in key_name_by_code:
-            return key_name_by_code[key_code]
-
-        punctuation_by_key = {
-            Qt.Key_Plus: "Plus",
-            Qt.Key_Minus: "-",
-            Qt.Key_Equal: "=",
-            Qt.Key_Slash: "/",
-            Qt.Key_Backslash: "\\",
-            Qt.Key_Comma: ",",
-            Qt.Key_Period: ".",
-            Qt.Key_Semicolon: ";",
-            Qt.Key_Apostrophe: "'",
-            Qt.Key_BracketLeft: "[",
-            Qt.Key_BracketRight: "]",
-            Qt.Key_QuoteLeft: "`",
-        }
-        if key_code in punctuation_by_key:
-            return punctuation_by_key[key_code]
-
-        normalized = QKeySequence(key_code).toString(QKeySequence.NativeText).strip()
-        if not normalized:
-            return ""
-
-        # Ignora chars especiais de layout/AltGr (ex: ©åéßæ), mas mantém pontuação ASCII.
-        if len(normalized) == 1 and not normalized.isascii():
-            return ""
-
-        if normalized == "+":
-            return "Plus"
-
-        allowed = {
-            "Space", "Tab", "Enter", "Return", "Backspace", "Delete",
-            "Insert", "Home", "End", "PageUp", "PageDown", "Up", "Down",
-            "Left", "Right"
-        }
-        if normalized.startswith("F") and normalized[1:].isdigit():
-            return normalized.upper()
-        if normalized in allowed:
-            return normalized
-        if len(normalized) == 1 and normalized.isascii():
-            return normalized.upper()
-        return ""
-
-    def _native_vk_to_key_name(self, event):
-        try:
-            native_vk = int(event.nativeVirtualKey())
-        except Exception:
-            return ""
-
-        # Letras A-Z
-        if 0x41 <= native_vk <= 0x5A:
-            return chr(native_vk)
-
-        # Numeros 0-9
-        if 0x30 <= native_vk <= 0x39:
-            return chr(native_vk)
-
-        # F1-F24
-        if 0x70 <= native_vk <= 0x87:
-            return f"F{native_vk - 0x6F}"
-
-        return ""
+        return atalho_capturado.nome_da_tecla(
+            event.key(), event.modifiers(), event.text(), event.nativeVirtualKey()
+        )
 
 
 class GestosTab(QWidget):
-    def __init__(self):
+    """A aba Gestos em Qt Widgets. Mesmo contrato da versão QML."""
+
+    gestoSelecionado = Signal(str)
+    escolherGestosPedido = Signal()
+    procurarSomPedido = Signal()
+    bindingEditado = Signal()
+
+    def __init__(self, estado=None):
         super().__init__()
         self._gesture_buttons = []
+        self._estado = estado
+        self._atual = ""
+        self._refletindo = False
+        self._botoes_por_gesto = {}
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -451,6 +322,113 @@ class GestosTab(QWidget):
 
         layout.addWidget(self.gesture_editor)
         layout.addStretch(1)
+
+        self._ligar_contrato()
+
+    # ------------------------------------------------------------------ contrato
+
+    def _ligar_contrato(self):
+        self.choose_gestures_button.clicked.connect(self.escolherGestosPedido.emit)
+        self.browse_sound_button.clicked.connect(self.procurarSomPedido.emit)
+
+        for caixa, campo in (
+            (self.scene_action_checkbox, "use_scene"),
+            (self.sound_action_checkbox, "use_sound"),
+            (self.hotkey_action_checkbox, "use_hotkey"),
+        ):
+            caixa.toggled.connect(lambda _=None: self._gravar_do_formulario())
+
+        for editor in (self.scene_edit, self.sound_file_edit):
+            editor.textEdited.connect(lambda _=None: self._gravar_do_formulario())
+
+        self.hotkey_edit.hotkeyCommitted.connect(lambda _=None: self._gravar_do_formulario())
+        self.hold_slider.valueChanged.connect(lambda _=None: self._gravar_do_formulario())
+        self.cooldown_slider.valueChanged.connect(lambda _=None: self._gravar_do_formulario())
+
+    def definir_gestos(self, entradas, selecionado):
+        self.clear_gesture_grid()
+        self._botoes_por_gesto = {}
+
+        for indice, (nome, icone) in enumerate(entradas):
+            botao = self.add_gesture_button(
+                indice // 4, indice % 4, nome, lambda _=None, g=nome: self._escolher(g)
+            )
+            botao.setMinimumSize(110, 140)
+            botao.setIconSize(QSize(64, 64))
+            if icone and os.path.exists(icone):
+                botao.setIcon(QIcon(icone))
+            self._botoes_por_gesto[nome] = botao
+
+        self._atual = selecionado or (entradas[0][0] if entradas else "")
+        self._escolher(self._atual, avisar=False)
+
+    def gesto_atual(self):
+        return self._atual
+
+    def _escolher(self, nome, avisar=True):
+        if not nome:
+            return
+        self._atual = nome
+        for chave, botao in self._botoes_por_gesto.items():
+            botao.setChecked(chave == nome)
+        self.refletir_binding()
+        if avisar:
+            self.gestoSelecionado.emit(nome)
+
+    def refletir_binding(self):
+        """Estado → formulário. `_refletindo` impede que isso pareça edição do usuário."""
+        if self._estado is None or not self._atual:
+            return
+
+        cfg = self._estado.binding(self._atual)
+        self._refletindo = True
+        try:
+            self.selected_gesture_label.setText(f"Gesto selecionado: {self._atual}")
+            hold = max(0.5, min(5.0, float(cfg.get("hold_time", 2.0))))
+            self.hold_value_spinbox.setValue(hold)
+            self.hold_slider.setValue(int(hold * 10))
+
+            cooldown = max(2.0, min(20.0, float(cfg.get("cooldown", 2.0))))
+            self.cooldown_value_spinbox.setValue(cooldown)
+            self.cooldown_slider.setValue(int(cooldown * 10))
+
+            self.scene_action_checkbox.setChecked(bool(cfg.get("use_scene", False)))
+            self.sound_action_checkbox.setChecked(bool(cfg.get("use_sound", False)))
+            self.hotkey_action_checkbox.setChecked(bool(cfg.get("use_hotkey", False)))
+            self.scene_edit.setText(cfg.get("scene", ""))
+            self.sound_file_edit.setText(cfg.get("sound_file", ""))
+            self.hotkey_edit.setText(cfg.get("hotkey", ""))
+        finally:
+            self._refletindo = False
+
+        self.scene_edit.setEnabled(self.scene_action_checkbox.isChecked())
+        self.sound_file_edit.setEnabled(self.sound_action_checkbox.isChecked())
+        self.browse_sound_button.setEnabled(self.sound_action_checkbox.isChecked())
+        self.hotkey_edit.setEnabled(self.hotkey_action_checkbox.isChecked())
+        self._validate_sound_file()
+
+    def _gravar_do_formulario(self):
+        if self._refletindo or self._estado is None or not self._atual:
+            return
+
+        usa_som = self.sound_action_checkbox.isChecked()
+        self._estado.definir_binding(
+            self._atual,
+            hold_time=self.hold_slider.value() / 10,
+            cooldown=self.cooldown_slider.value() / 10,
+            use_scene=self.scene_action_checkbox.isChecked(),
+            use_sound=usa_som,
+            play_sound=usa_som,
+            use_hotkey=self.hotkey_action_checkbox.isChecked(),
+            scene=self.scene_edit.text().strip(),
+            sound_file=self.sound_file_edit.text().strip(),
+            hotkey=self.hotkey_edit.text().strip(),
+        )
+        self.bindingEditado.emit()
+
+    def definir_arquivo_de_som(self, caminho):
+        self.sound_file_edit.setText(caminho)
+        self._gravar_do_formulario()
 
     def _validate_sound_file(self):
         path = self.sound_file_edit.text().strip()

@@ -126,3 +126,135 @@ class TestCapturaNaInterface:
         """
         resultado = self._capturar(HotkeyLineEdit(), Qt.Key_Z, "æ", com_alt=True)
         assert resultado == "Ctrl+Alt+Shift+Z"
+
+
+class TestTraducaoPura:
+    """A regra sem widget nenhum. Ver D-50.
+
+    Estes testes existem porque a captura passou a ter **duas** implementações: o
+    `HotkeyLineEdit` de Widgets e a de QML. Testar só pelo widget deixaria a versão QML
+    descoberta — e o teste continuaria verde exercitando código que o app não usa mais.
+    """
+
+    def test_letra_com_modificadores(self):
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        assert atalho_capturado.montar(
+            Qt.Key_F, Qt.ControlModifier | Qt.ShiftModifier, "f", 0x46
+        ) == "Ctrl+Shift+F"
+
+    def test_ordem_dos_modificadores_e_canonica(self):
+        """O config compara atalho como string: "Shift+Ctrl+A" nunca casaria."""
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        todos = (
+            Qt.ShiftModifier | Qt.MetaModifier | Qt.AltModifier | Qt.ControlModifier
+        )
+        assert atalho_capturado.montar(Qt.Key_A, todos, "a", 0x41) == "Ctrl+Alt+Shift+Win+A"
+
+    def test_altgr_nao_corrompe_a_tecla(self):
+        """A regressão do commit `8838edf`, agora na função e não no widget.
+
+        **O código da tecla vem corrompido, não só o texto.** Em ABNT2 com AltGr, o Qt
+        reporta `Key_AE` (198) — fora da faixa A-Z — e entrega `æ` no texto. Só o virtual
+        key nativo ainda diz `Z`, que é a tecla que o dedo apertou.
+
+        Este caso é o que prova a defesa. Um teste com `Key_Z` **não prova**: 90 está na
+        faixa A-Z e a função retorna "Z" na primeira linha, sem nunca consultar o virtual
+        key nativo. Verificado por mutação: apagar a consulta ao vk nativo mantinha o teste
+        com `Key_Z` verde, e derruba este.
+        """
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        combinado = Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier
+        assert atalho_capturado.montar(
+            Qt.Key_AE, combinado, "æ", native_vk=0x5A
+        ) == "Ctrl+Alt+Shift+Z"
+
+    def test_altgr_com_codigo_intacto_tambem_funciona(self):
+        """O caminho fácil: quando o Qt acerta o código, o texto corrompido é ignorado."""
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        combinado = Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier
+        assert atalho_capturado.montar(
+            Qt.Key_Z, combinado, "æ", native_vk=0x5A
+        ) == "Ctrl+Alt+Shift+Z"
+
+    def test_caractere_de_layout_sem_vk_nativo_e_recusado(self):
+        """Sem o virtual key para corrigir, gravar `æ` seria pior que não gravar nada.
+
+        Um atalho com caractere composto nunca casa com o registrado no OBS, e o usuário
+        fica com um gesto mudo, sem mensagem de erro.
+
+        Nota de honestidade: duas verificações independentes recusam este caso — a que
+        descarta não-ASCII de um caractere e a que só aceita ASCII no fim. A mutação de
+        qualquer uma delas isolada não derruba este teste, porque a outra ainda segura.
+        """
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        assert atalho_capturado.nome_da_tecla(Qt.Key_AE, texto="æ", native_vk=0) == ""
+
+    def test_tecla_sem_modificador_nao_vira_atalho(self):
+        """Uma letra solta dispararia o gesto toda vez que o usuário a digitasse."""
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        assert atalho_capturado.montar(Qt.Key_A, Qt.NoModifier, "a", 0x41) == ""
+
+    def test_modificador_sozinho_nao_vira_atalho(self):
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        assert atalho_capturado.montar(Qt.Key_Control, Qt.ControlModifier, "", 0x11) == ""
+
+    def test_teclas_de_funcao(self):
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        assert atalho_capturado.nome_da_tecla(Qt.Key_F5, native_vk=0x74) == "F5"
+        assert atalho_capturado.nome_da_tecla(Qt.Key_F12, native_vk=0x7B) == "F12"
+
+    def test_modificadores_segurados_valem_quando_as_flags_nao_chegaram(self):
+        """Durante a captura, o usuário segura Ctrl+Shift antes de bater a tecla final."""
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        segurados = {Qt.Key_Control, Qt.Key_Shift}
+        assert atalho_capturado.montar(
+            Qt.Key_B, Qt.NoModifier, "b", 0x42, segurados=segurados
+        ) == "Ctrl+Shift+B"
+
+    def test_aceita_int_cru_alem_do_enum_do_qt(self):
+        """As duas telas chamam com tipos diferentes. Ver D-50.
+
+        O `HotkeyLineEdit` entrega `event.modifiers()`, que é um `KeyboardModifier`; a
+        captura em QML entrega `int`, porque é o que atravessa a ponte. Sem normalizar,
+        `int & enum` levanta TypeError -- e no caso das teclas seria pior: a comparação
+        daria `False` em silêncio e o Ctrl deixaria de contar como modificador.
+        """
+        from PySide6.QtCore import Qt
+
+        from ui import atalho_capturado
+
+        flags = int(Qt.ControlModifier.value) | int(Qt.AltModifier.value)
+        assert atalho_capturado.montar(
+            int(Qt.Key_AE.value), flags, "æ", 0x5A
+        ) == "Ctrl+Alt+Z"
+
+        assert atalho_capturado.e_modificador(int(Qt.Key_Control.value)) is True
+        assert atalho_capturado.e_modificador(Qt.Key_Control) is True
+        assert atalho_capturado.e_modificador(int(Qt.Key_A.value)) is False

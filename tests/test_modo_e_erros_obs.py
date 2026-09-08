@@ -43,16 +43,30 @@ class TestMigracaoDeModo:
         assert migrar_modo("  manual  ") == "manual"
 
     def test_uma_unica_implementacao(self):
-        """UI e engine têm de usar a mesma função — não uma cópia local.
+        """Engine e schema têm de usar a mesma função — não uma cópia local.
 
         Se alguém reintroduzir a regra inline em um dos dois, este teste não pega, mas a
         divergência volta. Aqui garantimos ao menos que ambos importam a fonte única.
+
+        O segundo alvo era `ui.mixins.config_mixin` até o D-47: a UI migrava o modo ao
+        carregar a config. Isso mudou de lugar, não de regra — quem normaliza agora é
+        `core/config_schema.py`, e é lá que o invariante precisa valer.
         """
+        import core.config_schema as schema
         import engine.gesture_engine as eng
-        import ui.mixins.config_mixin as cfg
 
         assert eng.migrar_modo is migrar_modo
-        assert cfg.migrar_modo is migrar_modo
+        assert schema.migrar_modo is migrar_modo
+
+    def test_a_ui_nao_migra_mais_o_modo(self):
+        """A migração saiu da camada de apresentação e não deve voltar.
+
+        Enquanto morava lá, ela só rodava se alguém abrisse a janela — ou seja, nunca em
+        teste.
+        """
+        import ui.mixins.config_mixin as cfg
+
+        assert not hasattr(cfg, "migrar_modo")
 
 
 class TestClassificacaoDeErroOBS:

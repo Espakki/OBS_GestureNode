@@ -8,6 +8,7 @@ from PySide6.QtCore import QThread, Signal
 from core.hand_tracker import HandTracker
 from core.gesture_detector import GestureDetector
 from core.camera import CameraManager
+from core.estado_runtime import Evento
 from core.gesture_aliases import GESTURE_ALIASES
 from core.modos import migrar_modo
 from actions.action_manager import ActionManager
@@ -164,7 +165,12 @@ class GestureStabilityMonitor:
 class GestureEngine(QThread):
 
     frame_ready = Signal(object)
-    status_changed = Signal(str)
+    status_changed = Signal(str)  # texto legível, destino é o log
+    # Estado tipado, ao lado do texto e não no lugar dele: o log quer frase, o painel de
+    # saúde quer estado. Antes os dois liam a mesma string, e o painel decidia por
+    # `"falha ao iniciar câmera" in texto` — que quebrava em silêncio ao renomear a
+    # mensagem. Carrega `(Evento, detalhe)`. Ver D-48.
+    evento = Signal(object, str)
     latency_updated = Signal(float)  # ms médio a cada 30 frames
     fps_ajustado = Signal(int)  # a câmera recusou o FPS pedido e caiu para outro
 
@@ -289,6 +295,48 @@ class GestureEngine(QThread):
     def set_preview_suprimido(self, valor: bool):
         self._preview_suprimido = bool(valor)
 
+    def _anunciar(self, evento, texto, detalhe=""):
+        """Emite o mesmo acontecimento nas duas linguagens: frase para o log, enum para
+        quem precisa decidir algo. Ver D-48."""
+        self.status_changed.emit(texto)
+        self.evento.emit(evento, detalhe or texto)
+
+    def aplicar_config(self, config):
+        """Reconfigura a engine em execução, num ponto só. Ver D-47.
+
+        Substitui os **9 pontos** em que a UI escrevia direto num atributo da engine viva,
+        mais 2 que chamavam `_normalize_gesture_keys()` — um método privado — de fora.
+        Aquilo não era só feio: cada campo novo exigia lembrar de repetir o bloco nos dois
+        handlers que o faziam, e esquecer significava a engine rodando com config velha
+        sem nenhum sinal.
+
+        O que **não** entra aqui: resolução, FPS e número de mãos. Esses exigem reabrir a
+        câmera, então quem muda um deles reinicia a engine (D-06). Aplicar em quente daria
+        a impressão de ter funcionado sem ter mudado nada.
+        """
+        camera_cfg = config.get("camera", {}) or {}
+        gestures_cfg = config.get("gestures", {}) or {}
+
+        self.show_skeleton = bool(camera_cfg.get("show_skeleton", True))
+        self.skeleton_na_vcam = bool(camera_cfg.get("skeleton_na_vcam", False))
+
+        # Estes dois são o **fallback** de um binding sem tempo próprio, e é assim que o
+        # `_setup()` os lê no boot. O código antigo os sobrescrevia com o binding do gesto
+        # que estivesse selecionado na tela, fazendo o padrão global depender de onde o
+        # usuário tinha clicado por último. Sem efeito visível hoje — o schema garante
+        # tempo em todo binding —, mas divergia do boot sem motivo.
+        self.tempo_minimo = float(gestures_cfg.get("default_hold_time", self.tempo_minimo))
+        self.cooldown = float(gestures_cfg.get("default_cooldown", self.cooldown))
+
+        # Sob o mesmo lock, para que o loop de detecção nunca veja bindings novos com
+        # mapa de cenas velho.
+        with self._bindings_lock:
+            self._gesture_bindings = gestures_cfg.get("bindings", {}) or {}
+            self._mapa_cenas = gestures_cfg.get("scene_map", {}) or {}
+        self._normalize_gesture_keys()
+
+        self.config = config
+
     def _normalize_gesture_name(self, gesture_name):
         if not gesture_name:
             return gesture_name
@@ -342,16 +390,16 @@ class GestureEngine(QThread):
             self.obs.connect()
             if self.actions:
                 self.actions.obs = self.obs
-            self.status_changed.emit("OBS conectado")
+            self._anunciar(Evento.OBS_CONECTADO, "OBS conectado")
         except Exception as exc:
             logger.exception("Falha ao conectar OBS: %s", exc)
             mensagem = _classificar_erro(exc)
-            self.status_changed.emit(f"OBS: {mensagem}")
+            self._anunciar(Evento.OBS_FALHOU, f"OBS: {mensagem}", detalhe=mensagem)
             self.obs = None
 
     def run(self):
         self.running = True
-        self.status_changed.emit("Engine iniciada")
+        self._anunciar(Evento.ENGINE_INICIADA, "Engine iniciada")
 
         self._connect_obs()
 
@@ -363,24 +411,28 @@ class GestureEngine(QThread):
                 self.camera.iniciar()
             except Exception as exc:
                 logger.exception("Falha ao iniciar câmera: %s", exc)
-                self.status_changed.emit(f"Falha ao iniciar câmera: {exc}")
+                self._anunciar(Evento.CAMERA_FALHOU, f"Falha ao iniciar câmera: {exc}", detalhe=str(exc))
                 return
 
             if not self.camera.aberta:
-                self.status_changed.emit("Falha ao iniciar câmera")
+                self._anunciar(Evento.CAMERA_FALHOU, "Falha ao iniciar câmera")
                 return
 
             # A câmera pode ter ajustado o modo sozinha (ex.: FPS não suportado). Sem
             # avisar, o usuário veria "Câmera iniciada" e um FPS diferente do que pediu,
             # sem explicação. Ver D-32.
             if getattr(self.camera, "aviso", ""):
-                self.status_changed.emit(f"⚠️ {self.camera.aviso}")
+                self._anunciar(
+                    Evento.CAMERA_LIMITADA,
+                    f"⚠️ {self.camera.aviso}",
+                    detalhe=str(self.camera.aviso),
+                )
                 self.fps_ajustado.emit(int(self.camera.fps))
             else:
-                self.status_changed.emit("Câmera iniciada")
+                self._anunciar(Evento.CAMERA_INICIADA, "Câmera iniciada")
 
             if self.modo == "teste":
-                self.status_changed.emit("Modo Teste — ações desativadas")
+                self._anunciar(Evento.MODO_TESTE, "Modo Teste — ações desativadas")
 
             ultimo_disparo_por_gesto = {}
             _latency_count = 0
@@ -475,7 +527,7 @@ class GestureEngine(QThread):
                 self.action_executor.shutdown(wait=False, cancel_futures=True)
 
             self.running = False
-            self.status_changed.emit("Engine parada")
+            self._anunciar(Evento.ENGINE_PARADA, "Engine parada")
 
     def _atualizar_estado_da_mao(self, hand_state, pontos, tempo_atual):
         """Avança o estado de uma mão e devolve `(gesto, estavel, inicio)` ou `None`.

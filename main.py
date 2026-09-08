@@ -11,8 +11,18 @@ Pública Geral GNU para mais detalhes: <https://www.gnu.org/licenses/>.
 """
 
 import sys
-import json
+
+from PySide6.QtQuickControls2 import QQuickStyle
+
+# Antes de qualquer coisa do QtQuick, e antes do QApplication. "Basic" é o único estilo que
+# deixa sobrescrever `background` e `contentItem` dos controles; nos estilos nativos o Qt
+# ignora essas customizações, e voltaríamos ao problema do QSS — pedaços do controle vindo
+# da plataforma. Ver D-49.
+QQuickStyle.setStyle("Basic")
+
 from PySide6.QtWidgets import QApplication
+
+from core import config_store
 
 from ui.main_window import MainWindow
 from ui.styles import APP_STYLESHEET
@@ -28,18 +38,8 @@ migrar_config_legado(CONFIG_PATH)
 
 
 def carregar_config(caminho=CONFIG_PATH):
-    try:
-        with open(caminho, "r", encoding="utf-8") as arquivo:
-            return json.load(arquivo)
-    except FileNotFoundError:
-        logger.warning("Arquivo de configuração não encontrado: %s", caminho)
-        return {}
-    except json.JSONDecodeError as exc:
-        logger.error("JSON inválido em %s: %s", caminho, exc)
-        return {}
-    except OSError as exc:
-        logger.error("Erro ao ler configuração %s: %s", caminho, exc)
-        return {}
+    """Mantido como nome público; a leitura em si mora em `core/config_store.py`."""
+    return config_store.carregar(caminho)
 
 
 if __name__ == "__main__":
@@ -51,9 +51,9 @@ if __name__ == "__main__":
     window = MainWindow(config, config_path=CONFIG_PATH)
     window.show()
 
-    if not config.get("onboarding_done", False):
+    if not window.estado.onboarding_feito:
         from ui.onboarding import OnboardingDialog
-        dialog = OnboardingDialog(config, window.salvar_config_automatico, parent=window)
+        dialog = OnboardingDialog(window.estado, parent=window)
         dialog.exec()
 
     sys.exit(app.exec())

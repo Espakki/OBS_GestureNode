@@ -1,7 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-datas = [('assets', 'assets')]
+# A pasta `ui/qml` PRECISA entrar: os .qml sao lidos do disco em tempo de execucao, nao
+# importados como modulo, entao o PyInstaller nao os descobre sozinho. Sem esta linha o
+# app empacotado nao encontra a interface e cai no fallback de Widgets -- **em silencio**,
+# porque `_construir_aba_geral` trata a falha e segue. Ver D-49.
+datas = [('assets', 'assets'), ('ui/qml', 'ui/qml'), ('licencas', 'licencas'),
+         ('LICENSE', '.')]
 binaries = []
 hiddenimports = []
 

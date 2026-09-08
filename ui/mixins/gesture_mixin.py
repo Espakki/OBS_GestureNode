@@ -23,34 +23,27 @@ logger = get_logger(__name__)
 class GestureMixin:
 
     def _active_gestures(self):
-        gesture_ids = {gesture for gesture, _ in self.ALL_GESTURES}
-        configured = self.config.setdefault("gestures", {}).setdefault("active_gestures", [])
-        valid = [gesture for gesture in configured if gesture in gesture_ids]
-        if not valid:
-            valid = [self.ALL_GESTURES[0][0]]
-        self.config["gestures"]["active_gestures"] = valid
-        return valid
+        """Delegado ao estado, que já garante a lista válida e não vazia."""
+        return self.estado.gestos_ativos
 
     def _rebuild_gesture_grid(self):
-        self.gestos_tab.clear_gesture_grid()
+        """Entrega a grade pronta para a aba. Ver `geral_contrato` para o padrão.
 
-        self.gesture_buttons = {}
-        active = set(self._active_gestures())
-        visible_gestures = [item for item in self.ALL_GESTURES if item[0] in active]
+        Antes esta função montava `QToolButton` um a um, calculava linha e coluna com
+        `idx // 4` e ligava um `lambda` por botão. Nada disso é decisão de domínio — é
+        desenho, e cada aba resolve do seu jeito.
+        """
+        ativos = set(self._active_gestures())
+        entradas = [
+            (nome, self._resolve_asset_path(icone))
+            for nome, icone in self.ALL_GESTURES
+            if nome in ativos
+        ]
 
-        for idx, (gesture, icon_path) in enumerate(visible_gestures):
-            row = idx // 4
-            col = idx % 4
-            callback = lambda _=None, g=gesture: self.select_gesture(g)
-            btn = self.gestos_tab.add_gesture_button(row, col, gesture, callback)
-            self._configure_gesture_button(btn, gesture, icon_path)
-            self.gesture_buttons[gesture] = btn
+        if self.current_gesture not in ativos and entradas:
+            self.current_gesture = entradas[0][0]
 
-        if self.current_gesture not in self.gesture_buttons and self.gesture_buttons:
-            self.current_gesture = next(iter(self.gesture_buttons.keys()))
-
-        if self.gesture_buttons:
-            self.select_gesture(self.current_gesture)
+        self.gestos_tab.definir_gestos(entradas, self.current_gesture)
 
     def _resolve_asset_path(self, icon_path):
         if not icon_path:
@@ -58,6 +51,12 @@ class GestureMixin:
         if os.path.isabs(icon_path):
             return icon_path
         return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", icon_path))
+
+    def ao_selecionar_gesto(self, nome):
+        """A aba avisou que o usuário trocou de gesto."""
+        if nome:
+            self.current_gesture = nome
+            self._refresh_gesture_feature_visibility()
 
     def _configure_gesture_button(self, button, gesture_name, icon_path):
         button.setMinimumSize(110, 140)
@@ -137,157 +136,63 @@ class GestureMixin:
                 QMessageBox.warning(dialog, "Seleção inválida", "Selecione pelo menos um gesto.")
                 return
 
-            self.config.setdefault("gestures", {})["active_gestures"] = selected
-            bindings = self.config.setdefault("gestures", {}).setdefault("bindings", {})
-            for gesture, cfg in bindings.items():
-                if isinstance(cfg, dict):
-                    cfg["enabled"] = gesture in selected
-
-            if self.engine and self.engine.isRunning():
-                gestures_cfg = self.config.get("gestures", {})
-                self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
+            # O estado cuida de marcar `enabled` em cada binding e de notificar o save.
+            self.estado.gestos_ativos = selected
+            self._sincronizar_engine()
 
             self._rebuild_gesture_grid()
             self._refresh_health_panels()
-            self.salvar_config_automatico()
             dialog.accept()
 
         buttons.accepted.connect(on_accept)
         buttons.rejected.connect(dialog.reject)
         dialog.exec()
 
-    def select_gesture(self, gesture):
-        if gesture not in self.gesture_buttons:
-            return
-
-        self.current_gesture = gesture
-        for name, btn in self.gesture_buttons.items():
-            btn.setChecked(name == gesture)
-
-        cfg = self.config.get("gestures", {}).get("bindings", {}).get(gesture, {})
-
-        self._updating_gesture_form = True
-        self.selected_gesture_label.setText(f"Gesto selecionado: {gesture}")
-
-        hold_time_seconds = float(cfg.get("hold_time", 2.0))
-        hold_time_seconds = max(0.5, min(5.0, hold_time_seconds))
-        self.hold_value_spinbox.setValue(hold_time_seconds)
-        self.hold_slider.setValue(int(hold_time_seconds * 10))
-
-        cooldown_seconds = float(cfg.get("cooldown", 2.0))
-        cooldown_seconds = max(2.0, min(20.0, cooldown_seconds))
-        self.cooldown_value_spinbox.setValue(cooldown_seconds)
-        self.cooldown_slider.setValue(int(cooldown_seconds * 10))
-
-        self.scene_action_checkbox.setChecked(bool(cfg.get("use_scene", bool(cfg.get("scene", "")))))
-        self.sound_action_checkbox.setChecked(bool(cfg.get("use_sound", bool(cfg.get("play_sound", False)))))
-        self.hotkey_action_checkbox.setChecked(bool(cfg.get("use_hotkey", bool(cfg.get("hotkey", "")))))
-        self.scene_edit.setText(cfg.get("scene", ""))
-        self.sound_file_edit.setText(cfg.get("sound_file", ""))
-        self.hotkey_edit.setText(cfg.get("hotkey", ""))
-        self._updating_gesture_form = False
-
-        self._refresh_gesture_feature_visibility()
-
-    def on_hold_slider_changed(self):
-        if not self._updating_gesture_form:
-            seconds = self.hold_slider.value() / 10.0
-            self.hold_value_spinbox.blockSignals(True)
-            self.hold_value_spinbox.setValue(seconds)
-            self.hold_value_spinbox.blockSignals(False)
-
-    def on_hold_spinbox_changed(self):
-        if not self._updating_gesture_form:
-            self.hold_slider.blockSignals(True)
-            self.hold_slider.setValue(int(self.hold_value_spinbox.value() * 10))
-            self.hold_slider.blockSignals(False)
-
-    def on_cooldown_slider_changed(self):
-        if not self._updating_gesture_form:
-            seconds = self.cooldown_slider.value() / 10.0
-            self.cooldown_value_spinbox.blockSignals(True)
-            self.cooldown_value_spinbox.setValue(seconds)
-            self.cooldown_value_spinbox.blockSignals(False)
-
-    def on_cooldown_spinbox_changed(self):
-        if not self._updating_gesture_form:
-            self.cooldown_slider.blockSignals(True)
-            self.cooldown_slider.setValue(int(self.cooldown_value_spinbox.value() * 10))
-            self.cooldown_slider.blockSignals(False)
-
     def _refresh_gesture_feature_visibility(self):
-        scene_enabled = self.scene_action_checkbox.isChecked()
-        sound_enabled = self.sound_action_checkbox.isChecked()
-        hotkey_enabled = self.hotkey_action_checkbox.isChecked()
+        """Habilitar campo conforme a caixa marcada agora é ligação, dentro da aba."""
+        self.gestos_tab.refletir_binding()
 
-        self.scene_edit.setEnabled(scene_enabled)
-        self.sound_file_edit.setEnabled(sound_enabled)
-        self.browse_sound_button.setEnabled(sound_enabled)
-        self.hotkey_edit.setEnabled(hotkey_enabled)
+    def _sincronizar_engine(self):
+        """Um ponto só onde a engine viva recebe config nova. Ver D-47.
+
+        Substitui os 9 lugares que escreviam direto num atributo da engine e os 2 que
+        chamavam `engine._normalize_gesture_keys()`, um método privado, de fora. Aquilo
+        obrigava todo campo novo a ser repetido em dois handlers — e esquecer um deixava a
+        engine rodando com config velha, sem sinal nenhum.
+        """
+        if self.engine and self.engine.isRunning():
+            self.engine.aplicar_config(self.estado.config_bruta())
 
     def on_current_gesture_changed(self):
-        if self._updating_gesture_form:
-            return
-
-        binding = self._get_current_binding()
-        binding["enabled"] = self.current_gesture in set(self._active_gestures())
-        binding["hold_time"] = float(self.hold_value_spinbox.value())
-        binding["cooldown"] = float(self.cooldown_value_spinbox.value())
-        binding["use_scene"] = self.scene_action_checkbox.isChecked()
-        binding["use_sound"] = self.sound_action_checkbox.isChecked()
-        binding["use_hotkey"] = self.hotkey_action_checkbox.isChecked()
-        binding["scene"] = self.scene_edit.text().strip()
-        binding["play_sound"] = self.sound_action_checkbox.isChecked()
-        binding["sound_file"] = self.sound_file_edit.text().strip()
-        binding["hotkey"] = self.hotkey_edit.text().strip()
-
+        """A aba gravou uma alteração no binding. Resta alinhar a engine viva."""
         self._refresh_gesture_feature_visibility()
-        self.salvar_config_automatico()
+        self._sincronizar_engine()
 
-        if self.engine and self.engine.isRunning():
-            gestures_cfg = self.config.setdefault("gestures", {})
-            self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
-            self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
-            self.engine._normalize_gesture_keys()
+    def on_esqueleto_changed(self, no_preview, na_saida_obs):
+        """Os dois toggles de esqueleto, aplicados na hora. Ver D-26.
 
-    def on_show_skeleton_changed(self, checked):
-        self.config.setdefault("camera", {})
-        self.config["camera"]["show_skeleton"] = bool(checked)
-
-    def on_skeleton_vcam_changed(self, checked):
-        self.config.setdefault("camera", {})
-        self.config["camera"]["skeleton_na_vcam"] = bool(checked)
+        Os valores vêm no sinal, não de uma leitura de widget: é o que permite a mesma
+        função servir às duas implementações da aba.
+        """
+        self.estado.mostrar_esqueleto = bool(no_preview)
+        self.estado.esqueleto_na_vcam = bool(na_saida_obs)
+        self._sincronizar_engine()
 
     def on_dynamic_setting_changed(self, *_):
-        self.config.setdefault("camera", {})
-        self.config["camera"]["show_skeleton"] = self.esqueleto_preview_button.isChecked()
-        self.config["camera"]["skeleton_na_vcam"] = self.esqueleto_obs_button.isChecked()
+        """A aba gravou tempo ou cooldown; resta alinhar a engine viva.
 
-        binding = self._get_current_binding()
-        binding["hold_time"] = self.hold_slider.value() / 10
-        binding["cooldown"] = self.cooldown_slider.value() / 10
-
-        gestures_cfg = self.config.setdefault("gestures", {})
-
-        self.salvar_config_automatico()
-
-        if not (self.engine and self.engine.isRunning()):
-            return
-
-        self.engine.show_skeleton = self.config["camera"]["show_skeleton"]
-        self.engine.skeleton_na_vcam = self.config["camera"]["skeleton_na_vcam"]
-        self.engine.gesture_bindings = gestures_cfg.get("bindings", {})
-        self.engine.mapa_cenas = gestures_cfg.get("scene_map", {})
-        self.engine.tempo_minimo = float(binding["hold_time"])
-        self.engine.cooldown = float(binding["cooldown"])
-        self.engine._normalize_gesture_keys()
+        Deixou de ler o slider: quem grava é a aba, e ler o widget de volta amarrava esta
+        função a uma implementação — além de ser a mesma leitura de duas fontes que o
+        D-47 desfez no resto da janela.
+        """
+        self._sincronizar_engine()
 
     def select_sound_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(
+        caminho, _ = QFileDialog.getOpenFileName(
             self,
             "Selecionar arquivo de som",
             "",
             "Áudio (*.wav *.mp3 *.ogg);;Todos os arquivos (*)",
         )
-        if file_path:
-            self.sound_file_edit.setText(file_path)
+        if caminho:
+            self.gestos_tab.definir_arquivo_de_som(caminho)
