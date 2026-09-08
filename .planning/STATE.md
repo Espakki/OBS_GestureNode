@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-08
-**Branch:** `main` · **Último commit de código:** `0ab76f5`
+**Branch:** `main` · **Último commit de código:** `13ee25c`
 
 > Este campo aponta o último commit que mexeu em **código** — commits só de documentação
 > não o movem. Como referência ao próprio commit que o edita, ele já se corrompeu duas vezes.
@@ -21,7 +21,7 @@ despacho por mão e caminhos de config.
 **Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
 2026-09-04 — conexão OBS, VCam em resolução nativa, esqueleto na saída, joinha, duas mãos
 e o ciclo parar/iniciar. O `.exe` empacotado foi aberto e usado em 2026-09-08, e rodou
-bem — único achado, a faixa de limite da câmera (B-25).
+bem — o único achado, a faixa de limite da câmera, está corrigido em `13ee25c`.
 
 ---
 
@@ -64,6 +64,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Docs | `c0a7a4a` | LICENSE (MIT) e README reescrito |
 | Release prep | `44c5ef6` | LICENSE GPL-3.0, README, CHANGELOG, build 774→480 MB |
 | Plataforma | `0ab76f5` | `plataforma/` isola o SO; testes de atalho migrados — B-22 |
+| UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
 
 ---
 
@@ -73,9 +74,7 @@ Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
 1. **B-24 — Obrigações de LGPL/GPL no pacote.** Pequeno, e é o que falta para publicar o
    binário.
-2. **B-25 — A faixa de limite da câmera parece um alerta e não é.** Achado da validação do
-   `.exe`. Cosmético.
-3. **B-23 — Implementação Linux.** Precisa de máquina Linux; a interface já existe (D-42).
+2. **B-23 — Implementação Linux.** Precisa de máquina Linux; a interface já existe (D-42).
 
 ---
 
@@ -122,11 +121,14 @@ normal. Isso cobre o que o corte de dependências podia ter quebrado: a message 
 no boot, o preview da câmera (PyAV/dshow empacotado) e a listagem de câmeras (comtypes
 congelado).
 
-Achado único: a faixa de limite da câmera lê como alerta urgente sem ser — virou B-25.
+**Persistência do config confirmada:** alterações feitas nos sliders sobrevivem a fechar e
+reabrir o app. É o resultado esperado, e não por sorte — empacotado, o config vai para
+`%APPDATA%` (D-29), que é gravável independentemente de onde o `.exe` esteja. O aviso do
+B-08 é o caminho de **falha**: ele só aparece se o save não der certo, então não vê-lo é a
+aprovação, não a ausência do teste.
 
-**Não verificado:** rodar a partir de `C:\Program Files\` e mexer num slider, que deve
-**avisar** que não está salvando em vez de falhar em silêncio (B-08). É um teste que não
-acontece por acaso — some quando alguém copiar a pasta para lá.
+Achado único: a faixa de limite da câmera lia como alerta urgente sem ser. Corrigido em
+`13ee25c`, ver D-45.
 
 ### Números calibrados com mão real (2026-09-04)
 

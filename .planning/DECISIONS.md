@@ -205,6 +205,39 @@ diferentes para os mesmos gestos (`ROCK` vs `Rock`), causando bindings que nunca
 
 ## Câmera e VCam
 
+**D-45 · A faixa de limite da câmera é informação, e não pode falar como falha**
+*2026-09-08 · B-25 · achado do dono na validação do `.exe`*
+
+A faixa nasceu no D-39 âmbar, com borda e prefixo `⚠️`. O dono, ao usar o `.exe` pela
+primeira vez, descreveu o efeito: **"dá sempre um sentimento de urgência sendo que não
+tem"**. Ela é permanente — aparece sempre que a webcam não cobre algum preset — então esse
+falso alarme fica na tela o tempo todo.
+
+**O erro não era o âmbar em si, era o app se contradizer.** O `⚠️` não é um enfeite
+genérico neste projeto: `ui/mixins/config_mixin.py` usa exatamente esse glifo para
+"Não foi possível salvar as configurações", que é falha real e acionável. A faixa tomava
+emprestado o vocabulário de falha para dizer um fato estático de hardware, que o usuário
+não tem como mudar e sobre o qual não precisa fazer nada.
+
+**O tooltip já denunciava o problema.** Ele terminava com "Não é erro do app" — uma faixa
+que precisa desmentir a própria aparência está com a aparência errada. Removido o alarme,
+a defesa deixou de ser necessária e saiu junto.
+
+**O que mudou:** paleta neutra do tema (`#161616` de card, borda `#2d2d2d`, texto
+`#a0a0a0`), sem glifo, e "Limite da sua câmera" → "Limites desta câmera". O corpo caiu para
+14px, que é o tamanho de `muted` e `healthLabel` — a convenção do tema para texto
+secundário. **Isso resolveu um segundo problema:** em 15px, com fundo e borda, a faixa
+ficava quase idêntica ao botão "Usar configuração recomendada" logo abaixo, e podia ser
+lida como um controle clicável. Menor, ela volta a ser texto.
+
+**O D-39 continua de pé.** Ele decidiu que a limitação sai do log e vira faixa visível,
+fora do painel avançado, porque no log some no scroll e o usuário fica encarando um botão
+cinza. Nada disso mudou: a faixa continua visível, no mesmo lugar, dizendo a mesma coisa.
+Mudou o tom. Um bloco distinto sobre o fundo `#0d0d0d` ainda se lê como bloco, sem gritar.
+
+**Regra que fica:** `⚠️` e âmbar são reservados ao que o usuário pode e precisa resolver.
+Limitação de hardware é informação — e informação usa a paleta neutra.
+
 **D-43 · Script manual que testa lógica pura vira teste automatizado**
 *2026-09-04*
 
