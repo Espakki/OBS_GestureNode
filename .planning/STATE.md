@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-09
-**Branch:** `feat/casca-remodelada` · **Último commit de código:** `af54479`
+**Branch:** `main` · **Último commit de código:** `3f284b2`
 
 > Este campo aponta o último commit que mexeu em **código** — commits só de documentação
 > não o movem. Como referência ao próprio commit que o edita, ele já se corrompeu duas vezes.
