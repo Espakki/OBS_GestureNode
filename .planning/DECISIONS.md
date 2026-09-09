@@ -1057,3 +1057,97 @@ um `STATE.md` afirmando `completed_phases: 0` enquanto o último commit dizia
 **Regras novas:** status só no `STATE.md`; feito exige SHA de commit; plano detalhado é
 descartável (vive em `active/`, morre ao fechar a fase); decisão e pitfall são duráveis.
 **O que foi resgatado:** este arquivo e o `PITFALLS.md`. O resto está no archive.
+
+---
+
+**D-52 · A casca vira rail + barra, atrás de uma terceira opção de interface**
+*2026-09-09*
+
+O dono pediu uma remodelagem, não um conserto. A auditoria da UI tinha achado sete defeitos
+(rótulo do cartão saindo fora, link azul, disabled invisível, foco por teclado inexistente,
+cinco reprovações de contraste, ponto de quebra que nunca disparava, onboarding descrevendo
+botões que não existem), e a conclusão foi que **nenhum deles era do framework** — eram
+desta implementação. A moldura é que estava por terminar.
+
+**A casca nova é a terceira opção, não a substituta.** `GESTURENODE_UI=novo` liga; sem
+variável continua a de abas; `=widgets` continua a antiga. Mesma regra do D-49: enquanto
+não rodar o bastante em uso real, quem estiver com ela precisa de caminho de volta que não
+seja editar código.
+
+**O que mudou de estrutura:**
+
+- 4 abas horizontais → **rail vertical**. Aba estoura em ~6 itens; o rail vai a 10.
+- Iniciar/Parar/Reiniciar → **um botão que alterna**. "Reiniciar" era parar+iniciar, e
+  nunca era desabilitado. `restart_button` sobrevive só para o `connect` do mixin.
+- Estado dito em 3 lugares (painel de saúde, `status_label`, `obs_footer_label` com emoji)
+  → **2 chips na barra**. `_AdaptadorStatus` tem tabela explícita do que é estado: recado
+  passageiro ("Config salva!") não pode apagar "Rodando" de um chip permanente.
+- Log com lugar cativo na base → **gaveta de diagnóstico**.
+- Diálogo modal "Escolher gestos ativos" → **interruptor no cartão**. Ativar e configurar
+  param de ser dois lugares. `escolherGestosPedido` **não** é ligado nesta casca, de
+  propósito: um `QDialog` cinza abrindo aqui seria a costura que ela existe para fechar.
+- Grade e editor empilhados em 482px → **lado a lado**, com quebra em 860px.
+- Modo como toggle + tooltip de 500ms → **cartões com a descrição visível**. É a decisão
+  mais consequente do app e estava escondida atrás de hover.
+- "Configurações Avançadas" (acordeão) → **removido**. Ele existia porque não cabia.
+
+**Ela reaproveita as quatro pontes.** `PonteGeral`, `PonteGestos`, `PonteObs` e `PonteSobre`
+já expunham estado real e intenções — a casca só desenha diferente. O que faltava virou
+`PonteShell` (engine, preview, log, disparos) e `PonteOnboarding`. Os adaptadores no fim de
+`ui/shell_novo.py` oferecem aos mixins a mesma superfície de sempre (`geral_tab`,
+`log_view`, `start_button`…), então `camera_mixin`, `engine_mixin`, `obs_mixin` e
+`health_mixin` não mudaram uma linha.
+
+**O preview vai por `QQuickImageProvider`.** A engine emite `frame_ready` como sempre; o
+quadro continua no mesmo processo, sem serialização. O contador na URL
+(`image://preview/<n>`) é obrigatório — o Qt cacheia por URL e sem ele o preview congela no
+primeiro quadro.
+
+**O onboarding foi reescrito junto, e o texto era o problema maior.** O de Widgets mandava
+clicar em "Selecionar gestos ativos" (o botão diz "Escolher gestos"), ajustar o "Tempo de
+resposta" (o campo diz "Segurar por") e mexer no "modo da câmera virtual" dentro de
+Configurações Avançadas — que só tinha resolução e FPS. E chamava Automático/Manual de modo
+de câmera no passo 1 e de modo de operação no passo 2. Virou sobreposição da própria janela:
+a interface que ele explica fica visível atrás enquanto ele a explica.
+
+**O piso da janela baixou para 940x600 só nesta casca.** O 1200x760 é da interface de abas,
+onde o `QFormLayout` não tem ponto de quebra. Num laptop de 1366x768 a barra de tarefas
+deixa ~728px úteis: com piso 760 a janela **não cabe na tela** e o usuário não tem como
+diminuir. Verificado de 1366x728 a 760x520 sem sobreposição.
+
+**Contraste:** os cinco casos que reprovavam no WCAG AA passam. `textoApagado` 3.92→6.13,
+placeholder 1.61→4.91, borda de controle 1.41→3.23. A borda subiu porque 1.4.11 pede 3:1
+para o traço que identifica um controle; `bordaSutil` continua baixa por ser decorativa.
+
+**Pitfalls:** QML-01 e QML-02.
+
+---
+
+**D-53 · Uma tela só para calibrar, e o preview lateral deixa de tentar servir aos dois usos**
+*2026-09-09*
+
+Ao usar a casca do D-52, o dono levantou três coisas na mesma frase: sobrava vazio no meio
+das telas, os botões não aproveitavam o espaço, e o preview lateral era pequeno demais para
+conferir a webcam.
+
+**O vazio era teto de largura.** `TelaCamera`, `TelaObs` e `TelaSobre` limitavam a coluna a
+860/760/820px para o texto não virar linha longa. Em tela larga isso deixava um buraco entre
+o conteúdo e o painel de preview. O teto passou para o **texto**, que é quem tem limite de
+leitura; cartões e botões usam a largura toda.
+
+**O preview lateral não consegue servir aos dois usos.** Ele responde "está rodando?" de
+relance, mas não responde "meu enquadramento está bom?" — para isso é preciso ver a mão do
+tamanho que ela aparece. Alargar resolvia meio problema e roubava espaço da configuração.
+
+A separação segue o uso real, que são dois: **configurar** (o preview é contexto) e
+**calibrar** (a imagem é o assunto). Daí a tela `Ao vivo`, segunda no rail: câmera em
+tamanho cheio, os chips do que a câmera está entregando, e o diagnóstico logo abaixo com a
+saúde na mesma linha do log — quem está calibrando quer os dois juntos, não um em cada
+ponta da janela.
+
+**O painel lateral some enquanto ela está aberta.** A mesma câmera duas vezes na mesma tela
+não ajuda ninguém e tira largura de quem importa. A gaveta de diagnóstico também não abre
+lá, pelo mesmo motivo: o log já está na tela, fixo.
+
+O painel lateral ainda cresceu de 372 para 440px, e o limiar em que ele cabe subiu de 1400
+para 1460 — a largura extra não pode sair do conteúdo.

@@ -30,8 +30,22 @@ logger = get_logger(__name__)
 _QUEDAS = []
 
 
+def _escolha_de_interface():
+    return os.environ.get("GESTURENODE_UI", "").strip().lower()
+
+
 def _usar_widgets():
-    return os.environ.get("GESTURENODE_UI", "").strip().lower() == "widgets"
+    return _escolha_de_interface() == "widgets"
+
+
+def _usar_nova():
+    """A casca remodelada. Ver D-52.
+
+    Vale a mesma regra do D-49: é opção, não substituição. Enquanto a interface nova não
+    tiver rodado o suficiente em uso real, quem estiver com ela na frente precisa de um
+    caminho de volta que não seja editar código — e quem não pedir continua na de abas.
+    """
+    return _escolha_de_interface() == "novo"
 
 
 def _cair_para_widgets(aba, erro):
@@ -92,8 +106,85 @@ class SetupMixin:
         """O que caiu para a versão antiga. A janela relata depois que o log existe."""
         return list(_QUEDAS)
 
+    def _montar_interface_nova(self):
+        """A casca remodelada, no lugar do `QTabWidget`. Ver D-52.
+
+        Os mixins não sabem que ela existe: a casca oferece `geral_tab`, `gestos_tab`,
+        `obs_tab`, `preview_label`, `log_view` e os três botões com a mesma superfície de
+        sempre, e traduz para as pontes. Ver o cabeçalho de `ui/shell_novo.py`.
+        """
+        from ui.shell_novo import ShellNovo
+
+        # A grade nova mostra os doze, não só os ativos — o interruptor mora no cartão.
+        todos = [
+            (nome, self._resolve_asset_path(icone)) for nome, icone in self.ALL_GESTURES
+        ]
+        self.shell = ShellNovo(self.estado, todos)
+        self.setCentralWidget(self.shell)
+
+        # O piso de 1200x760 da janela é da interface de abas, onde o `QFormLayout` não
+        # tem ponto de quebra e espremer a coluna quebra a tela. A casca nova tem quebra
+        # de verdade — o painel de preview colapsa e a tela de Gestos empilha —, então o
+        # piso pode baixar.
+        #
+        # Isto não é detalhe: num laptop de 1366x768, a barra de tarefas deixa ~728px de
+        # altura útil. Com o piso em 760 a janela **não cabe na tela**, e o usuário não
+        # tem como diminuir. Verificado de 1366x728 até 760x520 sem sobreposição.
+        self.setMinimumSize(940, 600)
+
+        # Os mesmos atributos que a janela de abas publica, para os mixins não mudarem.
+        self.geral_tab = self.shell.geral_tab
+        self.gestos_tab = self.shell.gestos_tab
+        self.obs_tab = self.shell.obs_tab
+        self.sobre_tab = None
+        self.preview_label = self.shell.preview_label
+        self.status_label = self.shell.status_label
+        self.obs_footer_label = self.shell.obs_footer_label
+        self.log_view = self.shell.log_view
+        self.start_button = self.shell.start_button
+        self.stop_button = self.shell.stop_button
+        self.restart_button = self.shell.restart_button
+
+        self.start_button.clicked.connect(self.start_engine)
+        self.stop_button.clicked.connect(self.stop_engine)
+        self.restart_button.clicked.connect(self.restart_engine)
+        self.stop_button.setEnabled(False)
+
+        # As mesmas intenções das abas, vindas da casca.
+        self.shell.modoPedido.connect(self.on_modo_changed)
+        self.shell.maosPedidas.connect(self.on_max_maos_changed)
+        self.shell.resolucaoPedida.connect(self.on_resolution_changed)
+        self.shell.fpsPedido.connect(self.on_fps_changed)
+        self.shell.cameraPedida.connect(self.on_camera_changed)
+        self.shell.esqueletoPedido.connect(self.on_esqueleto_changed)
+        self.shell.recomendadoPedido.connect(self.aplicar_preset_recomendado)
+
+        self.shell.procurarSomPedido.connect(self.select_sound_file)
+        self.shell.bindingEditado.connect(self.on_current_gesture_changed)
+        self.shell.gestoSelecionado.connect(self.ao_selecionar_gesto)
+        # Ligar e desligar o gesto acontece no cartão da grade. `escolherGestosPedido`
+        # **não** é ligado aqui de propósito: o diálogo `open_gesture_selector_dialog` é
+        # Widgets, e um `QDialog` cinza abrindo por cima desta interface seria a costura
+        # que a remodelagem existe para fechar. Nesta casca ele não tem função — a grade
+        # mostra os doze gestos e cada cartão tem o próprio interruptor.
+        self.shell.ativoAlternado.connect(self.ao_alternar_gesto_ativo)
+
+        self.shell.credenciaisMudaram.connect(self.on_obs_changed)
+        self.shell.testePedido.connect(self.testar_conexao_obs)
+
+        self._populate_camera_devices()
+
 
     def _setup_ui(self):
+        if _usar_nova():
+            try:
+                self._montar_interface_nova()
+                return
+            except Exception as exc:
+                # Mesma rede do D-49: a casca nova falhar não pode impedir o app de abrir,
+                # e a queda tem de ser anunciada — empacotado não há console.
+                _cair_para_widgets("Interface nova", exc)
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         root_layout = QVBoxLayout(central_widget)

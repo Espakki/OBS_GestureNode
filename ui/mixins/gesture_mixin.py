@@ -58,6 +58,33 @@ class GestureMixin:
             self.current_gesture = nome
             self._refresh_gesture_feature_visibility()
 
+    def ao_alternar_gesto_ativo(self, nome, ligado):
+        """Ligar/desligar um gesto no próprio cartão, sem o diálogo modal. Ver D-52.
+
+        Faz o mesmo que o `on_accept` do `open_gesture_selector_dialog`, incluindo a recusa
+        de deixar a lista vazia — a regra é do `EstadoApp`, que levanta `ValueError`, e ela
+        precisa virar aviso em vez de traceback: o usuário desligou o último gesto, não
+        encontrou um bug.
+        """
+        ativos = self._active_gestures()
+        novos = [g for g in ativos if g != nome]
+        if ligado and nome not in novos:
+            # Preserva a ordem de `ALL_GESTURES` para a grade não pular de lugar.
+            ordem = [n for n, _ in self.ALL_GESTURES]
+            novos = sorted(novos + [nome], key=ordem.index)
+
+        try:
+            self.estado.gestos_ativos = novos
+        except ValueError:
+            logger.info("Recusado desligar %s: é preciso ao menos um gesto ativo", nome)
+            self.update_status("É preciso manter ao menos um gesto ativo")
+            self._rebuild_gesture_grid()
+            return
+
+        self._sincronizar_engine()
+        self._rebuild_gesture_grid()
+        self._refresh_health_panels()
+
     def _configure_gesture_button(self, button, gesture_name, icon_path):
         button.setMinimumSize(110, 140)
         button.setIconSize(QSize(64, 64))

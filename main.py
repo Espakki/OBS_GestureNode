@@ -52,8 +52,15 @@ if __name__ == "__main__":
     window.show()
 
     if not window.estado.onboarding_feito:
-        from ui.onboarding import OnboardingDialog
-        dialog = OnboardingDialog(window.estado, parent=window)
-        dialog.exec()
+        # A casca nova traz o onboarding como sobreposição da própria janela, com o texto
+        # conferido contra a interface que existe. Ver D-52. A de abas continua no
+        # `QDialog`, que é o que ela sempre teve.
+        abrir = getattr(window.centralWidget(), "abrir_onboarding", None)
+        if abrir is not None:
+            abrir()
+        else:
+            from ui.onboarding import OnboardingDialog
+            dialog = OnboardingDialog(window.estado, parent=window)
+            dialog.exec()
 
     sys.exit(app.exec())
