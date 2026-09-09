@@ -24,7 +24,9 @@ Item {
 
         ColumnLayout {
             id: coluna
-            width: Math.min(parent.width, 860)
+            // Sem teto: o teto deixava um vazio entre o conteudo e o painel de
+            // preview em telas largas. Quem limita linha longa agora e o texto.
+            width: parent.width
             spacing: Tema.e5
 
             ColumnLayout {

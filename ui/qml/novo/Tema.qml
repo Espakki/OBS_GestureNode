@@ -51,7 +51,7 @@ QtObject {
     readonly property int alturaControle: 40
     readonly property int alturaBarra: 60
     readonly property int larguraRail: 208
-    readonly property int larguraPainel: 372
+    readonly property int larguraPainel: 440
 
     readonly property int e1: 4
     readonly property int e2: 8

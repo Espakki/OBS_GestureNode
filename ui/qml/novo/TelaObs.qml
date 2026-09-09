@@ -22,7 +22,7 @@ Item {
 
         ColumnLayout {
             id: coluna
-            width: Math.min(parent.width, 760)
+            width: parent.width
             spacing: Tema.e5
 
             ColumnLayout {
@@ -199,6 +199,9 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
+                            // Linha de leitura, nao de layout: acima de ~90 caracteres o
+                            // olho perde a proxima linha.
+                            Layout.maximumWidth: 720
                             text: modelData
                             wrapMode: Text.WordWrap
                             font.family: Tema.familia

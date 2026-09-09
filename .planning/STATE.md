@@ -79,6 +79,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Release | `4b9a9cb` | `version.py`, aba Sobre com licenças, D-47 a D-51 |
 | UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
 | UI | `af54479` | Casca remodelada em `GESTURENODE_UI=novo`: rail, botão único, gaveta de diagnóstico, onboarding em QML (D-52) |
+| UI | `PENDENTE2` | Tela `Ao vivo` para calibrar; teto de largura removido; preview lateral 372→440 (D-53) |
 
 ---
 
@@ -86,16 +87,10 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **Espaço e preview na casca nova.** Levantado pelo dono ao usar (2026-09-09): sobra
-   vazio no meio das telas Câmera/OBS/Sobre por causa do teto de largura da coluna; os
-   botões não aproveitam o espaço; e o preview lateral é pequeno demais para conferir
-   enquadramento. A direção decidida: manter o preview em todas as telas, um pouco mais
-   largo, e acrescentar uma tela dedicada com a câmera em tamanho cheio e o diagnóstico
-   abaixo, para calibrar.
-2. **Construir o `.exe` com a interface nova.** É a validação que falta: os `.qml` agora
+1. **Construir o `.exe` com a interface nova.** É a validação que falta: os `.qml` agora
    entram no pacote (`247ef41`), mas isso nunca foi exercitado num build de verdade — e a
    casca nova acrescentou `ui/qml/novo/`, que depende de o `datas` copiar a árvore toda.
-3. **B-27 — Licença do `pyvirtualcam`.** Pode travar o release público. Verificar antes de
+2. **B-27 — Licença do `pyvirtualcam`.** Pode travar o release público. Verificar antes de
    investir em qualquer outra coisa de publicação.
 3. **B-26 — Executar o app num Linux de verdade.** Precisa de máquina ou VM Linux.
 4. **B-28 — Aviso de atualização** comparando com o último release do GitHub.

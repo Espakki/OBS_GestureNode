@@ -1120,3 +1120,34 @@ placeholder 1.61→4.91, borda de controle 1.41→3.23. A borda subiu porque 1.4
 para o traço que identifica um controle; `bordaSutil` continua baixa por ser decorativa.
 
 **Pitfalls:** QML-01 e QML-02.
+
+---
+
+**D-53 · Uma tela só para calibrar, e o preview lateral deixa de tentar servir aos dois usos**
+*2026-09-09*
+
+Ao usar a casca do D-52, o dono levantou três coisas na mesma frase: sobrava vazio no meio
+das telas, os botões não aproveitavam o espaço, e o preview lateral era pequeno demais para
+conferir a webcam.
+
+**O vazio era teto de largura.** `TelaCamera`, `TelaObs` e `TelaSobre` limitavam a coluna a
+860/760/820px para o texto não virar linha longa. Em tela larga isso deixava um buraco entre
+o conteúdo e o painel de preview. O teto passou para o **texto**, que é quem tem limite de
+leitura; cartões e botões usam a largura toda.
+
+**O preview lateral não consegue servir aos dois usos.** Ele responde "está rodando?" de
+relance, mas não responde "meu enquadramento está bom?" — para isso é preciso ver a mão do
+tamanho que ela aparece. Alargar resolvia meio problema e roubava espaço da configuração.
+
+A separação segue o uso real, que são dois: **configurar** (o preview é contexto) e
+**calibrar** (a imagem é o assunto). Daí a tela `Ao vivo`, segunda no rail: câmera em
+tamanho cheio, os chips do que a câmera está entregando, e o diagnóstico logo abaixo com a
+saúde na mesma linha do log — quem está calibrando quer os dois juntos, não um em cada
+ponta da janela.
+
+**O painel lateral some enquanto ela está aberta.** A mesma câmera duas vezes na mesma tela
+não ajuda ninguém e tira largura de quem importa. A gaveta de diagnóstico também não abre
+lá, pelo mesmo motivo: o log já está na tela, fixo.
+
+O painel lateral ainda cresceu de 372 para 440px, e o limiar em que ele cabe subiu de 1400
+para 1460 — a largura extra não pode sair do conteúdo.

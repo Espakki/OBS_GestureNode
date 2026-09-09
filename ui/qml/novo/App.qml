@@ -23,9 +23,11 @@ Rectangle {
     // Abaixo disto não cabem rail + conteúdo + painel sem espremer alguém, então o painel
     // colapsa. A quebra de 520px do `LinhaDeCampo` de hoje nunca dispara na prática: a aba
     // real mede 482px no tamanho mínimo da janela.
-    readonly property bool cabePainel: width >= 1400
+    readonly property bool cabePainel: width >= 1460
     property bool painelPedido: true
-    readonly property bool painelVisivel: cabePainel && painelPedido
+    // Na tela Ao vivo o painel some: ela JA e a camera em tamanho cheio, e mostrar a
+    // mesma imagem duas vezes na mesma tela so tira largura de quem importa.
+    readonly property bool painelVisivel: cabePainel && painelPedido && tela !== 1
 
     color: Tema.fundo
 
@@ -163,19 +165,24 @@ Rectangle {
                         onAtivado: raiz.tela = 0
                     }
                     ItemDoRail {
-                        glifo: "◎"; rotulo: "Câmera"
+                        glifo: "◉"; rotulo: "Ao vivo"
                         selecionado: raiz.tela === 1
                         onAtivado: raiz.tela = 1
                     }
                     ItemDoRail {
-                        glifo: "⚡"; rotulo: "OBS"
+                        glifo: "◎"; rotulo: "Câmera"
                         selecionado: raiz.tela === 2
                         onAtivado: raiz.tela = 2
                     }
                     ItemDoRail {
-                        glifo: "ⓘ"; rotulo: "Sobre"
+                        glifo: "⚡"; rotulo: "OBS"
                         selecionado: raiz.tela === 3
                         onAtivado: raiz.tela = 3
+                    }
+                    ItemDoRail {
+                        glifo: "ⓘ"; rotulo: "Sobre"
+                        selecionado: raiz.tela === 4
+                        onAtivado: raiz.tela = 4
                     }
 
                     Item { Layout.fillHeight: true }
@@ -189,8 +196,13 @@ Rectangle {
 
                     ItemDoRail {
                         glifo: "≡"; rotulo: "Diagnóstico"
-                        selecionado: raiz.gaveta
-                        onAtivado: raiz.gaveta = !raiz.gaveta
+                        // Em "Ao vivo" o log ja esta na tela, fixo — a gaveta seria o
+                        // mesmo conteudo duas vezes.
+                        selecionado: raiz.gaveta && raiz.tela !== 1
+                        onAtivado: {
+                            if (raiz.tela === 1) raiz.tela = 0
+                            raiz.gaveta = !raiz.gaveta
+                        }
                     }
                 }
             }
@@ -211,6 +223,7 @@ Rectangle {
                         currentIndex: raiz.tela
 
                         TelaGestos {}
+                        TelaAoVivo {}
                         TelaCamera {}
                         TelaObs {}
                         TelaSobre {}
@@ -219,7 +232,7 @@ Rectangle {
                     // gaveta de diagnóstico — o log sai da tela principal
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: raiz.gaveta ? 172 : 0
+                        Layout.preferredHeight: (raiz.gaveta && raiz.tela !== 1) ? 172 : 0
                         visible: Layout.preferredHeight > 0
                         radius: Tema.raio
                         color: "#08080b"

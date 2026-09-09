@@ -18,7 +18,7 @@ Item {
 
         ColumnLayout {
             id: coluna
-            width: Math.min(parent.width, 820)
+            width: parent.width
             spacing: Tema.e5
 
             RowLayout {

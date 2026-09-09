@@ -11,6 +11,7 @@ CampoDeTexto 1.0 CampoDeTexto.qml
 CapturaDeAtalho 1.0 CapturaDeAtalho.qml
 LinhaSaude 1.0 LinhaSaude.qml
 PainelPreview 1.0 PainelPreview.qml
+TelaAoVivo 1.0 TelaAoVivo.qml
 TelaGestos 1.0 TelaGestos.qml
 TelaCamera 1.0 TelaCamera.qml
 TelaObs 1.0 TelaObs.qml
