@@ -4,7 +4,7 @@
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
 **Última atualização:** 2026-09-09
-**Branch:** `main` · **Último commit de código:** `4b9a9cb`
+**Branch:** `feat/casca-remodelada` · **Último commit de código:** `af54479`
 
 > Este campo aponta o último commit que mexeu em **código** — commits só de documentação
 > não o movem. Como referência ao próprio commit que o edita, ele já se corrompeu duas vezes.
@@ -78,7 +78,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Build | `247ef41` | `.qml` no pacote; queda para Widgets visível e sem vazamento |
 | Release | `4b9a9cb` | `version.py`, aba Sobre com licenças, D-47 a D-51 |
 | UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
-| UI | `PENDENTE` | Casca remodelada em `GESTURENODE_UI=novo`: rail, botão único, gaveta de diagnóstico, onboarding em QML (D-52) |
+| UI | `af54479` | Casca remodelada em `GESTURENODE_UI=novo`: rail, botão único, gaveta de diagnóstico, onboarding em QML (D-52) |
 
 ---
 
