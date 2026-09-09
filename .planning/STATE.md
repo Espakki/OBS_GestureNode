@@ -79,7 +79,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Release | `4b9a9cb` | `version.py`, aba Sobre com licenças, D-47 a D-51 |
 | UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
 | UI | `af54479` | Casca remodelada em `GESTURENODE_UI=novo`: rail, botão único, gaveta de diagnóstico, onboarding em QML (D-52) |
-| UI | `PENDENTE2` | Tela `Ao vivo` para calibrar; teto de largura removido; preview lateral 372→440 (D-53) |
+| UI | `3f284b2` | Tela `Ao vivo` para calibrar; teto de largura removido; preview lateral 372→440 (D-53) |
 
 ---
 
