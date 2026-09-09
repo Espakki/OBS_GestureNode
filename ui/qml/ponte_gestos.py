@@ -37,16 +37,29 @@ class PonteGestos(QObject):
     procurarSomPedido = Signal()
     bindingEditado = Signal()
 
+    # A interface nova liga e desliga o gesto no próprio cartão, em vez de abrir o diálogo
+    # modal. O sinal existe porque quem valida ("é preciso ao menos um gesto ativo") e quem
+    # sincroniza a engine é a janela, não a ponte.
+    ativoAlternado = Signal(str, bool)
+    todosMudaram = Signal()
+
     def __init__(self, estado, parent=None):
         super().__init__(parent)
         self._estado = estado
-        self._gestos = []           # [(nome, url_do_icone)]
+        self._gestos = []           # [(nome, url_do_icone)] — só os ativos, grade antiga
+        self._todos = []            # [(nome, url_do_icone)] — os doze, grade nova
         self._atual = ""
         self._capturando = False
         self._segurados = set()
         self._parcial = ""
 
-        self._cancelar = estado.escutar(lambda campo, valor: self.mudou.emit())
+        self._cancelar = estado.escutar(self._ao_mudar_estado)
+
+    def _ao_mudar_estado(self, campo, valor):
+        self.mudou.emit()
+        # O cartão da grade nova mostra o resumo da ação e o estado de ativo, então ele
+        # também precisa redesenhar quando o binding muda — não só quando a lista muda.
+        self.todosMudaram.emit()
 
     def desligar(self):
         """Cancela a inscrição no estado.
@@ -75,6 +88,44 @@ class PonteGestos(QObject):
         self._gestos = list(entradas)
         self._atual = selecionado or (self._gestos[0][0] if self._gestos else "")
         self.gestosMudaram.emit()
+
+    # --------------------------------------------------- grade da interface nova
+    #
+    # A grade antiga recebe só os gestos ATIVOS, porque ativar era papel do diálogo. A
+    # nova mostra os doze e traz o estado junto, para o interruptor morar no cartão.
+
+    @Property(list, notify=todosMudaram)
+    def todosOsGestos(self):
+        ativos = set(self._estado.gestos_ativos)
+        saida = []
+        for nome, icone in self._todos:
+            saida.append({
+                "nome": nome,
+                "icone": icone,
+                "ativo": nome in ativos,
+                "resumo": self._resumo(nome) if nome in ativos else "",
+            })
+        return saida
+
+    def definir_todos(self, entradas):
+        self._todos = list(entradas)
+        self.todosMudaram.emit()
+
+    def _resumo(self, nome):
+        """O que este gesto faz, em uma linha — para o cartão dizer sem precisar do clique."""
+        b = self._estado.binding(nome)
+        partes = []
+        if b.get("use_scene") and b.get("scene"):
+            partes.append("Cena: " + str(b["scene"]))
+        if b.get("use_hotkey") and b.get("hotkey"):
+            partes.append(str(b["hotkey"]))
+        if b.get("use_sound") and b.get("sound_file"):
+            partes.append("Som")
+        return " · ".join(partes)
+
+    @Slot(str, bool)
+    def alternarAtivo(self, nome, ligado):
+        self.ativoAlternado.emit(str(nome), bool(ligado))
 
     @Slot(str)
     def selecionarGesto(self, nome):

@@ -395,3 +395,68 @@ hides the collision.
 ---
 *Pitfalls research for: OBS GestureNode v1.2 — MSMF backend, internal virtual camera loop, 2-hand MediaPipe detection*
 *Researched: 2026-06-26*
+
+---
+
+## QML — descobertos em 2026-09-09 (D-52)
+
+### QML-01: Dois diretórios QML no mesmo processo disputam nome de tipo
+
+**O que dá errado:**
+`ui/qml/novo/` foi criado dentro de `ui/qml/`. Os dois declaram um componente chamado
+`Deslizante`. Num processo com as duas interfaces vivas, o tipo do `novo` venceu — e a aba
+Gestos **antiga** passou a falhar ao carregar:
+
+```
+ui/qml/GestosTab.qml:146: Cannot assign to non-existent property "onEditado"
+```
+
+O arquivo apontado no erro não tinha problema nenhum. O `Deslizante` novo é que estava sem
+o sinal `editado` (foi copiado de um protótipo onde o slider era decorativo). Isolado, o
+`GestosTab.qml` carregava normal.
+
+**Por que acontece:**
+Um diretório com `qmldir` sem linha `module` vira módulo de diretório. Com os dois
+diretórios alcançáveis por import path no mesmo processo, o nome não qualificado colide, e
+quem resolve primeiro vence. O sintoma aponta para o **consumidor**, não para o arquivo
+culpado, então o tempo de diagnóstico vai todo para o lugar errado.
+
+**Como evitar:**
+`qmldir` com `module <nome>` e `import <nome>` explícito em cada `.qml` do conjunto; o
+import path aponta para o diretório **pai**. Feito em `ui/qml/novo/`.
+
+**Como reconhecer:**
+Erro de propriedade inexistente num `.qml` que você não tocou, logo depois de acrescentar
+um segundo conjunto de componentes. Teste o arquivo acusado **sozinho**, num processo só
+dele: se ele carrega, o problema é colisão, não o arquivo.
+
+---
+
+### QML-02: "A tela carrega" não é "a tela funciona"
+
+**O que dá errado:**
+O smoke headless confirmava que as telas QML carregavam sem erro. O preview mesmo assim
+quebrava com `TypeError` **a cada quadro** assim que a câmera ligava:
+
+```
+QPixmap.scaled called with wrong argument types: (_Tamanho, AspectRatioMode, ...)
+```
+
+`_AdaptadorPreview.size()` devolvia uma classe com `width()` e `height()`. O binding do
+PySide6 casa assinatura por **tipo**, não por interface — pato não serve. Como
+`MainWindow.update_frame` roda por quadro, o console enchia de traceback e o preview ficava
+preto.
+
+**Por que acontece:**
+Carregar QML exercita a construção da árvore e a primeira avaliação das ligações. Não
+exercita nada que só acontece com **dado passando**: frame, sinal da engine, escrita no
+estado. É a diferença entre montar a tubulação e abrir a água.
+
+**Como evitar:**
+Para cada caminho de dado que atravessa a fronteira Python↔QML, um teste que **faz o dado
+passar**. `tests/test_shell_novo.py` empurra quadros por `preview_label.setPixmap` com os
+mesmos argumentos da janela, e falha se o `QSize` virar pato de novo (conferido: 4 dos 11
+casos falham ao reverter a correção).
+
+**Como reconhecer:**
+Erro em loop no console, uma vez por quadro, com o smoke de QML passando.

@@ -3,7 +3,7 @@
 > **Este é o único arquivo que diz status.** Se outro arquivo parecer contradizer este,
 > este vence — e o outro está com bug. Atualize-o ao fim de toda sessão de trabalho.
 
-**Última atualização:** 2026-09-08
+**Última atualização:** 2026-09-09
 **Branch:** `main` · **Último commit de código:** `4b9a9cb`
 
 > Este campo aponta o último commit que mexeu em **código** — commits só de documentação
@@ -15,12 +15,13 @@
 
 App desktop Windows que controla o OBS por gestos de mão via webcam. Funcional e já
 empacotável. O núcleo (detecção, engine, OBS, UI com tema escuro, 2 mãos, 3 modos de
-operação) está entregue, com 240 testes automatizados cobrindo detector, estabilidade,
-despacho por mão, caminhos de config e tradução de atalho.
+operação) está entregue, com 251 testes automatizados cobrindo detector, estabilidade,
+despacho por mão, caminhos de config, tradução de atalho e a casca nova.
 
-**A interface é QML desde 2026-09-08** (D-49). A implementação em Qt Widgets continua no
-repositório e volta com `GESTURENODE_UI=widgets`, como rede enquanto o QML não rodar no
-pacote.
+**A interface é QML desde 2026-09-08** (D-49), e desde 2026-09-09 há uma **terceira
+opção**: a casca remodelada, com rail vertical no lugar das abas (D-52). Três caminhos
+convivem — sem variável abre a de abas, `GESTURENODE_UI=novo` abre a remodelada,
+`GESTURENODE_UI=widgets` abre a antiga de Qt Widgets.
 
 **Estado real:** validado rodando do código-fonte com câmera, OBS e mãos reais em
 2026-09-04 — conexão OBS, VCam em resolução nativa, esqueleto na saída, joinha, duas mãos
@@ -77,6 +78,7 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 | Build | `247ef41` | `.qml` no pacote; queda para Widgets visível e sem vazamento |
 | Release | `4b9a9cb` | `version.py`, aba Sobre com licenças, D-47 a D-51 |
 | UI | `13ee25c` | Faixa de limite da câmera perde o tom de alerta — B-25 (D-45) |
+| UI | `PENDENTE` | Casca remodelada em `GESTURENODE_UI=novo`: rail, botão único, gaveta de diagnóstico, onboarding em QML (D-52) |
 
 ---
 
@@ -84,9 +86,16 @@ Cada linha aponta pro commit. Sem SHA, não está entregue.
 
 Em ordem. Detalhes e justificativa em [BACKLOG.md](BACKLOG.md).
 
-1. **Construir o `.exe` com a interface nova.** É a validação que falta: os `.qml` agora
-   entram no pacote (`247ef41`), mas isso nunca foi exercitado num build de verdade.
-2. **B-27 — Licença do `pyvirtualcam`.** Pode travar o release público. Verificar antes de
+1. **Espaço e preview na casca nova.** Levantado pelo dono ao usar (2026-09-09): sobra
+   vazio no meio das telas Câmera/OBS/Sobre por causa do teto de largura da coluna; os
+   botões não aproveitam o espaço; e o preview lateral é pequeno demais para conferir
+   enquadramento. A direção decidida: manter o preview em todas as telas, um pouco mais
+   largo, e acrescentar uma tela dedicada com a câmera em tamanho cheio e o diagnóstico
+   abaixo, para calibrar.
+2. **Construir o `.exe` com a interface nova.** É a validação que falta: os `.qml` agora
+   entram no pacote (`247ef41`), mas isso nunca foi exercitado num build de verdade — e a
+   casca nova acrescentou `ui/qml/novo/`, que depende de o `datas` copiar a árvore toda.
+3. **B-27 — Licença do `pyvirtualcam`.** Pode travar o release público. Verificar antes de
    investir em qualquer outra coisa de publicação.
 3. **B-26 — Executar o app num Linux de verdade.** Precisa de máquina ou VM Linux.
 4. **B-28 — Aviso de atualização** comparando com o último release do GitHub.

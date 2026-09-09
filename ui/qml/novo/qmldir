@@ -1,0 +1,19 @@
+module novo
+singleton Tema 1.0 Tema.qml
+Chip 1.0 Chip.qml
+BotaoAcao 1.0 BotaoAcao.qml
+ItemDoRail 1.0 ItemDoRail.qml
+CartaoGesto 1.0 CartaoGesto.qml
+CartaoModo 1.0 CartaoModo.qml
+CartaoAcao 1.0 CartaoAcao.qml
+Deslizante 1.0 Deslizante.qml
+CampoDeTexto 1.0 CampoDeTexto.qml
+CapturaDeAtalho 1.0 CapturaDeAtalho.qml
+LinhaSaude 1.0 LinhaSaude.qml
+PainelPreview 1.0 PainelPreview.qml
+TelaGestos 1.0 TelaGestos.qml
+TelaCamera 1.0 TelaCamera.qml
+TelaObs 1.0 TelaObs.qml
+TelaSobre 1.0 TelaSobre.qml
+Onboarding 1.0 Onboarding.qml
+App 1.0 App.qml
