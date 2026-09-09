@@ -108,7 +108,12 @@ Rectangle {
                     spacing: 0
 
                     Text {
+                        // `elide` e `fillWidth` são a rede: o texto vem da engine e não
+                        // cabe garantir que ele seja curto. Sem isto uma frase longa
+                        // atravessa a borda do cartão.
+                        Layout.fillWidth: true
                         text: shell.ultimoGesto ? shell.ultimoGesto : "Nenhum gesto ainda"
+                        elide: Text.ElideRight
                         font.family: Tema.familia
                         font.pixelSize: Tema.fonteCorpo
                         font.weight: Font.DemiBold
@@ -171,6 +176,8 @@ Rectangle {
                             Layout.alignment: Qt.AlignVCenter
                         }
 
+                        // A saúde vem do `definir_saude` do health_mixin, com `texto` e
+                        // `cor` — nada a ver com o formato dos disparos abaixo.
                         Text {
                             Layout.fillWidth: true
                             text: modelData.texto
@@ -218,12 +225,21 @@ Rectangle {
                             Layout.preferredWidth: 54
                         }
                         Text {
-                            Layout.fillWidth: true
-                            text: modelData.texto
+                            text: modelData.gesto
                             elide: Text.ElideRight
+                            Layout.maximumWidth: 96
                             font.family: Tema.familia
                             font.pixelSize: Tema.fonteMiuda
+                            font.weight: Font.DemiBold
                             color: Tema.textoSecundario
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.detalhe
+                            elide: Text.ElideRight
+                            font.family: Tema.familia
+                            font.pixelSize: Tema.fonteMicro
+                            color: Tema.textoApagado
                         }
                     }
                 }

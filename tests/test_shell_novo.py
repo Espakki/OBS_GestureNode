@@ -140,3 +140,61 @@ def test_grade_nova_traz_os_gestos_inativos(casca):
 
     ativos = {g["nome"]: g["ativo"] for g in casca.ponte_gestos.todosOsGestos}
     assert ativos["V"] is True
+
+
+# ---------------------------------------------------------------------------------
+# As frases da engine, separadas em nome do gesto e detalhe.
+#
+# Este bloco existe porque eu tinha assumido um formato — "Gesto X → ação" — que não
+# existe em `engine/gesture_engine.py`. Nada casava, a frase inteira ia para a linha do
+# nome, e o texto atravessava a borda do cartão. Os casos abaixo são cópias literais do
+# que a engine emite; se alguém mudar uma mensagem lá, é aqui que a mudança aparece.
+# ---------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("frase, gesto, detalhe", [
+    ("Gesto detectado: Punho (Modo Teste — ação bloqueada)", "Punho", "Modo Teste — ação bloqueada"),
+    ("Gesto detectado: Mão aberta (Modo Teste — ação bloqueada)", "Mão aberta", "Modo Teste — ação bloqueada"),
+    ("Gesto Punho acionado", "Punho", "acionado"),
+    ("Gesto V: cena Live, atalho Ctrl+Shift+F5", "V", "cena Live, atalho Ctrl+Shift+F5"),
+    ("Gesto Dedo do Meio: som", "Dedo do Meio", "som"),
+])
+def test_separa_o_nome_do_gesto_do_resto(frase, gesto, detalhe):
+    from ui.qml.ponte_shell import PonteShell
+
+    assert PonteShell._separar(frase) == (gesto, detalhe)
+
+
+def test_detectado_nao_vira_nome_de_gesto():
+    """"Gesto detectado: X" casa com os dois padrões; a ordem é que salva."""
+    from ui.qml.ponte_shell import PonteShell
+
+    gesto, _ = PonteShell._separar("Gesto detectado: Punho (Modo Teste — ação bloqueada)")
+    assert gesto == "Punho"
+
+
+@pytest.mark.parametrize("frase", [
+    "Hotkey enviada: Ctrl+F5",
+    "OBS conectado",
+    "Aguardando ação anterior",
+    "⚠️ Cena inexistente no OBS",
+    "Interface inicializada",
+    "",
+])
+def test_linha_que_nao_e_disparo_fica_so_no_log(frase):
+    from ui.qml.ponte_shell import PonteShell
+
+    assert PonteShell._separar(frase) is None
+
+
+def test_o_log_alimenta_o_historico_sem_conhecer_o_formato(casca):
+    """O adaptador oferece toda linha; quem reconhece um disparo é a ponte."""
+    casca.log_view.appendPlainText("Interface inicializada")
+    assert casca.shell.disparos == []
+
+    casca.log_view.appendPlainText("Gesto detectado: Punho (Modo Teste — ação bloqueada)")
+    assert casca.shell.ultimoGesto == "Punho"
+    assert casca.shell.ultimaAcao == "Modo Teste — ação bloqueada"
+
+    # As duas linhas estão no log, mesmo a que não virou disparo.
+    assert len(casca.shell.log) == 2

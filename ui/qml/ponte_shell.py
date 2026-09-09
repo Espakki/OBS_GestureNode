@@ -11,6 +11,7 @@ estado → tela por `@Property` com `notify`, tela → Python por `@Slot` que em
 Nenhuma propriedade é gravável pelo QML.
 """
 
+import re
 import time
 
 from PySide6.QtCore import Property, QObject, QSize, Signal, Slot
@@ -21,6 +22,20 @@ logger = get_logger(__name__)
 
 MAX_DISPAROS = 6
 MAX_LOG = 200
+
+# As frases que a engine emite quando um gesto dispara, em `engine/gesture_engine.py`.
+# Elas são a fronteira real entre engine e casca — antes eu tinha assumido um formato
+# ("Gesto X → ação") que não existe em lugar nenhum, e a frase inteira ia para a linha do
+# nome do gesto, transbordando o cartão.
+_FORMAS_DE_DISPARO = (
+    # "Gesto detectado: Punho (Modo Teste — ação bloqueada)"  — precisa vir primeiro:
+    # a forma de dois-pontos abaixo também casa, e daria "detectado" como nome do gesto.
+    re.compile(r"^Gesto detectado:\s*(?P<gesto>.+?)\s*\((?P<detalhe>.+)\)$"),
+    # "Gesto Punho: cena Live, atalho Ctrl+F5"
+    re.compile(r"^Gesto\s+(?P<gesto>.+?):\s*(?P<detalhe>.+)$"),
+    # "Gesto Punho acionado"
+    re.compile(r"^Gesto\s+(?P<gesto>.+?)\s+(?P<detalhe>acionado)$"),
+)
 
 
 class PonteShell(QObject):
@@ -180,20 +195,43 @@ class PonteShell(QObject):
         return list(self._disparos)
 
     def registrar_disparo(self, texto):
-        """Histórico curto do que os gestos fizeram. Durante a live ninguém lê log."""
-        if not texto:
-            return
-        self._disparos.insert(0, {"quando": time.strftime("%H:%M"), "texto": str(texto)})
+        """Histórico curto do que os gestos fizeram. Durante a live ninguém lê log.
+
+        Devolve `True` quando a linha era mesmo um disparo. Quem chama não precisa saber
+        reconhecer uma: as formas das mensagens são da engine, e é aqui que elas moram.
+        """
+        partido = self._separar(texto)
+        if partido is None:
+            return False
+
+        gesto, detalhe = partido
+        self._disparos.insert(
+            0, {"quando": time.strftime("%H:%M"), "gesto": gesto, "detalhe": detalhe}
+        )
         del self._disparos[MAX_DISPAROS:]
         self.disparosMudaram.emit()
+        return True
+
+    @staticmethod
+    def _separar(texto):
+        """Tira o nome do gesto do resto da frase, ou devolve `None` se não for disparo.
+
+        As três formas saem de `engine/gesture_engine.py`. A ordem importa: "Gesto
+        detectado: X (...)" também casa com o padrão de dois-pontos, e ali o nome do gesto
+        sairia como "detectado".
+        """
+        linha = str(texto or "").strip()
+        for padrao in _FORMAS_DE_DISPARO:
+            achado = padrao.match(linha)
+            if achado:
+                grupos = achado.groupdict()
+                return grupos["gesto"].strip(), (grupos.get("detalhe") or "").strip()
+        return None
 
     @Property(str, notify=disparosMudaram)
     def ultimoGesto(self):
-        return self._disparos[0]["texto"].split(" → ")[0] if self._disparos else ""
+        return self._disparos[0]["gesto"] if self._disparos else ""
 
     @Property(str, notify=disparosMudaram)
     def ultimaAcao(self):
-        if not self._disparos:
-            return ""
-        partes = self._disparos[0]["texto"].split(" → ", 1)
-        return partes[1] if len(partes) > 1 else ""
+        return self._disparos[0]["detalhe"] if self._disparos else ""

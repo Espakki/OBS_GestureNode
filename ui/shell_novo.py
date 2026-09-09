@@ -388,9 +388,9 @@ class _AdaptadorLog(QObject):
 
     def appendPlainText(self, texto):
         self._shell.adicionar_log(texto)
-        # Linha de gesto vira também um item do histórico curto do painel direito.
-        if "→" in str(texto) or "Gesto" in str(texto):
-            self._shell.registrar_disparo(texto)
+        # Toda linha é oferecida ao histórico; a ponte é que sabe reconhecer um disparo.
+        # O adaptador não deve conhecer o formato das frases da engine.
+        self._shell.registrar_disparo(texto)
 
     def setReadOnly(self, valor):
         pass

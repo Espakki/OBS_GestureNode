@@ -142,7 +142,10 @@ Item {
                 anchors.left: parent.left
                 anchors.bottom: parent.bottom
                 anchors.margins: Tema.e4
-                implicitWidth: linhaDisparo.implicitWidth + Tema.e4 * 2
+                // Teto: o detalhe pode ser "cena Live, som, atalho Ctrl+Shift+F5", e sem
+                // limite a pastilha cresceria até atravessar a imagem.
+                implicitWidth: Math.min(linhaDisparo.implicitWidth + Tema.e4 * 2,
+                                        parent.width - Tema.e4 * 2)
                 height: 44
                 radius: 22
                 color: Qt.rgba(0.04, 0.04, 0.06, 0.86)
@@ -163,6 +166,8 @@ Item {
                     }
                     Text {
                         text: shell.ultimoGesto
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 200
                         font.family: Tema.familia
                         font.pixelSize: Tema.fonteCorpo
                         font.weight: Font.DemiBold
@@ -170,7 +175,10 @@ Item {
                     }
                     Text {
                         visible: shell.ultimaAcao !== ""
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 420
                         text: shell.ultimaAcao
+                        elide: Text.ElideRight
                         font.family: Tema.familia
                         font.pixelSize: Tema.fonteMiuda
                         color: Tema.textoApagado

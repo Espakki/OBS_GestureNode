@@ -460,3 +460,51 @@ casos falham ao reverter a correção).
 
 **Como reconhecer:**
 Erro em loop no console, uma vez por quadro, com o smoke de QML passando.
+
+---
+
+### QML-03: Formato de mensagem inventado em dado de teste
+
+**O que dá errado:**
+O histórico de disparos da casca nova separava nome do gesto e detalhe partindo em `" → "`.
+Esse formato **não existe** em `engine/gesture_engine.py` — ele veio dos dados falsos do
+protótipo. Nada casava, a frase inteira ia para a linha do nome, e o texto atravessava a
+borda do cartão.
+
+As formas reais são três:
+
+    Gesto detectado: Punho (Modo Teste — ação bloqueada)
+    Gesto Punho acionado
+    Gesto Punho: cena Live, som, atalho Ctrl+Shift+F5
+
+**Por que acontece:**
+O protótipo com dados inventados prova o layout, não o contrato. Quando o mesmo componente
+passa a consumir dado real, o formato falso sobrevive escondido — e só aparece quando a
+mensagem certa chega, que é em uso, não em teste.
+
+**Como evitar:**
+Formato de mensagem é contrato: quem o interpreta guarda os padrões junto de um teste com
+**cópia literal** de cada frase que a origem emite. `tests/test_shell_novo.py` tem os cinco
+casos; mudar uma mensagem na engine quebra ali.
+
+E texto que vem de outra camada leva `elide` sempre — não cabe a quem desenha garantir que
+a frase seja curta.
+
+---
+
+### QML-04: `str.replace` em QML troca os dois blocos iguais
+
+**O que dá errado:**
+Editar `PainelPreview.qml` por script para trocar o delegate da lista de disparos apagou
+também o do painel de saúde: os dois eram `Text` idênticos com `modelData.texto`,
+`fillWidth`, `elide` e a mesma fonte. O painel de saúde passou a mostrar três bolinhas
+coloridas sem texto nenhum.
+
+**Por que acontece:**
+`str.replace` do Python troca **todas** as ocorrências. Em QML, delegates de listas
+diferentes convergem para o mesmo desenho com facilidade — e o trecho vira ambíguo sem
+ninguém notar.
+
+**Como evitar:**
+Editar QML por âncora única (o `model:` do Repeater junto, ou `count=1` no replace), e
+**olhar o render depois** — a saúde vazia era invisível para o pytest e óbvia na imagem.
